@@ -16,6 +16,8 @@ Windows 11 Enterprise **10.0.22631**, AMD Ryzen 7 9700X (**16 logical processors
 | WebSocket protocol compatibility | 5 passed |
 | Holiday fallback, mocked responses | 28 passed; live external API mode was not run |
 | NuGet vulnerability audit | No known vulnerable packages reported at the time of the check |
+| Portable release package | Self-contained Windows x64 ZIP built; runtime, theme, language and license files checked |
+| Extracted portable startup and exit | Readiness and responsiveness confirmed; bundled `coreclr.dll` loaded; normal close exited with code 0 and wrote all three JSON data files |
 
 Desktop checks cover settings Apply/Cancel, missing-value display and recovery, four metric defaults, history preservation and shutdown draining, and simulated lock/suspend/hidden/recovery transitions. These invoke application behavior; they do not physically lock or suspend Windows. See the [desktop harness](../test/DesktopSmoke/README.md) and [build script](../scripts/build.ps1), which runs all six suites.
 
@@ -24,6 +26,14 @@ Settings checks also cover row and field bounds, both monitor tabs with label ed
 Theme linkage was checked across DarkFlat Classic, CyberBlue Neon, AuroraDream Purple, SolarAmber Warm and Mellow Light with settings and both histories already open. Unapplied settings, the active page, seven-day trend range and monthly traffic view survived each switch. Taskbar state colors met 4.5:1 contrast on the two representative dark/light test surfaces. Actual wallpaper, transparency and custom taskbar colors may differ from those surfaces.
 
 The renderer was exercised at synthetic **100%, 150% and 200%** scales. Local native form captures use the host's actual **175%** scale; the initial Windows CI run also passed at **96 DPI**. Physical DPI changes, mixed-DPI multi-monitor transitions, real sleep/wake, Explorer restart, and a broad hardware/driver compatibility matrix **were not tested**. Advanced sensor availability remains hardware- and permission-dependent.
+
+## Public release check
+
+Before preparing v0.1.0, all six local suites were rerun successfully and the NuGet audit again reported no known vulnerable packages. The README was checked against the source, including JSON history persistence and the separate hardware-trend CSV export. High-confidence token/private-key patterns and sensitive filenames were checked in all locally reachable Git history, with no matches. This is a scoped scan, not a guarantee about arbitrary binary content.
+
+`scripts/package.ps1` creates a Windows x64 ZIP containing .NET 8, the original theme/language resources, upstream attribution, dependency notices, and the licenses from the actual bundled runtime packs. It checks required files, excludes user profiles and debug/signing material, emits `SHA256SUMS.txt`, and refuses to overwrite an existing output directory. CI also builds this package after the regression suites.
+
+The candidate ZIP was extracted to a new directory and launched with an isolated data profile. Child-process `DOTNET_ROOT` settings pointed to a nonexistent directory and multilevel runtime lookup was disabled; the loaded `coreclr.dll` path was checked to be inside the extracted bundle. The app reached its readiness marker, remained responsive, and exited normally after a close message to its own floating window. Settings, hardware history and traffic history were valid JSON after exit; no error log was written. The first probe used the generic process main-window API, which cannot locate this tool window; the corrected probe targets the application window within the launched process. This does not simulate a fresh Windows installation or certify SmartScreen behavior.
 
 ## Matched local benchmark
 

@@ -1,0 +1,18 @@
+MellowMeter - Windows x64 portable edition
+
+Extract the complete ZIP folder, then open MellowMeter.exe.
+The .NET 8 runtime is included. Keep all files in this folder together.
+Basic CPU, memory and network monitoring needs no administrator access or extra driver.
+The executable is unsigned. Windows 10/11 x64 is targeted; local testing used Windows 11.
+
+Right-click the desktop panel or taskbar strip for settings, themes and history.
+Double-click the floating strip to switch its layout.
+Settings, traffic and hardware history are kept in %LOCALAPPDATA%\MellowMeter.
+Startup at sign-in is optional and off by default. Exit from the tray menu before replacing files.
+
+Source, instructions and issue reports:
+https://github.com/seiya058904/MellowMeter
+
+MellowMeter is an independent derivative of Diorser/LiteMonitor.
+See LICENSE, THIRD_PARTY_NOTICES.md and docs/licenses for attribution and dependency terms.
+The .NET runtime license and third-party notices are included in docs/licenses.
