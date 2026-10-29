@@ -15,7 +15,7 @@ namespace LiteMonitor.src.SystemServices
         private readonly SensorMap _sensorMap;
         private readonly NetworkManager _networkManager;
         private readonly DiskManager _diskManager;
-        private readonly FpsCounter _fpsCounter;
+        private readonly Lazy<FpsCounter> _fpsCounter;
         private readonly object _lock;
         private readonly Dictionary<string, float> _lastValidMap; 
         
@@ -41,7 +41,7 @@ namespace LiteMonitor.src.SystemServices
         private string _lastPrefNet = "";
         private string _lastPrefGpu = "";
         
-        public HardwareValueProvider(Computer c, Settings s, SensorMap map, NetworkManager net, DiskManager disk, FpsCounter fpsCounter,PerformanceCounterManager perfManager, object syncLock, Dictionary<string, float> lastValid)
+        public HardwareValueProvider(Computer c, Settings s, SensorMap map, NetworkManager net, DiskManager disk, Lazy<FpsCounter> fpsCounter,PerformanceCounterManager perfManager, object syncLock, Dictionary<string, float> lastValid)
         {
             _computer = c;
             _cfg = s;
@@ -219,7 +219,6 @@ namespace LiteMonitor.src.SystemServices
         // ===========================================================
         public float? GetStartupValue(string key)
         {
-            if (_lastValidMap.TryGetValue(key, out float lastVal)) return lastVal;
 
             bool useCounter = _cfg.UseWinPerCounters && _perfManager.IsInitialized;
             if (!useCounter) return null;
@@ -266,11 +265,7 @@ namespace LiteMonitor.src.SystemServices
                 Monitor.TryEnter(_lock, 10, ref lockTaken);
                 if (!lockTaken) 
                 {
-                    // ★★★ [Fix] 如果无法获取锁（硬件正在重载），优先返回上一帧的有效值，防止 UI 闪烁 ★★★
-                    // 因为 _lastValidMap 仅在 GetValue 内部（即 UI 线程）写入，
-                    // 而后台线程（UpdateAll/Reload）只读不写或完全不访问它，
-                    // 所以此时读取是安全的（虽然没有锁，但没有并发写入）。
-                    if (_lastValidMap.TryGetValue(key, out float lastVal)) return lastVal;
+                    // A busy or failed sampler is unavailable, not a current copy of an old value.
                     return null;
                 }
 
@@ -313,7 +308,7 @@ namespace LiteMonitor.src.SystemServices
                                 result = _componentProcessor.GetCpuLoad();
                             }
 
-                            if (result == null) result = 0f;
+
                         }
                         break;
 
@@ -324,7 +319,7 @@ namespace LiteMonitor.src.SystemServices
                         {
                             result = fallbackT.Value;
                         }
-                        if (result == null) result = 0f;
+
                         break;
 
                     // 4. 每日流量
@@ -433,7 +428,7 @@ namespace LiteMonitor.src.SystemServices
                         break;
 
                     case "FPS":
-                        result = _fpsCounter.GetFps();
+                        result = _fpsCounter.Value.GetFps();
                         break;
 
                     // 电池
@@ -507,14 +502,11 @@ namespace LiteMonitor.src.SystemServices
                         _lastValidMap[key] = val.Value; 
                         result = val.Value; 
                     }
-                    else if (_lastValidMap.TryGetValue(key, out var last))
-                    {
-                        result = last;
-                    }
+
                 }
 
                 // ★★★ [新增 4] 写入缓存并返回 ★★★
-                if (result.HasValue)
+                if (result.HasValue && float.IsFinite(result.Value))
                 {
                     _tickCache[key] = result.Value;
                     return result.Value;
@@ -534,14 +526,14 @@ namespace LiteMonitor.src.SystemServices
             var raw = sensor.Value;
             if (!raw.HasValue || float.IsNaN(raw.Value) || float.IsInfinity(raw.Value) || raw.Value <= 0f)
             {
-                return GetLastValidMoboTemperature(manualSensor);
+                return null;
             }
 
             float value = raw.Value;
             bool overHardMax = manualSensor ? value > ManualMoboTempHardMax : value >= AutoMoboTempHardMax;
             if (overHardMax)
             {
-                return GetLastValidMoboTemperature(manualSensor);
+                return null;
             }
 
             _lastValidMap["MOBO.Temp"] = value;
@@ -554,16 +546,6 @@ namespace LiteMonitor.src.SystemServices
             return !string.IsNullOrWhiteSpace(pref) &&
                    !pref.Contains("自动", StringComparison.OrdinalIgnoreCase) &&
                    !pref.Contains("Auto", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private float? GetLastValidMoboTemperature(bool manualSensor)
-        {
-            float max = manualSensor ? ManualMoboTempHardMax : AutoMoboTempHardMax;
-            return _lastValidMap.TryGetValue("MOBO.Temp", out float last) &&
-                   last > 0f &&
-                   last <= max
-                ? last
-                : null;
         }
 
         public void Dispose()

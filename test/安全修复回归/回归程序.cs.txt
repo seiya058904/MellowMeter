@@ -25,6 +25,7 @@ internal static class Program
     {
         // 只使用内存配置，避免读取或保存用户的真实配置。
         typeof(Settings).GetField("_instance", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, new Settings());
+        SettingsHelper.GlobalBlockSave = true;
         LanguageManager.Load("zh");
         Run("WebSocket 与 HTTP 回归", () => NetworkTests().GetAwaiter().GetResult(), count: false);
         Run("中文分组别名保存与重置", () => AliasTests("zh"));
@@ -179,7 +180,7 @@ internal static class Program
     private static void CacheTests()
     {
         // 不打开硬件或安装驱动，只给真实更新循环注入空硬件树和旧缓存。
-        var cfg = new Settings { UseWinPerCounters = false };
+        var cfg = new Settings { UseWinPerCounters = false, AdvancedSensorsEnabled = true, HistoryEnabled = false };
         var computer = new Computer();
         var map = new SensorMap();
         var sync = new object();
@@ -191,7 +192,10 @@ internal static class Program
         var tickCache = (Dictionary<string, float>)GetField(provider, "_tickCache");
         tickCache["GPU.Load"] = 99;
         var monitor = (HardwareMonitor)RuntimeHelpers.GetUninitializedObject(typeof(HardwareMonitor));
-        foreach (var pair in new (string, object)[] { ("_cfg", cfg), ("_computer", computer), ("_sensorMap", map), ("_valueProvider", provider), ("_perfCounterManager", perf), ("_lock", sync), ("_lastTrafficTime", DateTime.Now), ("_secondsCounter", 1L) })
+        // Supply the current driver-free sampler without running HardwareMonitor's constructor/Open().
+        var samplerType = typeof(HardwareMonitor).Assembly.GetType("LiteMonitor.src.SystemServices.BasicSystemSampler", throwOnError: true)!;
+        var sampler = Activator.CreateInstance(samplerType, cfg)!;
+        foreach (var pair in new (string, object)[] { ("_cfg", cfg), ("_computer", computer), ("_sensorMap", map), ("_valueProvider", provider), ("_perfCounterManager", perf), ("_lock", sync), ("_lastTrafficTime", DateTime.Now), ("_secondsCounter", 1L), ("_basicSampler", sampler), ("_advancedEnabled", true) })
             SetField(monitor, typeof(HardwareMonitor), pair.Item1, pair.Item2);
         bool completed = false;
         monitor.OnValuesUpdated += () => completed = true;

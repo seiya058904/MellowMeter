@@ -166,8 +166,7 @@ namespace LiteMonitor.src.SystemServices
                 }
             }
             catch { }
-            // 兜底策略：如果读不到，设为 2.5GHz，防止除零错误
-            if (_cpuBaseFreq <= 0) _cpuBaseFreq = 2500; 
+            // Missing frequency remains unavailable; never invent a nominal clock.
 
             // B. 获取物理内存总量 (调用 Win32 API GlobalMemoryStatusEx)
             try
@@ -179,8 +178,7 @@ namespace LiteMonitor.src.SystemServices
                 }
             }
             catch { }
-            // 兜底策略：默认 16GB
-            if (_totalMemoryMB <= 0) _totalMemoryMB = 16 * 1024;
+            // Missing memory capacity remains unavailable.
         }
 
         // ==========================================
@@ -304,7 +302,7 @@ namespace LiteMonitor.src.SystemServices
             try
             {
                 var val = pc.NextValue();
-                return val;
+                return float.IsFinite(val) ? val : null;
             }
             catch
             {

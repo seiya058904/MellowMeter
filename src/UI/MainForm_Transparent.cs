@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 namespace LiteMonitor
 {
@@ -119,6 +120,9 @@ namespace LiteMonitor
         // ========== 构造函数 ==========
         public MainForm()
         {
+            StartupDiagnostics.Mark("main constructor");
+            Text = "MellowMeter";
+            Icon = Properties.Resources.AppIcon;
             // 语言加载
             if (string.IsNullOrEmpty(_cfg.Language))
             {
@@ -133,12 +137,12 @@ namespace LiteMonitor
             // ★★★ Fix: 初始化全局 DPI 缩放系数，防止未打开设置面板时弹窗排版异常 ★★★
             UIUtils.ScaleFactor = this.DeviceDpi / 96f;
 
+            // Load once even when recording is paused, so enabling it cannot replace
+            // previous history with an empty in-memory log.
             TrafficLogger.Load();
             HardwareHistoryLogger.Load();
-            src.Plugins.PluginManager.Instance.LoadPlugins(Path.Combine(AppContext.BaseDirectory, "resources", "plugins"));
-            src.Plugins.PluginManager.Instance.Start();
             _ui = new UIController(_cfg, this);
-            new src.WebServer.LiteWebServer(_cfg);
+            StartupDiagnostics.Mark("controller ready");
 
             // 5. 设置背景色 (这是关键！解耦时漏掉了这行，导致背景是系统默认色而非透明或皮肤色)
             BackColor = ThemeManager.ParseColor(ThemeManager.Current.Color.Background);
@@ -167,10 +171,32 @@ namespace LiteMonitor
             // === 渐入透明度 (还原原始代码逻辑) ===
             // 原始代码是在构造函数末尾启动 Task
             // 之前解耦时移到了 OnShown 里，这可能导致时序差异（OnShown 之前会有一瞬间的默认绘制）
-            _winHelper.StartFadeIn(_cfg.Opacity);
+            // Fade starts after the form handle is visible; constructor-time posts
+            // can target a handle that WinForms recreates during initialization.
 
             // 3. 事件绑定
             BindEvents();
+            SystemEvents.PowerModeChanged += OnPowerModeChanged;
+            SystemEvents.SessionSwitch += OnSessionSwitch;
+            StartupDiagnostics.Mark("main constructed");
+        }
+
+        private void DispatchIfAlive(Action action)
+        {
+            if (!IsDisposed && IsHandleCreated)
+            {
+                try { BeginInvoke(new Action(() => { if (!IsDisposed) action(); })); }
+                catch (InvalidOperationException) { }
+            }
+        }
+
+        private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e) =>
+            DispatchIfAlive(() => _ui?.SetPowerState(suspended: e.Mode == PowerModes.Suspend));
+
+        private void OnSessionSwitch(object sender, SessionSwitchEventArgs e)
+        {
+            if (e.Reason == SessionSwitchReason.SessionLock || e.Reason == SessionSwitchReason.SessionUnlock)
+                DispatchIfAlive(() => _ui?.SetPowerState(locked: e.Reason == SessionSwitchReason.SessionLock));
         }
 
         private void BindEvents()
@@ -250,6 +276,7 @@ namespace LiteMonitor
                         try 
                         {
                             await Task.Delay(3000); // 等待3秒让Explorer缓口气
+                            if (IsDisposed || _closing || !_cfg.ShowTaskbar) return;
                             ToggleTaskbar(false);   // 彻底销毁旧实例
                             ToggleTaskbar(true);    // 创建新实例(新实例自带重试机制)
                         }
@@ -263,6 +290,7 @@ namespace LiteMonitor
                 // [Fix #288] 分辨率改变后，延迟执行位置恢复，确保 Screen.AllScreens 已完全更新
                 // 增加防抖机制，避免短时间内多次触发
                 _displayChangeCts?.Cancel();
+                _displayChangeCts?.Dispose();
                 _displayChangeCts = new System.Threading.CancellationTokenSource();
                 var token = _displayChangeCts.Token;
 
@@ -270,7 +298,7 @@ namespace LiteMonitor
                 {
                     if (!t.IsCanceled)
                     {
-                        this.BeginInvoke(new Action(() => _bizHelper?.RestorePos()));
+                        DispatchIfAlive(() => { if (!_closing) _bizHelper?.RestorePos(); });
                     }
                 });
             }
@@ -289,6 +317,7 @@ namespace LiteMonitor
         protected override void OnDpiChanged(DpiChangedEventArgs e)
         {
             base.OnDpiChanged(e);
+            UIUtils.ScaleFactor = DeviceDpi / 96f;
             _ui?.ApplyTheme(_cfg.Skin);
             _winHelper.ApplyRoundedCorners();
             this.Invalidate();
@@ -297,6 +326,8 @@ namespace LiteMonitor
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            StartupDiagnostics.Mark($"shown {Bounds} visible={Visible}");
+            _winHelper.StartFadeIn(_cfg.Opacity);
             
             // 恢复可见性
             if (_cfg.HideMainForm) this.Hide();
@@ -339,15 +370,46 @@ namespace LiteMonitor
                 this.BeginInvoke(new Action(async () =>
                 {
                     await Task.Delay(3000);
-                    _winHelper.RefreshTopMost(true, forceReinsert: true);
+                    if (!IsDisposed && !_closing) _winHelper.RefreshTopMost(true, forceReinsert: true);
                 }));
             }
+            StartupDiagnostics.Mark($"ready {Bounds} dpi={DeviceDpi}");
+            StartupDiagnostics.Mark("main ready");
+        }
+
+        private bool _closing;
+        private bool _closeReady;
+
+        protected override async void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (!_closeReady && _ui != null)
+            {
+                e.Cancel = true;
+                base.OnFormClosing(e);
+                if (_closing) return;
+                _closing = true;
+                try { await _ui.ShutdownAsync(); }
+                finally
+                {
+                    _closeReady = true;
+                    // Avoid nested Close() while the first close message is still active.
+                    if (!IsDisposed && IsHandleCreated) BeginInvoke(new Action(Close));
+                }
+                return;
+            }
+            base.OnFormClosing(e);
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+            SystemEvents.SessionSwitch -= OnSessionSwitch;
+            _displayChangeCts?.Cancel();
+            _displayChangeCts?.Dispose();
+            ToggleTaskbar(false);
             _cfg.Save(); 
-            TrafficLogger.Save(); 
+            // Pausing history stops new samples; previously recorded data still needs flushing.
+            TrafficLogger.Save();
             HardwareHistoryLogger.Save();
             src.WebServer.LiteWebServer.Instance?.Stop();
             
@@ -355,6 +417,7 @@ namespace LiteMonitor
             
             _ui?.Dispose();
             _bizHelper.Dispose();
+            TaskbarRenderer.ClearCache();
         }
     }
 }

@@ -1,5 +1,5 @@
 {
-  "Title": "⚡️LiteMonitor",
+  "Title": "⚡ MellowMeter",
   "Groups": {
     "DASH": "ℹ️Дашборд",
     "CPU": "💻CPU",
@@ -73,12 +73,19 @@
     "DISK.Temp": "Диск",
     "DISK.Read": "R",
     "DISK.Write": "W",
-    "NET.Up": "🔼",
-    "NET.Down": "🔽",
+    "NET.Up": "↑",
+    "NET.Down": "↓",
     "DATA.DayUp": "⏫",
     "DATA.DayDown": "⏬"
   },
   "Menu": {
+    "AdvancedSensors": "Advanced sensors",
+    "AdvancedSensorsTip": "Adds temperature, power, clock and fan metrics. Apply, then restart MellowMeter. Readings depend on supported hardware and an available compatible driver.",
+    "HistoryEnabled": "Record local history",
+    "HistoryTip": "Keep load and traffic history on this device. No data is uploaded.",
+    "BasicSensorsTip": "CPU, memory and network work without a hardware driver. Enable advanced sensors in System settings for additional metrics.",
+    "RestartForSensors": "Sensor mode saved. Restart MellowMeter to apply it.",
+    "UpstreamProject": "Based on LiteMonitor by Diorser",
     "__Comment_Global__": "--- Global ---",
     "SettingsPanel": "Настройки",
     "About": "О прог.",

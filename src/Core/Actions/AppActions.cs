@@ -29,7 +29,7 @@ namespace LiteMonitor.src.Core.Actions
             ApplyLanguage(cfg, null, mainForm); 
 
             // 2. 系统级设置
-            // 开机启动会调用 schtasks 写计划任务，只能在开关变化时执行，避免每次应用设置都触发杀软拦截。
+            // Update the per-user Run entry only when its setting changes.
             if (applyAutoStart) ApplyAutoStart(cfg);
             ApplyWindowAttributes(cfg, mainForm); // 基础窗口属性
 
@@ -40,13 +40,7 @@ namespace LiteMonitor.src.Core.Actions
             ApplyMonitorLayout(ui, mainForm); // 监控项、硬件源变更
             ApplyTaskbarStyle(cfg, ui);       // 任务栏样式
 
-            // ★★★ 5. [新增] 应用网页服务设置 (重启服务以应用端口变更) ★★★
-            ApplyWebServer(cfg);
-
-            // 6. 应用插件设置 (重载实例并清除缓存)
-            PluginManager.Instance.Reload(cfg);
-
-            // 7. 可见性 (最后执行，避免闪烁)
+            // 5. Visibility is applied last, once layout and styles are ready.
             ApplyVisibility(cfg, mainForm);
         }
 
@@ -76,6 +70,8 @@ namespace LiteMonitor.src.Core.Actions
         public static void ApplyAutoStart(Settings cfg)
         {
             AutoStart.Set(cfg.AutoStart);
+            cfg.AutoStart = AutoStart.IsEnabled();
+            cfg.Save();
         }
 
         // =============================================================

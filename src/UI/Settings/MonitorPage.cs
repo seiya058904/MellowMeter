@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using LiteMonitor.src.Core;
 using LiteMonitor.src.UI.Controls;
 using LiteMonitor.src.Core.Actions;
+using LiteMonitor.src.UI.Helpers;
 
 namespace LiteMonitor.src.UI.SettingsPage
 {
@@ -63,8 +64,8 @@ namespace LiteMonitor.src.UI.SettingsPage
                     e.Graphics.DrawLine(p, 0, _tabPanel.Height - 1, _tabPanel.Width, _tabPanel.Height - 1);
             };
 
-            _btnTabMain = CreateTabButton("🖥️ " + LanguageManager.T("Menu.MainForm"), true);
-            _btnTabBar = CreateTabButton("➖ " + LanguageManager.T("Menu.Taskbar") + " / " + LanguageManager.T("Menu.Horizontal"), false);
+            _btnTabMain = CreateTabButton(LanguageManager.T("Menu.MainForm"), true);
+            _btnTabBar = CreateTabButton(LanguageManager.T("Menu.Taskbar") + " / " + LanguageManager.T("Menu.Horizontal"), false);
 
             _btnTabMain.Click += (s, e) => SwitchTab(false);
             _btnTabBar.Click += (s, e) => SwitchTab(true);
@@ -134,7 +135,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         private void UpdateBtnStyle(Button btn, bool active)
         {
             btn.BackColor = active ? UIColors.Primary : Color.Transparent;
-            btn.ForeColor = active ? Color.White : UIColors.TextSub;
+            btn.ForeColor = active ? UIColors.OnPrimary : UIColors.TextSub;
         }
 
         private void SwitchTab(bool toTaskbarMode)
@@ -214,6 +215,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             // [Fix] Include DynamicLabel in signature to detect label updates (Plugin Sync)
             var sb = new System.Text.StringBuilder();
             sb.Append(Config.MonitorItems.Count);
+            sb.Append(Config.AdvancedSensorsEnabled);
             
             foreach (var item in Config.MonitorItems)
             {
@@ -279,7 +281,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                 if (_isTaskbarTab)
                 {
                     // [Fix] Taskbar sort fallback to Global SortIndex if TaskbarSortIndex is 0 (or equal)
-                    var items = _workingList
+                    var items = _workingList.Where(x => MenuMonitorHelper.IsAvailable(x.Key, Config))
                         .OrderBy(x => x.TaskbarSortIndex)
                         .ThenBy(x => x.SortIndex)
                         .ToList();
@@ -296,7 +298,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                 }
                 else
                 {
-                    var items = _workingList.OrderBy(x => x.SortIndex).ToList();
+                    var items = _workingList.Where(x => MenuMonitorHelper.IsAvailable(x.Key, Config)).OrderBy(x => x.SortIndex).ToList();
                     var groups = items.GroupBy(x => x.UIGroup);
                     
                     foreach (var g in groups.Reverse())
@@ -311,12 +313,12 @@ namespace LiteMonitor.src.UI.SettingsPage
             // 底部提示文案
             var bottomLabel = new Label 
             { 
-                Text = LanguageManager.T("Menu.MonitorItemTip"), 
+                Text = LanguageManager.T(Config.AdvancedSensorsEnabled ? "Menu.MonitorItemTip" : "Menu.BasicSensorsTip"),
                 AutoSize = true, 
                 ForeColor = UIColors.TextSub, 
-                Font = new Font("Microsoft YaHei UI", 8.5F),
+                Font = new Font("Segoe UI", 8.5F),
                 Dock = DockStyle.Bottom,
-                Padding = new Padding(0, 25, 20, 10)
+                Padding = UIUtils.S(new Padding(0, 25, 20, 10))
             };
             _container.Controls.Add(bottomLabel);
             }
@@ -392,7 +394,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         {
             string alias = Config.GroupAliases.ContainsKey(groupKey) ? Config.GroupAliases[groupKey] : "";
             var header = new MonitorGroupHeader(groupKey, alias);
-            var rowsPanel = new Panel { Dock = DockStyle.Top, AutoSize = true, BackColor = Color.White };
+            var rowsPanel = new Panel { Dock = DockStyle.Top, AutoSize = true, BackColor = UIColors.CardBg };
             var block = new GroupBlock(header, rowsPanel);
 
             header.MoveUp += GroupHeader_MoveUp;
@@ -445,7 +447,8 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             if (_isTaskbarTab)
             {
-                bool isFiltered = isFilteredOverride ?? _chkOnlyVisible.Checked;
+                bool isFiltered = (isFilteredOverride ?? _chkOnlyVisible.Checked)
+                    || _workingList.Any(x => !MenuMonitorHelper.IsAvailable(x.Key, Config));
 
                 if (isFiltered)
                 {
@@ -493,7 +496,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             }
             else
             {
-                int idx = 0;
+                var orderedVisible = new List<MonitorItemConfig>();
                 var blocks = _container.Controls.Cast<Control>().Reverse().OfType<GroupBlock>();
                 foreach (var block in blocks)
                 {
@@ -505,8 +508,15 @@ namespace LiteMonitor.src.UI.SettingsPage
                         Config.GroupAliases.Remove(block.Header.GroupKey);
 
                     foreach (MonitorItemRow row in block.RowsPanel.Controls.Cast<Control>().Reverse())
-                        row.Config.SortIndex = idx++;
+                        orderedVisible.Add(row.Config);
                 }
+
+                // Keep unavailable advanced metrics in their existing slots while reordering the visible rows.
+                var visibleSet = new HashSet<MonitorItemConfig>(orderedVisible);
+                var queue = new Queue<MonitorItemConfig>(orderedVisible);
+                var ordered = _workingList.OrderBy(x => x.SortIndex)
+                    .Select(x => visibleSet.Contains(x) ? queue.Dequeue() : x).ToList();
+                for (int i = 0; i < ordered.Count; i++) ordered[i].SortIndex = i;
             }
         }
 

@@ -14,20 +14,26 @@ namespace LiteMonitor
         private static Font? _cachedFont = null;
 
         // 浅色主题
-        private static readonly Color LABEL_LIGHT = Color.FromArgb(20, 20, 20);
-        private static readonly Color SAFE_LIGHT = Color.FromArgb(0x00, 0x80, 0x40);
-        private static readonly Color WARN_LIGHT = Color.FromArgb(0xB5, 0x75, 0x00);
-        private static readonly Color CRIT_LIGHT = Color.FromArgb(0xC0, 0x30, 0x30);
+        private static readonly Color LABEL_LIGHT = Color.FromArgb(0x30, 0x47, 0x52);
+        private static readonly Color SAFE_LIGHT = Color.FromArgb(0x23, 0x6F, 0x63);
+        private static readonly Color WARN_LIGHT = Color.FromArgb(0x8A, 0x60, 0x1B);
+        private static readonly Color CRIT_LIGHT = Color.FromArgb(0xB2, 0x47, 0x47);
 
         // 深色主题
-        private static readonly Color LABEL_DARK = Color.White;
-        private static readonly Color SAFE_DARK = Color.FromArgb(0x66, 0xFF, 0x99);
-        private static readonly Color WARN_DARK = Color.FromArgb(0xFF, 0xD6, 0x66);
-        private static readonly Color CRIT_DARK = Color.FromArgb(0xFF, 0x66, 0x66);
+        private static readonly Color LABEL_DARK = Color.FromArgb(0xCF, 0xDB, 0xE1);
+        private static readonly Color SAFE_DARK = Color.FromArgb(0x85, 0xD4, 0xC5);
+        private static readonly Color WARN_DARK = Color.FromArgb(0xE9, 0xC3, 0x79);
+        private static readonly Color CRIT_DARK = Color.FromArgb(0xF1, 0x99, 0x98);
 
         // ★★★ [新增] 自定义颜色缓存 ★★★
         private static bool _useCustom = false;
         private static Color _cLabel, _cSafe, _cWarn, _cCrit;
+
+        public static void ClearCache()
+        {
+            _cachedFont?.Dispose();
+            _cachedFont = null;
+        }
 
         // ★★★ [新增] 极简的核心：手动刷新缓存 ★★★
         // 在 UIController 初始化或配置变更时调用它
@@ -36,14 +42,11 @@ namespace LiteMonitor
             var s = cfg.GetStyle();
 
             // ★★★ 修复：先释放旧字体资源，防止 GDI 句柄泄漏 ★★★
-            if (_cachedFont != null)
-            {
-                try { _cachedFont.Dispose(); } catch { }
-                _cachedFont = null;
-            }
+            ClearCache();
 
             // 无论开关怎么变，这里拿到的永远是正确参数
-            _cachedFont = UIUtils.GetFont(s.Font, s.Size, s.Bold);
+            // This renderer owns its font; shared UIUtils fonts may be invalidated on theme changes.
+            _cachedFont = new Font(s.Font, s.Size, s.Bold ? FontStyle.Bold : FontStyle.Regular);
 
             // 颜色依然允许自定义
             _useCustom = cfg.TaskbarCustomStyle;
@@ -131,36 +134,20 @@ namespace LiteMonitor
                 valueColor = GetStateColor(item.CachedColorState, light);
             }
 
+            if (item.TextValue == null && (!item.Value.HasValue || !float.IsFinite(item.Value.Value)))
+                valueColor = light ? Color.FromArgb(0x53, 0x69, 0x75) : Color.FromArgb(0xA7, 0xBA, 0xC4);
+
             // ★★★ 修复：如果开启了隐藏标签 (如 IP/Dashboard)，则仅绘制 Value (左对齐) ★★★
             if (hideLabel)
             {
                 TextRenderer.DrawText(
                     g, value, font, rc, valueColor,
-                    TextFormatFlags.Left |
-                    TextFormatFlags.VerticalCenter |
-                    TextFormatFlags.NoPadding |
-                    TextFormatFlags.NoClipping
+                    UIRenderer.TextFlags | TextFormatFlags.Left
                 );
                 return;
             }
 
-            // Label 左对齐
-            TextRenderer.DrawText(
-                g, label, font, rc, labelColor,
-                TextFormatFlags.Left |
-                TextFormatFlags.VerticalCenter |
-                TextFormatFlags.NoPadding |
-                TextFormatFlags.NoClipping
-            );
-
-            // Value 右对齐
-            TextRenderer.DrawText(
-                g, value, font, rc, valueColor,
-                TextFormatFlags.Right |
-                TextFormatFlags.VerticalCenter |
-                TextFormatFlags.NoPadding |
-                TextFormatFlags.NoClipping
-            );
+            UIRenderer.DrawMetricPair(g, label, value, font, font, rc, labelColor, valueColor);
         }
         // [新增] 辅助：根据状态快速获取颜色 (替代原来的 PickColor)
         private static Color GetStateColor(int state, bool light)

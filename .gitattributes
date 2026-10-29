@@ -1,0 +1,2 @@
+# The archived upstream diff preserves whitespace as patch data.
+docs/benchmark-baseline.patch -whitespace

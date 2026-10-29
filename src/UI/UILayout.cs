@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using LiteMonitor.src.Core;
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using LiteMonitor.src.Core;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -35,25 +35,28 @@ namespace LiteMonitor
         /// <summary>
         /// 计算所有布局：将数学计算完全封装在此，Renderer 只有绘制逻辑
         /// </summary>
-        public int Build(List<GroupLayoutInfo> groups)
+        public int Build(List<GroupLayoutInfo> groups, Graphics? graphics = null)
         {
             // ★★★ [优化] 获取缩放系数，修正硬编码像素在 高DPI 下过小的问题 ★★★
             float s = _t.Layout.LayoutScale; 
             if (s <= 0) s = 1.0f;
 
             // 将写死的像素值进行缩放
-            int innerPad = (int)(10 * s);      // 原本是 10
+            int innerPad = Math.Max(1, (int)Math.Round(10 * s));
             int innerPadTotal = innerPad * 2;  // 原本是 20
             int barMinH = (int)(4 * s);        // 原本是 6
             int barBotGap = (int)(3 * s);      // 原本是 3
+            int itemTextH = graphics == null ? _t.FontItem.Height : UIRenderer.MeasureTextHeight(graphics, _t.FontItem);
+            int valueTextH = graphics == null ? _t.FontValue.Height : UIRenderer.MeasureTextHeight(graphics, _t.FontValue);
+            int textH = Math.Max(itemTextH, valueTextH);
 
-            // ★★★ [视觉补偿] x 减去 1px ★★★
-            // 修复“左边距比右边宽”的视觉问题（平衡 GDI+ 文本左侧留白）
-            int x = _t.Layout.Padding - 1; 
+            // Keep group and title gutters symmetric at every scale.
+            int x = _t.Layout.Padding;
 
             int y = _t.Layout.Padding;
             int w = _t.Layout.Width - _t.Layout.Padding * 2;
-            int rowH = _t.Layout.RowHeight;
+            int barH = Math.Max(barMinH, (int)(_t.Layout.RowHeight * 0.23));
+            int rowH = Math.Max(_t.Layout.RowHeight, textH + barH + barBotGap + Math.Max(1, (int)(2 * s)));
 
             // 1. 主标题占位
             string title = LanguageManager.T("Title");
@@ -100,7 +103,7 @@ namespace LiteMonitor
                 // 2. 混合布局算法 (支持 TextOnly / TwoColumn / StandardBar 混排)
                 // -------------------------------------------------------------
                 List<MetricItem> buffer2Col = new List<MetricItem>();
-                int listRowH = (int)(rowH * 0.8); // 纯文本行高
+                int listRowH = Math.Max((int)(rowH * 0.8), itemTextH + (int)(6 * s));
 
                 // 辅助函数：清空双列缓冲区
                 void FlushBuffer()
@@ -108,7 +111,7 @@ namespace LiteMonitor
                     if (buffer2Col.Count == 0) return;
 
                     // 计算双列高度 (取标准行高)
-                    int twoLineH = rowH;
+                    int twoLineH = Math.Max(rowH, itemTextH + valueTextH + (int)(2 * s));
                     int colWidth = w / 2;
 
                     // 如果只有1个，也占一半还是全宽？为了对齐，占一半比较合理，或者左对齐
@@ -124,9 +127,11 @@ namespace LiteMonitor
                         it.Bounds = new Rectangle(itemX, itemY, colWidth, twoLineH);
 
                         // 内部上下平分
-                        int halfH = twoLineH / 2;
-                        it.LabelRect = new Rectangle(itemX, itemY, colWidth, halfH);
-                        it.ValueRect = new Rectangle(itemX, itemY + halfH, colWidth, twoLineH - halfH);
+                        int halfH = itemTextH + Math.Max(0,
+                            (twoLineH - itemTextH - valueTextH) / 2);
+                        int inset = Math.Max(1, (int)(4 * s));
+                        it.LabelRect = new Rectangle(itemX + inset, itemY, Math.Max(0, colWidth - inset * 2), halfH);
+                        it.ValueRect = new Rectangle(itemX + inset, itemY + halfH, Math.Max(0, colWidth - inset * 2), twoLineH - halfH);
                     }
                     
                     // 移动 Y 轴 (双列共用一行高度)
@@ -164,12 +169,11 @@ namespace LiteMonitor
                         it.Bounds = new Rectangle(x, itemY, w, rowH);
                         var inner = new Rectangle(x + innerPad, itemY, w - innerPadTotal, rowH);
                         
-                        int topH = (int)(inner.Height * 0.60);
+                        int topH = Math.Max(textH, (int)(inner.Height * 0.60));
                         var topRect = new Rectangle(inner.X, inner.Y, inner.Width, topH);
                         it.LabelRect = topRect;
                         it.ValueRect = topRect;
 
-                        int barH = Math.Max(barMinH, (int)(inner.Height * 0.23));
                         int barY = inner.Bottom - barH - barBotGap;
                         it.BarRect = new Rectangle(inner.X, barY, inner.Width, barH);
 

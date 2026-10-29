@@ -8,20 +8,62 @@ namespace LiteMonitor.src.UI.Controls
 {
     public static class UIColors
     {
-        public static Color MainBg = Color.FromArgb(243, 243, 243);
-        public static Color SidebarBg = Color.FromArgb(240, 240, 240);
-        public static Color CardBg = Color.White;
-        public static Color Border = Color.FromArgb(220, 220, 220);
-        public static Color Primary = Color.FromArgb(0, 120, 215);
-        public static Color TextMain = Color.FromArgb(32, 32, 32);
-        public static Color TextSub = Color.FromArgb(90, 90, 90);
-        public static Color GroupHeader = Color.FromArgb(248, 249, 250); 
-        
-        public static Color NavSelected = Color.FromArgb(230, 230, 230); 
-        public static Color NavHover = Color.FromArgb(235, 235, 235);
+        private static string? _accentSource;
+        private static string? _accentBackground;
+        private static Color _accent;
+        public static bool IsDark => ThemeManager.ParseColor(ThemeManager.Current.Color.Background).GetBrightness() < 0.5f;
+        public static Color MainBg => ThemeManager.ParseColor(ThemeManager.Current.Color.Background);
+        public static Color SidebarBg => MainBg;
+        public static Color CardBg => ThemeManager.ParseColor(ThemeManager.Current.Color.GroupBackground);
+        public static Color Border => Blend(CardBg, TextSub, 0.22f);
+        public static Color Primary
+        {
+            get
+            {
+                var colors = ThemeManager.Current.Color;
+                if (_accentSource != colors.BarLow || _accentBackground != colors.GroupBackground)
+                {
+                    _accentSource = colors.BarLow;
+                    _accentBackground = colors.GroupBackground;
+                    Color source = ThemeManager.ParseColor(colors.BarLow);
+                    Color background = CardBg;
+                    Color endpoint = Luminance(background) < 0.18 ? Color.White : Color.Black;
+                    _accent = source;
+                    for (int step = 1; step <= 20 && Contrast(_accent, background) < 4.5; step++)
+                        _accent = Blend(source, endpoint, step / 20f);
+                }
+                return _accent;
+            }
+        }
+        public static Color OnPrimary => Contrast(Primary, Color.Black) >= Contrast(Primary, Color.White) ? Color.Black : Color.White;
+        public static Color TextMain => ThemeManager.ParseColor(ThemeManager.Current.Color.TextTitle);
+        public static Color TextSub => ThemeManager.ParseColor(ThemeManager.Current.Color.TextGroup);
+        public static Color GroupHeader => CardBg;
+        public static Color NavSelected => Blend(MainBg, Primary, 0.16f);
+        public static Color NavHover => Blend(MainBg, Primary, 0.08f);
+        public static Color TextWarn => ThemeManager.ParseColor(ThemeManager.Current.Color.ValueWarn);
+        public static Color TextCrit => ThemeManager.ParseColor(ThemeManager.Current.Color.ValueCrit);
 
-        public static Color TextWarn = Color.FromArgb(215, 145, 0); 
-        public static Color TextCrit = Color.FromArgb(220, 50, 50); 
+        public static Color Blend(Color background, Color foreground, float amount) => Color.FromArgb(
+            (int)Math.Round(background.R + (foreground.R - background.R) * amount),
+            (int)Math.Round(background.G + (foreground.G - background.G) * amount),
+            (int)Math.Round(background.B + (foreground.B - background.B) * amount));
+
+        private static double Luminance(Color color)
+        {
+            static double Channel(byte channel)
+            {
+                double value = channel / 255d;
+                return value <= 0.04045 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
+            }
+            return 0.2126 * Channel(color.R) + 0.7152 * Channel(color.G) + 0.0722 * Channel(color.B);
+        }
+
+        private static double Contrast(Color first, Color second)
+        {
+            double a = Luminance(first), b = Luminance(second);
+            return (Math.Max(a, b) + 0.05) / (Math.Min(a, b) + 0.05);
+        }
     }
 
     public class LiteActionRow : Panel
@@ -38,7 +80,7 @@ namespace LiteMonitor.src.UI.Controls
             Label = new Label { 
                 Text = title, 
                 AutoSize = true, 
-                Font = new Font("Microsoft YaHei UI", 9F), 
+                Font = new Font("Segoe UI", 9F),
                 ForeColor = UIColors.TextSub, // Slightly gray for descriptions/tips
                 TextAlign = ContentAlignment.MiddleLeft 
             };
@@ -72,7 +114,7 @@ namespace LiteMonitor.src.UI.Controls
             // Title
             var lblTitle = new Label {
                 Text = title, AutoSize = true, 
-                Font = new Font("Microsoft YaHei UI", 9F), ForeColor = UIColors.TextMain,
+                Font = new Font("Segoe UI", 9F), ForeColor = UIColors.TextMain,
                 TextAlign = ContentAlignment.MiddleLeft
             };
             this.Controls.Add(lblTitle);
@@ -88,7 +130,7 @@ namespace LiteMonitor.src.UI.Controls
             var inputWarn = new LiteNumberInput(range.Warn.ToString(), unit, LanguageManager.T("Menu.ValueWarnColor"), 140, UIColors.TextWarn);
             inputWarn.Padding = UIUtils.S(new Padding(0, 5, 0, 1));
             
-            var arrow = new Label { Text = "➜", AutoSize = true, ForeColor = Color.LightGray, Font = new Font("Microsoft YaHei UI", 9F), Margin = UIUtils.S(new Padding(5, 4, 5, 0)) };
+            var arrow = new Label { Text = "➜", AutoSize = true, ForeColor = UIColors.Border, Font = new Font("Segoe UI", 9F), Margin = UIUtils.S(new Padding(5, 4, 5, 0)) };
             
             var inputCrit = new LiteNumberInput(range.Crit.ToString(), unit, LanguageManager.T("Menu.ValueCritColor"), 140, UIColors.TextCrit);
             inputCrit.Padding = UIUtils.S(new Padding(0, 5, 0, 1));
@@ -115,7 +157,7 @@ namespace LiteMonitor.src.UI.Controls
             
             // Separator Line
             this.Paint += (s, e) => {
-                using(var p = new Pen(Color.FromArgb(240, 240, 240))) e.Graphics.DrawLine(p, 0, Height-1, Width, Height-1);
+                using(var p = new Pen(UIColors.Border)) e.Graphics.DrawLine(p, 0, Height-1, Width, Height-1);
             };
         }
     }
@@ -133,8 +175,8 @@ namespace LiteMonitor.src.UI.Controls
                 Text = text, 
                 AutoSize = true, 
                 MaximumSize = new Size(UIUtils.S(500), 0), // Limit width to trigger wrap? Actual width set in Layout
-                Font = new Font("Microsoft YaHei UI", 8F), 
-                ForeColor = Color.Gray,
+                Font = new Font("Segoe UI", 8F),
+                ForeColor = UIColors.TextSub,
                 Dock = DockStyle.Fill
             };
             this.Controls.Add(lbl);
@@ -148,8 +190,8 @@ namespace LiteMonitor.src.UI.Controls
 
     public static class UIFonts 
     {
-        public static Font Regular(float size) => new Font("Microsoft YaHei UI", size, FontStyle.Regular);
-        public static Font Bold(float size) => new Font("Microsoft YaHei UI", size, FontStyle.Bold);
+        public static Font Regular(float size) => new Font("Segoe UI", size, FontStyle.Regular);
+        public static Font Bold(float size) => new Font("Segoe UI", size, FontStyle.Bold);
     }
 
     // =======================================================================
@@ -166,29 +208,27 @@ namespace LiteMonitor.src.UI.Controls
         {
             this.AutoSize = true;
             this.Dock = DockStyle.Top;
-            this.Padding = new Padding(1); 
-            this.BackColor = UIColors.Border; 
+            this.Padding = Padding.Empty;
+            this.BackColor = UIColors.CardBg;
             // ★★★ 修改：Margin 缩放
             this.Margin = new Padding(0, 0, 0, UIUtils.S(15)); 
 
-            var inner = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, AutoSize = true };
+            var inner = new Panel { Dock = DockStyle.Fill, BackColor = UIColors.CardBg, AutoSize = true };
             
             // ★★★ 修改：Height 缩放
-            _header = new Panel { Dock = DockStyle.Top, Height = UIUtils.S(40), BackColor = UIColors.GroupHeader, Padding = new Padding(0, 0, UIUtils.S(10), 0) }; // 增加右侧Padding
+            _header = new Panel { Dock = DockStyle.Top, Height = UIUtils.S(38), BackColor = UIColors.CardBg, Padding = new Padding(0, 0, UIUtils.S(10), 0) };
             // ★★★ 修改：Location 缩放
             var lbl = new Label { 
                 Text = title, Location = new Point(UIUtils.S(15), UIUtils.S(10)), AutoSize = true, 
-                Font = new Font("Microsoft YaHei UI", 9F, FontStyle.Bold), ForeColor = UIColors.TextMain 
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = UIColors.Primary
             };
             _header.Controls.Add(lbl);
-            // ★★★ 修改：绘图线坐标动态化 (header.Height - 1)
-            _header.Paint += (s, e) => { using(var p = new Pen(UIColors.Border)) e.Graphics.DrawLine(p, 0, _header.Height - 1, _header.Width, _header.Height - 1); };
 
             _layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, RowCount = 1,
                 // ★★★ 修改：Padding 缩放
-                Padding = UIUtils.S(new Padding(25, 10, 25, 15)), BackColor = Color.White
+                Padding = UIUtils.S(new Padding(25, 10, 25, 15)), BackColor = UIColors.CardBg
             };
             _layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
             _layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
@@ -196,6 +236,16 @@ namespace LiteMonitor.src.UI.Controls
             inner.Controls.Add(_layout);
             inner.Controls.Add(_header);
             this.Controls.Add(inner);
+        }
+
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            if (Width <= 0 || Height <= 0) return;
+            using var path = UIUtils.RoundRect(ClientRectangle, UIUtils.S(8));
+            Region? oldRegion = Region;
+            Region = new Region(path);
+            oldRegion?.Dispose();
         }
 
         public void AddHeaderAction(Control action)
@@ -211,12 +261,6 @@ namespace LiteMonitor.src.UI.Controls
             // 手动垂直居中 (Gap on Left)
             action.Location = new Point(UIUtils.S(10), (_header.Height - action.Height) / 2);
             
-            // ★★★ Fix: Draw Bottom Line in Wrapper ★★★
-            wrapper.Paint += (s, e) => {
-                 using(var p = new Pen(UIColors.Border))
-                     e.Graphics.DrawLine(p, 0, wrapper.Height - 1, wrapper.Width, wrapper.Height - 1);
-            };
-
             wrapper.Controls.Add(action);
             _header.Controls.Add(wrapper);
             
@@ -253,7 +297,7 @@ namespace LiteMonitor.src.UI.Controls
             this.Margin = UIUtils.S(new Padding(0, 2, 40, 2)); 
             Label = new Label { 
                 Text = text, AutoSize = true, 
-                Font = new Font("Microsoft YaHei UI", 9F), ForeColor = UIColors.TextMain,
+                Font = new Font("Segoe UI", 9F), ForeColor = UIColors.TextMain,
                 TextAlign = ContentAlignment.MiddleLeft 
             };
             // ★★★ 修改：Height 缩放
@@ -266,7 +310,7 @@ namespace LiteMonitor.src.UI.Controls
                 ctrl.Location = new Point(this.Width - ctrl.Width, mid - ctrl.Height / 2);
             };
             this.Paint += (s, e) => {
-                using(var p = new Pen(Color.FromArgb(240, 240, 240))) 
+                using(var p = new Pen(UIColors.Border))
                     e.Graphics.DrawLine(p, 0, Height-1, Width, Height-1);
             };
         }
@@ -276,7 +320,15 @@ namespace LiteMonitor.src.UI.Controls
     public class LiteCard : Panel
     {
         public LiteCard() { BackColor = UIColors.CardBg; AutoSize = true; AutoSizeMode = AutoSizeMode.GrowAndShrink; Dock = DockStyle.Top; Padding = new Padding(1); }
-        protected override void OnPaint(PaintEventArgs e) { base.OnPaint(e); using (var p = new Pen(UIColors.Border)) e.Graphics.DrawRectangle(p, 0, 0, Width - 1, Height - 1); }
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            if (Width <= 0 || Height <= 0) return;
+            using var path = UIUtils.RoundRect(ClientRectangle, UIUtils.S(8));
+            Region? oldRegion = Region;
+            Region = new Region(path);
+            oldRegion?.Dispose();
+        }
     }
 
     // =======================================================================
@@ -318,8 +370,8 @@ namespace LiteMonitor.src.UI.Controls
                 Text = text,
                 BorderStyle = BorderStyle.None,
                 Dock = DockStyle.Fill,
-                BackColor = Color.White,
-                Font = new Font("Microsoft YaHei UI", 9F, FontStyle.Regular),
+                BackColor = UIColors.CardBg,
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular),
                 ForeColor = fontColor ?? UIColors.TextSub,
                 TextAlign = align 
             };
@@ -332,8 +384,8 @@ namespace LiteMonitor.src.UI.Controls
                     Text = unit,
                     AutoSize = true, 
                     Dock = DockStyle.Right,
-                    Font = new Font("Microsoft YaHei UI", 8F), 
-                    ForeColor = Color.Gray, 
+                    Font = new Font("Segoe UI", 8F),
+                    ForeColor = UIColors.TextSub,
                     TextAlign = ContentAlignment.BottomRight, 
                     Padding = new Padding(0, 0, 0, 4) 
                 };
@@ -348,7 +400,7 @@ namespace LiteMonitor.src.UI.Controls
                     Text = labelPrefix, 
                     AutoSize = true, 
                     Dock = DockStyle.Left,
-                    Font = new Font("Microsoft YaHei UI", 9F), 
+                    Font = new Font("Segoe UI", 9F),
                     ForeColor = fontColor ?? UIColors.TextSub,
                     TextAlign = ContentAlignment.BottomLeft, 
                     Padding = new Padding(0, 0, 4, 3) 
@@ -375,7 +427,7 @@ namespace LiteMonitor.src.UI.Controls
         public void SetBg(Color c) { Inner.BackColor = c; }
         
         protected override void OnPaint(PaintEventArgs e) {
-            var c = Inner.Focused ? UIColors.Primary : Color.LightGray; 
+            var c = Inner.Focused ? UIColors.Primary : UIColors.Border;
             int h = Inner.Focused ? 2 : 1;
 
             // 画线逻辑：如果有左侧标签，线条从标签右侧开始画
@@ -457,11 +509,11 @@ namespace LiteMonitor.src.UI.Controls
         public LiteColorPicker(string initialHex) { SetHex(initialHex); this.Size = new Size(UIUtils.S(24), UIUtils.S(24)); this.Cursor = Cursors.Hand; this.DoubleBuffered = true; this.Click += (s, e) => PickColor(); }
         public void SetHex(string hex) { try { _color = ColorTranslator.FromHtml(hex); Invalidate(); } catch {} }
         private void PickColor() { using (var cd = new ColorDialog()) { cd.Color = _color; cd.FullOpen = true; if (cd.ShowDialog() == DialogResult.OK) { _color = cd.Color; ColorChanged?.Invoke(this, EventArgs.Empty); Invalidate(); } } }
-        protected override void OnPaint(PaintEventArgs e) { using (var b = new SolidBrush(_color)) e.Graphics.FillRectangle(b, 0, 0, Width - 1, Height - 1); using (var p = new Pen(Color.Gray)) e.Graphics.DrawRectangle(p, 0, 0, Width - 1, Height - 1); }
+        protected override void OnPaint(PaintEventArgs e) { using (var b = new SolidBrush(_color)) e.Graphics.FillRectangle(b, 0, 0, Width - 1, Height - 1); using (var p = new Pen(UIColors.TextSub)) e.Graphics.DrawRectangle(p, 0, 0, Width - 1, Height - 1); }
     }
 
     // 其他原有组件
-    public class LiteNote : Panel { public LiteNote(string text, int indent = 0) { this.Dock = DockStyle.Top; this.Height = UIUtils.S(32); this.Margin = new Padding(0); var lbl = new Label { Text = text, AutoSize = true, Font = new Font("Microsoft YaHei UI", 8F), ForeColor = Color.Gray, Location = new Point(UIUtils.S(indent), UIUtils.S(10)) }; this.Controls.Add(lbl); } }
+    public class LiteNote : Panel { public LiteNote(string text, int indent = 0) { this.Dock = DockStyle.Top; this.Height = UIUtils.S(32); this.Margin = new Padding(0); var lbl = new Label { Text = text, AutoSize = true, Font = new Font("Segoe UI", 8F), ForeColor = UIColors.TextSub, Location = new Point(UIUtils.S(indent), UIUtils.S(10)) }; this.Controls.Add(lbl); } }
     public class LiteComboItem 
     { 
         public string Text { get; set; } 
@@ -471,11 +523,95 @@ namespace LiteMonitor.src.UI.Controls
 
     public class NoScrollComboBox : ComboBox
     {
+        private bool _hovered;
+
+        public NoScrollComboBox()
+        {
+            DrawMode = DrawMode.OwnerDrawFixed;
+            DropDownStyle = ComboBoxStyle.DropDownList;
+            UpdateItemHeight();
+        }
+
+        private int ScalePixel(int value) => Math.Max(1, (int)Math.Round(value * DeviceDpi / 96f));
+        private void UpdateItemHeight() => ItemHeight = Font.Height + ScalePixel(4);
+
+        protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); UpdateItemHeight(); }
+        protected override void OnDpiChangedAfterParent(EventArgs e) { base.OnDpiChangedAfterParent(e); UpdateItemHeight(); }
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); _hovered = true; Invalidate(); }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); _hovered = false; Invalidate(); }
+        protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
+        protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); Invalidate(); }
+        protected override void OnDropDown(EventArgs e) { base.OnDropDown(e); Invalidate(); }
+        protected override void OnDropDownClosed(EventArgs e) { base.OnDropDownClosed(e); Invalidate(); }
+
+        protected override void OnDrawItem(DrawItemEventArgs e)
+        {
+            bool selected = (e.State & DrawItemState.Selected) != 0;
+            Color background = SystemInformation.HighContrast
+                ? selected ? SystemColors.Highlight : SystemColors.Window
+                : selected ? UIColors.NavSelected : UIColors.CardBg;
+            Color foreground = SystemInformation.HighContrast
+                ? selected ? SystemColors.HighlightText : SystemColors.WindowText
+                : Enabled ? UIColors.TextMain : UIColors.TextSub;
+            using var brush = new SolidBrush(background);
+            e.Graphics.FillRectangle(brush, e.Bounds);
+            string text = e.Index >= 0 && e.Index < Items.Count ? GetItemText(Items[e.Index]) : Text;
+            var bounds = Rectangle.Inflate(e.Bounds, -ScalePixel(6), 0);
+            TextRenderer.DrawText(e.Graphics, text, Font, bounds, foreground,
+                UIRenderer.TextFlags | (RightToLeft == RightToLeft.Yes ? TextFormatFlags.RightToLeft | TextFormatFlags.Right : TextFormatFlags.Left));
+            if ((e.State & DrawItemState.Focus) != 0 && ShowFocusCues)
+                ControlPaint.DrawFocusRectangle(e.Graphics, Rectangle.Inflate(e.Bounds, -2, -2), foreground, background);
+        }
+
         protected override void WndProc(ref Message m)
         {
             // WM_MOUSEWHEEL = 0x020A
             if (m.Msg == 0x020A && !this.DroppedDown) return;
             base.WndProc(ref m);
+            // Keep the native combo/list, keyboard handling and accessibility intact;
+            // paint only its closed face after Windows has processed the message.
+            if (SystemInformation.HighContrast || IsDisposed || !IsHandleCreated) return;
+            if (m.Msg == 0x000F) // WM_PAINT
+            {
+                using var graphics = CreateGraphics();
+                DrawFace(graphics);
+            }
+            else if (m.WParam != IntPtr.Zero &&
+                (m.Msg == 0x0318 || (m.Msg == 0x0317 && (m.LParam.ToInt64() & 0x0004) != 0))) // WM_PRINTCLIENT or WM_PRINT with PRF_CLIENT
+            {
+                using var graphics = Graphics.FromHdc(m.WParam);
+                DrawFace(graphics);
+            }
+        }
+
+        private void DrawFace(Graphics graphics)
+        {
+            if (ClientSize.Width < 2 || ClientSize.Height < 2) return;
+            Color background = Enabled && _hovered ? UIColors.NavHover : UIColors.CardBg;
+            using var brush = new SolidBrush(background);
+            graphics.FillRectangle(brush, ClientRectangle);
+            Color borderColor = Enabled && (Focused || DroppedDown) ? UIColors.Primary : UIColors.Border;
+            using var border = new Pen(borderColor);
+            graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+            int arrowWidth = ScalePixel(22);
+            bool rtl = RightToLeft == RightToLeft.Yes;
+            var textRect = new Rectangle(rtl ? arrowWidth : ScalePixel(7), 0,
+                Math.Max(0, Width - arrowWidth - ScalePixel(7)), Height);
+            Color foreground = Enabled ? UIColors.TextMain : UIColors.TextSub;
+            TextRenderer.DrawText(graphics, Text, Font, textRect, foreground,
+                UIRenderer.TextFlags | (rtl ? TextFormatFlags.RightToLeft | TextFormatFlags.Right : TextFormatFlags.Left));
+            float centerX = rtl ? arrowWidth / 2f : Width - arrowWidth / 2f;
+            float centerY = Height / 2f;
+            float half = ScalePixel(3);
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var caret = new Pen(foreground, Math.Max(1f, DeviceDpi / 96f));
+            graphics.DrawLines(caret, new[] {
+                new PointF(centerX - half, centerY - half / 2),
+                new PointF(centerX, centerY + half / 2),
+                new PointF(centerX + half, centerY - half / 2)
+            });
+            if (Focused && ShowFocusCues)
+                ControlPaint.DrawFocusRectangle(graphics, Rectangle.Inflate(textRect, -2, -ScalePixel(4)), foreground, background);
         }
     }
 
@@ -486,7 +622,7 @@ namespace LiteMonitor.src.UI.Controls
         public LiteComboBox() 
         { 
             this.Size = new Size(UIUtils.S(110), UIUtils.S(28)); 
-            this.BackColor = Color.White; 
+            this.BackColor = UIColors.CardBg;
             this.Padding = new Padding(1); 
             
             Inner = new NoScrollComboBox 
@@ -494,10 +630,10 @@ namespace LiteMonitor.src.UI.Controls
                 DropDownStyle = ComboBoxStyle.DropDownList, 
                 FlatStyle = FlatStyle.Flat, 
                 ForeColor = UIColors.TextSub, 
-                Font = new Font("Microsoft YaHei UI", 9F), 
+                Font = new Font("Segoe UI", 9F),
                 // ★★★ 核心修复：移除 Dock.Fill，改为 None，以便我们可以手动居中它
                 Dock = DockStyle.None, 
-                BackColor = Color.White, 
+                BackColor = UIColors.CardBg,
                 Margin = new Padding(0) 
             }; 
             this.Controls.Add(Inner); 
@@ -557,8 +693,8 @@ namespace LiteMonitor.src.UI.Controls
     }
     public class LiteLink : Label
     {
-        private Color _normalColor = Color.DodgerBlue;
-        private Color _hoverColor = Color.FromArgb(0, 100, 200);
+        private Color _normalColor = UIColors.Primary;
+        private Color _hoverColor = UIColors.TextMain;
 
         public LiteLink(string text, Action onClick = null)
         {
@@ -566,7 +702,7 @@ namespace LiteMonitor.src.UI.Controls
             this.AutoSize = true;
             this.Cursor = Cursors.Hand;
             this.ForeColor = _normalColor;
-            this.Font = new Font("Microsoft YaHei UI", 9F, FontStyle.Underline);
+            this.Font = new Font("Segoe UI", 9F, FontStyle.Underline);
             
             if (onClick != null)
                 this.Click += (s, e) => { if (this.Enabled) onClick(); };
@@ -589,7 +725,7 @@ namespace LiteMonitor.src.UI.Controls
             { 
                 base.Enabled = value;
                 this.Cursor = value ? Cursors.Hand : Cursors.Default;
-                this.ForeColor = value ? _normalColor : Color.Gray;
+                this.ForeColor = value ? _normalColor : UIColors.TextSub;
             } 
         }
     }
@@ -599,25 +735,42 @@ namespace LiteMonitor.src.UI.Controls
     // =======================================================================
 
 
-    public class LiteCheck : CheckBox { public LiteCheck(bool val, string text = "") { Checked = val; AutoSize = true; Cursor = Cursors.Hand; Text = text; Padding = UIUtils.S(new Padding(2)); ForeColor = UIColors.TextSub; Font = new Font("Microsoft YaHei UI", 9F); } }
-    
+    public class LiteCheck : CheckBox
+    {
+        public LiteCheck(bool val, string text = "")
+        {
+            Checked = val;
+            AutoSize = true;
+            Cursor = Cursors.Hand;
+            Text = text;
+            BackColor = UIColors.CardBg;
+            Padding = UIUtils.S(new Padding(2));
+            ForeColor = UIColors.TextSub;
+            Font = new Font("Segoe UI", 9F);
+        }
+    }
     public class LiteButton : Button 
     { 
         private bool _dashed;
+        private bool _primary;
         
         public LiteButton(string t, bool p = false, bool dashed = false) 
         { 
             Text = t; 
             _dashed = dashed;
+            _primary = p;
             Size = new Size(UIUtils.S(80), UIUtils.S(32)); 
             FlatStyle = FlatStyle.Flat; 
             Cursor = Cursors.Hand; 
-            Font = new Font("Microsoft YaHei UI", 9F); 
+            Font = new Font("Segoe UI", 9F, p ? FontStyle.Bold : FontStyle.Regular);
+            FlatAppearance.BorderSize = 0;
+            FlatAppearance.MouseOverBackColor = p ? UIColors.Blend(UIColors.Primary, UIColors.OnPrimary, 0.08f) : UIColors.NavHover;
+            FlatAppearance.MouseDownBackColor = p ? UIColors.Blend(UIColors.Primary, UIColors.OnPrimary, 0.16f) : UIColors.NavSelected;
             
             if (p) 
             { 
                 BackColor = UIColors.Primary; 
-                ForeColor = Color.White; 
+                ForeColor = UIColors.OnPrimary;
                 FlatAppearance.BorderSize = 0; 
             } 
             else if (dashed)
@@ -628,26 +781,88 @@ namespace LiteMonitor.src.UI.Controls
             }
             else 
             { 
-                BackColor = Color.White; 
+                BackColor = UIColors.CardBg;
                 ForeColor = UIColors.TextMain; 
                 FlatAppearance.BorderColor = UIColors.Border; 
             } 
         } 
 
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            if (Width <= 0 || Height <= 0) return;
+            using var path = UIUtils.RoundRect(ClientRectangle, UIUtils.S(6));
+            Region? oldRegion = Region;
+            Region = new Region(path);
+            oldRegion?.Dispose();
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
-            if (_dashed)
+            if (!_primary)
             {
-                using (var pen = new Pen(Color.LightGray, 1.5f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash })
-                {
-                    e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
-                }
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using var path = UIUtils.RoundRect(new Rectangle(0, 0, Width - 1, Height - 1), UIUtils.S(6));
+                using var pen = new Pen(UIColors.Border) { DashStyle = _dashed ? System.Drawing.Drawing2D.DashStyle.Dash : System.Drawing.Drawing2D.DashStyle.Solid };
+                e.Graphics.DrawPath(pen, path);
             }
         }
     }
-    public class LiteNavBtn : Button { private bool _isActive; public bool IsActive { get => _isActive; set { _isActive = value; Invalidate(); } } public LiteNavBtn(string text) { Text = "  " + text; Size = new Size(UIUtils.S(150), UIUtils.S(40)); FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; TextAlign = ContentAlignment.MiddleLeft; Font = new Font("Microsoft YaHei UI", 10F); Cursor = Cursors.Hand; Margin = UIUtils.S(new Padding(5, 2, 5, 2)); BackColor = UIColors.SidebarBg; ForeColor = UIColors.TextMain; } protected override void OnPaint(PaintEventArgs e) { Color bg = _isActive ? UIColors.NavSelected : (ClientRectangle.Contains(PointToClient(Cursor.Position)) ? UIColors.NavHover : UIColors.SidebarBg); using (var b = new SolidBrush(bg)) e.Graphics.FillRectangle(b, ClientRectangle); if (_isActive) { using (var b = new SolidBrush(UIColors.Primary)) e.Graphics.FillRectangle(b, 0, UIUtils.S(8), UIUtils.S(3), Height - UIUtils.S(16)); Font = new Font(Font, FontStyle.Bold); } else { Font = new Font(Font, FontStyle.Regular); } TextRenderer.DrawText(e.Graphics, Text, Font, new Point(UIUtils.S(12), UIUtils.S(9)), UIColors.TextMain); } protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); Invalidate(); } protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); Invalidate(); } }
-    public class LiteSortBtn : Button { public LiteSortBtn(string txt) { Text = txt; Size = new Size(UIUtils.S(24), UIUtils.S(24)); FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; BackColor = Color.FromArgb(245, 245, 245); ForeColor = Color.DimGray; Cursor = Cursors.Hand; Font = new Font("Microsoft YaHei UI", 7F, FontStyle.Bold); Margin = new Padding(0); } }
+    public class LiteNavBtn : Button
+    {
+        private bool _isActive;
+        private readonly Font _regularFont = new Font("Segoe UI", 10F);
+        private readonly Font _activeFont = new Font("Segoe UI", 10F, FontStyle.Bold);
+
+        public bool IsActive
+        {
+            get => _isActive;
+            set { if (_isActive == value) return; _isActive = value; Invalidate(); }
+        }
+
+        public LiteNavBtn(string text)
+        {
+            Text = text;
+            Size = new Size(UIUtils.S(150), UIUtils.S(40));
+            FlatStyle = FlatStyle.Flat;
+            FlatAppearance.BorderSize = 0;
+            TextAlign = ContentAlignment.MiddleLeft;
+            Font = _regularFont;
+            Cursor = Cursors.Hand;
+            Margin = UIUtils.S(new Padding(5, 2, 5, 2));
+            BackColor = UIColors.SidebarBg;
+            ForeColor = UIColors.TextMain;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            bool hover = ClientRectangle.Contains(PointToClient(Cursor.Position));
+            Color bg = _isActive ? UIColors.NavSelected : hover ? UIColors.NavHover : UIColors.SidebarBg;
+            using var background = new SolidBrush(UIColors.SidebarBg);
+            e.Graphics.FillRectangle(background, ClientRectangle);
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var path = UIUtils.RoundRect(Rectangle.Inflate(ClientRectangle, -2, -2), UIUtils.S(8));
+            using var brush = new SolidBrush(bg);
+            e.Graphics.FillPath(brush, path);
+            var textRect = new Rectangle(UIUtils.S(14), 0, Math.Max(0, Width - UIUtils.S(26)), Height);
+            TextRenderer.DrawText(e.Graphics, Text, _isActive ? _activeFont : _regularFont,
+                textRect, Enabled ? UIColors.TextMain : UIColors.TextSub, UIRenderer.TextFlags);
+            if (Focused && ShowFocusCues)
+                ControlPaint.DrawFocusRectangle(e.Graphics, Rectangle.Inflate(ClientRectangle, -3, -3), UIColors.Primary, bg);
+        }
+
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); Invalidate(); }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); Invalidate(); }
+        protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
+        protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); Invalidate(); }
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) { _regularFont.Dispose(); _activeFont.Dispose(); }
+            base.Dispose(disposing);
+        }
+    }
+    public class LiteSortBtn : Button { public LiteSortBtn(string txt) { Text = txt; Size = new Size(UIUtils.S(24), UIUtils.S(24)); FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; BackColor = UIColors.GroupHeader; ForeColor = UIColors.TextSub; Cursor = Cursors.Hand; Font = new Font("Segoe UI", 7F, FontStyle.Bold); Margin = new Padding(0); } }
     
     // ★★★ New: Header Button (Variable Width) ★★★
     public class LiteHeaderBtn : Button 
@@ -657,10 +872,10 @@ namespace LiteMonitor.src.UI.Controls
             Text = txt; 
             FlatStyle = FlatStyle.Flat; 
             FlatAppearance.BorderSize = 0; 
-            BackColor = Color.FromArgb(225, 225, 225); 
-            ForeColor = Color.DimGray; 
+            BackColor = UIColors.GroupHeader;
+            ForeColor = UIColors.TextSub;
             Cursor = Cursors.Hand; 
-            Font = new Font("Microsoft YaHei UI", 8F, FontStyle.Bold); 
+            Font = new Font("Segoe UI", 8F, FontStyle.Bold);
             Margin = new Padding(0);
             
             // Auto Width
@@ -695,7 +910,7 @@ namespace LiteMonitor.src.UI.Controls
             get
             {
                 CreateParams cp = base.CreateParams;
-                cp.ExStyle |= 0x02000000; // WS_EX_COMPOSITED
+                cp.ExStyle |= 0x02000000;
                 return cp;
             }
         }

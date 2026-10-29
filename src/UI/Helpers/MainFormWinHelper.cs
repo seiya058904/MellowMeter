@@ -94,30 +94,18 @@ namespace LiteMonitor.src.UI.Helpers
         // =================================================================
         // 透明度渐变
         // =================================================================
-        public void StartFadeIn(double targetOpacity)
+        public async void StartFadeIn(double targetOpacity)
         {
             targetOpacity = Math.Clamp(targetOpacity, 0.1, 1.0);
-            _ = Task.Run(async () =>
+            if (!SystemInformation.IsMenuAnimationEnabled) { _form.Opacity = targetOpacity; return; }
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (!_form.IsDisposed && clock.ElapsedMilliseconds < 150)
             {
-                try
-                {
-                    double current = 0;
-                    while (current < targetOpacity)
-                    {
-                        await Task.Delay(16).ConfigureAwait(false);
-                        _form.BeginInvoke(new Action(() => 
-                        {
-                            current += 0.05;
-                            if (current > targetOpacity) current = targetOpacity;
-                            _form.Opacity = current;
-                        }));
-                        if (current >= targetOpacity) break;
-                    }
-                }
-                catch { }
-            });
+                _form.Opacity = targetOpacity * Math.Clamp(clock.Elapsed.TotalMilliseconds / 150.0, 0, 1);
+                await Task.Delay(16);
+            }
+            if (!_form.IsDisposed) _form.Opacity = targetOpacity;
         }
-
         // =================================================================
         // 鼠标穿透
         // =================================================================

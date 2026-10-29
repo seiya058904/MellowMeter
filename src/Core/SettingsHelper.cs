@@ -11,9 +11,9 @@ namespace LiteMonitor
     public static class SettingsHelper
     {
         // Cache path
-        private static readonly string _cachedPath = Path.Combine(AppContext.BaseDirectory, "settings.json");
-        private static readonly string _backupPath = Path.Combine(AppContext.BaseDirectory, "settings.json.bak");
-        private static readonly string _tempPath = Path.Combine(AppContext.BaseDirectory, "settings.json.tmp");
+        private static readonly string _cachedPath = AppPaths.DataFile("settings.json");
+        private static readonly string _backupPath = AppPaths.DataFile("settings.json.bak");
+        private static readonly string _tempPath = AppPaths.DataFile("settings.json.tmp");
         private static readonly object _ioLock = new object();
         public static string FilePath => _cachedPath;
 
@@ -161,12 +161,12 @@ namespace LiteMonitor
                 // [Taskbar] DASH items should appear at the END by default (SortIndex > 800)
                 new MonitorItemConfig { Key = "DASH.HOST", SortIndex = 101, TaskbarSortIndex = 1100, VisibleInPanel = false, TaskbarLabel = " " },
                 new MonitorItemConfig { Key = "DASH.Time", SortIndex = 102, TaskbarSortIndex = 1200, VisibleInPanel = false, TaskbarLabel = " " },
-                new MonitorItemConfig { Key = "DASH.Uptime", SortIndex = 103, TaskbarSortIndex = 1300, VisibleInPanel = true, TaskbarLabel = " " },
+                new MonitorItemConfig { Key = "DASH.Uptime", SortIndex = 103, TaskbarSortIndex = 1300, VisibleInPanel = false, TaskbarLabel = " " },
                 new MonitorItemConfig { Key = "DASH.IP",   SortIndex = 104, TaskbarSortIndex = 1400, VisibleInPanel = false, TaskbarLabel = " " },
                
                 // [2xx] CPU
                 new MonitorItemConfig { Key = "CPU.Load",  SortIndex = 201, VisibleInPanel = true, VisibleInTaskbar = true },
-                new MonitorItemConfig { Key = "CPU.Temp",  SortIndex = 202, VisibleInPanel = true, VisibleInTaskbar = true },
+                new MonitorItemConfig { Key = "CPU.Temp",  SortIndex = 202, VisibleInPanel = false, VisibleInTaskbar = false },
                 new MonitorItemConfig { Key = "CPU.Clock", SortIndex = 203, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "CPU.Power", SortIndex = 204, VisibleInPanel = false },
                 // [New] CPU Voltage
@@ -175,12 +175,12 @@ namespace LiteMonitor
                 new MonitorItemConfig { Key = "CPU.Pump",  SortIndex = 207, VisibleInPanel = false },
 
                 // [3xx] GPU
-                new MonitorItemConfig { Key = "GPU.Load",  SortIndex = 301, VisibleInPanel = true, VisibleInTaskbar = true },
-                new MonitorItemConfig { Key = "GPU.Temp",  SortIndex = 302, VisibleInPanel = true },
+                new MonitorItemConfig { Key = "GPU.Load",  SortIndex = 301, VisibleInPanel = false, VisibleInTaskbar = false },
+                new MonitorItemConfig { Key = "GPU.Temp",  SortIndex = 302, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "GPU.Clock", SortIndex = 303, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "GPU.Power", SortIndex = 304, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "GPU.Fan",   SortIndex = 305, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "GPU.VRAM",  SortIndex = 306, VisibleInPanel = true },
+                new MonitorItemConfig { Key = "GPU.VRAM",  SortIndex = 306, VisibleInPanel = false },
 
                 // [4xx] HOST (MEM, FPS, MOBO, DISK Temp, CASE Fan)
                 new MonitorItemConfig { Key = "MEM.Load",  SortIndex = 401, VisibleInPanel = true, VisibleInTaskbar = true },
@@ -196,16 +196,16 @@ namespace LiteMonitor
                 new MonitorItemConfig { Key = "BAT.Current", SortIndex = 504, VisibleInPanel = false },
 
                 // [6xx] DISK IO
-                new MonitorItemConfig { Key = "DISK.Read", SortIndex = 601, VisibleInPanel = true },
-                new MonitorItemConfig { Key = "DISK.Write",SortIndex = 602, VisibleInPanel = true },
+                new MonitorItemConfig { Key = "DISK.Read", SortIndex = 601, VisibleInPanel = false },
+                new MonitorItemConfig { Key = "DISK.Write",SortIndex = 602, VisibleInPanel = false },
 
                 // [7xx] NET
                 new MonitorItemConfig { Key = "NET.Up",    SortIndex = 701, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "NET.Down",  SortIndex = 702, VisibleInPanel = true, VisibleInTaskbar = true },
 
                 // [8xx] DATA
-                new MonitorItemConfig { Key = "DATA.DayUp",  SortIndex = 801, VisibleInPanel = true },
-                new MonitorItemConfig { Key = "DATA.DayDown",SortIndex = 802, VisibleInPanel = true },
+                new MonitorItemConfig { Key = "DATA.DayUp",  SortIndex = 801, VisibleInPanel = false },
+                new MonitorItemConfig { Key = "DATA.DayDown",SortIndex = 802, VisibleInPanel = false },
             };
         }
         // [Sync] 同步到语言设置

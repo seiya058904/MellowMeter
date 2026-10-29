@@ -9,10 +9,10 @@ namespace LiteMonitor.src.UI.Controls
 {
     public class LiteTreeView : TreeView
     {
-        private static readonly Brush _selectBgBrush = new SolidBrush(Color.FromArgb(204, 232, 255)); 
-        private static readonly Brush _hoverBrush = new SolidBrush(Color.FromArgb(250, 250, 250)); 
-        private static readonly Pen _linePen = new Pen(Color.FromArgb(240, 240, 240)); 
-        private static readonly Brush _chevronBrush = new SolidBrush(Color.Gray); 
+        private readonly Brush _selectBgBrush = new SolidBrush(UIColors.NavSelected);
+        private readonly Brush _hoverBrush = new SolidBrush(UIColors.NavHover);
+        private readonly Pen _linePen = new Pen(UIColors.Border);
+        private readonly Brush _chevronBrush = new SolidBrush(UIColors.TextSub);
 
         private Font _baseFont;
         private Font _boldFont;
@@ -39,11 +39,12 @@ namespace LiteMonitor.src.UI.Controls
             this.ShowPlusMinus = false; 
             this.FullRowSelect = true;
             this.BorderStyle = BorderStyle.None;
-            this.BackColor = Color.White;
+            this.BackColor = UIColors.CardBg;
+            this.ForeColor = UIColors.TextMain;
             this.ItemHeight = UIUtils.S(28); 
 
-            _baseFont = new Font("Microsoft YaHei UI", 9f);
-            _boldFont = new Font("Microsoft YaHei UI", 9f, FontStyle.Bold);
+            _baseFont = new Font("Segoe UI", 9f);
+            _boldFont = new Font("Segoe UI", 9f, FontStyle.Bold);
             this.Font = _baseFont;
         }
 
@@ -170,7 +171,7 @@ namespace LiteMonitor.src.UI.Controls
             if (e.Node.Tag is ISensor sensor)
             {
                 string maxStr = FormatValue(sensor.Max, sensor.SensorType);
-                TextRenderer.DrawText(g, maxStr, _baseFont, maxRect, Color.DimGray, 
+                TextRenderer.DrawText(g, maxStr, _baseFont, maxRect, UIColors.TextSub,
                     TextFormatFlags.VerticalCenter | TextFormatFlags.Right | TextFormatFlags.SingleLine);
 
                 string valStr = FormatValue(sensor.Value, sensor.SensorType);
@@ -184,9 +185,9 @@ namespace LiteMonitor.src.UI.Controls
             Font font;
 
             // 样式选择
-            if (e.Node.Tag is IHardware) { font = _boldFont; txtColor = Color.FromArgb(20, 20, 20); }
-            else if (e.Node.Tag is ISensor) { font = _baseFont; txtColor = Color.Black; }
-            else { font = _boldFont; txtColor = Color.FromArgb(30, 30, 30); }
+            if (e.Node.Tag is IHardware) { font = _boldFont; txtColor = UIColors.TextMain; }
+            else if (e.Node.Tag is ISensor) { font = _baseFont; txtColor = UIColors.TextMain; }
+            else { font = _boldFont; txtColor = UIColors.TextMain; }
 
             int textStartX = chevronRect.Right + UIUtils.S(5);
 
@@ -244,12 +245,12 @@ namespace LiteMonitor.src.UI.Controls
         private Color GetColorByType(SensorType type)
         {
             switch (type) {
-                case SensorType.Temperature: return Color.FromArgb(200, 60, 0); 
-                case SensorType.Load: return Color.FromArgb(0, 100, 0); 
-                case SensorType.Power: return Color.Purple;
-                case SensorType.Clock: return Color.DarkBlue;
+                case SensorType.Temperature: return UIColors.TextWarn;
+                case SensorType.Load: return UIColors.Primary;
+                case SensorType.Power: return UIColors.IsDark ? Color.FromArgb(199, 176, 226) : Color.FromArgb(113, 73, 145);
+                case SensorType.Clock: return UIColors.IsDark ? Color.FromArgb(150, 194, 225) : Color.FromArgb(51, 101, 137);
                 // ★★★ 修改：默认颜色改为绿色 ★★★
-                default: return Color.FromArgb(34, 139, 34); // ForestGreen
+                default: return UIColors.Primary; // ForestGreen
             }
         }
 
@@ -309,7 +310,15 @@ namespace LiteMonitor.src.UI.Controls
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) { _baseFont?.Dispose(); _boldFont?.Dispose(); }
+            if (disposing)
+            {
+                _baseFont?.Dispose();
+                _boldFont?.Dispose();
+                _selectBgBrush.Dispose();
+                _hoverBrush.Dispose();
+                _linePen.Dispose();
+                _chevronBrush.Dispose();
+            }
             base.Dispose(disposing);
         }
     }

@@ -35,9 +35,9 @@ namespace LiteMonitor.src.Core
         public static readonly string[] PowerKeys = { "CPU.Power", "GPU.Power", "BAT.Power" };
         public static readonly string[] FpsKeys = { "FPS" };
 
-        private static readonly string _filePath = Path.Combine(AppContext.BaseDirectory, "HardwareHistory.json");
-        private static readonly string _backupPath = Path.Combine(AppContext.BaseDirectory, "HardwareHistory.json.bak");
-        private static readonly string _tempPath = Path.Combine(AppContext.BaseDirectory, "HardwareHistory.json.tmp");
+        private static readonly string _filePath = AppPaths.DataFile("HardwareHistory.json");
+        private static readonly string _backupPath = AppPaths.DataFile("HardwareHistory.json.bak");
+        private static readonly string _tempPath = AppPaths.DataFile("HardwareHistory.json.tmp");
         private static readonly object _dataLock = new object();
         private static readonly object _ioLock = new object();
         private static readonly TimeSpan _sampleInterval = TimeSpan.FromSeconds(10);

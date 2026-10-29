@@ -11,6 +11,8 @@ namespace LiteMonitor
     {
         // ====== 基础设置 ======
         public string Skin { get; set; } = "DarkFlat_Classic";
+        public bool AdvancedSensorsEnabled { get; set; } = false;
+        public bool HistoryEnabled { get; set; } = true;
         public bool TopMost { get; set; } = true;
         public bool AutoStart { get; set; } = false;
         public int RefreshMs { get; set; } = 1000;
@@ -18,12 +20,12 @@ namespace LiteMonitor
         public Point Position { get; set; } = new Point(-1, -1);
 
         // ====== 界面与行为 ======
-        public bool AutoCheckUpdate { get; set; } = true; // ★★★ [新增] 自动检查更新 ★★★
-        public bool HorizontalMode { get; set; } = false;
-        public double Opacity { get; set; } = 0.85;
+        public bool AutoCheckUpdate { get; set; } = false;
+        public bool HorizontalMode { get; set; } = true;
+        public double Opacity { get; set; } = 1.0;
         public string Language { get; set; } = "";
         public bool ClickThrough { get; set; } = false;
-        public bool AutoHide { get; set; } = true;
+        public bool AutoHide { get; set; } = false;
         public bool ClampToScreen { get; set; } = true;
         public int PanelWidth { get; set; } = 240;
         public double UIScale { get; set; } = 1.0;
@@ -75,7 +77,7 @@ namespace LiteMonitor
         public bool HorizontalSingleLine { get; set; } = false; // [新增] 横条模式单行显示
 
         // ★★★ 常量定义：用于 GetStyle 中的默认策略 ★★★
-        public const string DEFAULT_TB_FONT = "Microsoft YaHei UI"; // 任务栏默认字体（兼容多语言环境，系统自带）
+        public const string DEFAULT_TB_FONT = "Microsoft YaHei UI";
         public const float DEFAULT_TB_SIZE_BOLD = 10f; // 粗字模式默认字号（提升可读性）
         public const float DEFAULT_TB_SIZE_REGULAR = 9f; // 细字模式默认字号（节省空间，更精致）
         public const int DEFAULT_TB_GAP = 6; // 任务栏组间距默认值（不同监控项之间的距离）
@@ -116,7 +118,7 @@ namespace LiteMonitor
         public bool UseWinPerCounters { get; set; } = true;
 
         // ★★★ [新增] 忽略 SMB (局域网文件传输) 流量 ★★★
-        public bool IgnoreSmbTraffic { get; set; } = true;
+        public bool IgnoreSmbTraffic { get; set; } = false;
         
         // ====== 记录与报警 ======
         public float RecordedMaxCpuPower { get; set; } = 65.0f;

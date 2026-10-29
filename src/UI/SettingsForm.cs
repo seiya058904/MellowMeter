@@ -23,13 +23,12 @@ namespace LiteMonitor.src.UI
         private Dictionary<string, SettingsPageBase> _pages = new Dictionary<string, SettingsPageBase>();
         private string _currentKey = "";
 
-        // 恢复 WS_EX_COMPOSITED 以防止闪烁，同时配合页面卸载机制解决卡顿
         protected override CreateParams CreateParams
         {
             get
             {
                 CreateParams cp = base.CreateParams;
-                cp.ExStyle |= 0x02000000; // WS_EX_COMPOSITED
+                cp.ExStyle |= 0x02000000; // Preserve upstream composited page rendering.
                 return cp;
             }
         }
@@ -65,14 +64,16 @@ namespace LiteMonitor.src.UI
         {
             UIUtils.ScaleFactor = this.DeviceDpi / 96f;
 
-            this.Size = new Size(UIUtils.S(820), UIUtils.S(680));
+            this.AutoScaleMode = AutoScaleMode.None; // Controls use UIUtils DPI scaling.
+            this.ClientSize = UIUtils.S(new Size(880, 640));
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = true;
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.Text = LanguageManager.T("Menu.SettingsPanel");
-            this.Font = new Font("Microsoft YaHei UI", 9F);
+            this.Text = "MellowMeter · " + LanguageManager.T("Menu.SettingsPanel");
+            this.Font = new Font("Segoe UI", 9F);
             this.BackColor = UIColors.MainBg;
+            this.ForeColor = UIColors.TextMain;
             this.ShowInTaskbar = true;
 
             // 侧边栏
@@ -84,14 +85,11 @@ namespace LiteMonitor.src.UI
                 Padding = UIUtils.S(new Padding(0, 20, 0, 0)), BackColor = UIColors.SidebarBg
             };
             
-            var line = new Panel { Dock = DockStyle.Right, Width = 1, BackColor = UIColors.Border };
             pnlSidebar.Controls.Add(_pnlNavContainer);
-            pnlSidebar.Controls.Add(line);
             this.Controls.Add(pnlSidebar);
 
             // 底部按钮
             var pnlBottom = new Panel { Dock = DockStyle.Bottom, Height = UIUtils.S(60), BackColor = UIColors.MainBg };
-            pnlBottom.Paint += (s, e) => e.Graphics.DrawLine(new Pen(UIColors.Border), 0, 0, Width, 0);
 
             var flowBtns = new FlowLayoutPanel 
             { 
@@ -102,28 +100,14 @@ namespace LiteMonitor.src.UI
             var btnOk = new LiteButton(LanguageManager.T("Menu.OK"), true);
             var btnCancel = new LiteButton(LanguageManager.T("Menu.Cancel"), false);
             var btnApply = new LiteButton(LanguageManager.T("Menu.Apply"), false);
-            var btnReset = new LiteButton(LanguageManager.T("Menu.Reset"), false) { ForeColor = UIColors.TextWarn };
+            this.AcceptButton = btnOk;
+            this.CancelButton = btnCancel;
 
             btnOk.Click += (s, e) => { ApplySettings(); this.DialogResult = DialogResult.OK; this.Close(); };
             btnCancel.Click += (s, e) => { this.DialogResult = DialogResult.Cancel; this.Close(); };
             btnApply.Click += (s, e) => { ApplySettings(); };
             
-            btnReset.Click += (s, e) => 
-            {
-                if (MessageBox.Show(LanguageManager.T("Menu.ResetConfirm"), LanguageManager.T("Menu.Reset"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
-                {
-                    try 
-                    {
-                        Settings.GlobalBlockSave = true;
-                        SettingsHelper.DeleteStoredSettings();
-                        Application.Restart();
-                        Environment.Exit(0);
-                    }
-                    catch (Exception ex) { Settings.GlobalBlockSave = false; MessageBox.Show(ex.Message); }
-                }
-            };
-
-            flowBtns.Controls.Add(btnOk); flowBtns.Controls.Add(btnCancel); flowBtns.Controls.Add(btnApply); flowBtns.Controls.Add(btnReset);
+            flowBtns.Controls.Add(btnOk); flowBtns.Controls.Add(btnCancel); flowBtns.Controls.Add(btnApply);
             pnlBottom.Controls.Add(flowBtns);
             this.Controls.Add(pnlBottom);
 
@@ -138,16 +122,18 @@ namespace LiteMonitor.src.UI
 
         private void InitPages()
         {
-            _pnlNavContainer.Controls.Clear();
+            while (_pnlNavContainer.Controls.Count > 0)
+                _pnlNavContainer.Controls[0].Dispose();
+            foreach (var page in _pages.Values) page.Dispose();
             _pages.Clear();
+            _currentKey = "";
             
             // 注册所有页面
-            AddNav("MainPanel", "🖥️ " + LanguageManager.T("Menu.MainFormSettings"), new MainPanelPage());
-            AddNav("Taskbar", "➖ " + LanguageManager.T("Menu.TaskbarSettings"), new TaskbarPage());
-            AddNav("Monitor", "📊 " + LanguageManager.T("Menu.MonitorItemDisplay"), new MonitorPage());
-            AddNav("Threshold", "🔔 " + LanguageManager.T("Menu.Thresholds"), new ThresholdPage());
-            AddNav("System", "⚙️ " + LanguageManager.T("Menu.SystemHardwar"), new SystemHardwarPage());
-            AddNav("Plugins", "🧩 " + LanguageManager.T("Menu.Plugins"), new PluginPage());
+            AddNav("MainPanel", LanguageManager.T("Menu.MainFormSettings"), new MainPanelPage());
+            AddNav("Taskbar", LanguageManager.T("Menu.TaskbarSettings"), new TaskbarPage());
+            AddNav("Monitor", LanguageManager.T("Menu.MonitorItemDisplay"), new MonitorPage());
+            AddNav("Threshold", LanguageManager.T("Menu.Thresholds"), new ThresholdPage());
+            AddNav("System", LanguageManager.T("Menu.SystemHardwar"), new SystemHardwarPage());
 
             _pnlNavContainer.PerformLayout();
             SwitchPage("MainPanel");
@@ -165,7 +151,8 @@ namespace LiteMonitor.src.UI
 
         public void SwitchPage(string key)
         {
-            if (_currentKey == key) return;
+            if (_currentKey == key || !_pages.ContainsKey(key)) return;
+            if (_pages.TryGetValue(_currentKey, out var previousPage)) previousPage.Save();
             _currentKey = key;
 
             // 更新导航按钮状态
@@ -174,7 +161,6 @@ namespace LiteMonitor.src.UI
                 if (c is LiteNavBtn b) b.IsActive = ((string)b.Tag == key);
             _pnlNavContainer.ResumeLayout();
             _pnlNavContainer.Refresh(); 
-            Application.DoEvents();
 
             if (_pages.ContainsKey(key))
             {
@@ -209,6 +195,9 @@ namespace LiteMonitor.src.UI
         private void ApplySettings()
         {
             bool oldAutoStart = _cfg.AutoStart;
+            bool oldAdvancedSensors = _cfg.AdvancedSensorsEnabled;
+            string oldSkin = _cfg.Skin;
+            string oldLanguage = _cfg.Language;
 
             // 保存逻辑顺序优化
             foreach (var kv in _pages) 
@@ -232,7 +221,7 @@ namespace LiteMonitor.src.UI
             {
                 // 自动纠正：如果所有可交互入口都被封死（隐藏或穿透+隐藏托盘），强制显示托盘
                 _draftCfg.HideTrayIcon = false;
-                MessageBox.Show("为了防止所有可交互入口都被死锁（隐藏或穿透+隐藏托盘），已强制显示托盘图标。", "LiteMonitor", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("为了防止所有可交互入口都被死锁（隐藏或穿透+隐藏托盘），已强制显示托盘图标。", "MellowMeter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
             // 2. 合并变更到 Live Settings
@@ -248,6 +237,55 @@ namespace LiteMonitor.src.UI
             // 5. [Fix] Rebase Draft to match Live
             // 将 Live 环境中由插件生成的最新监控项同步回 Draft，并保留动态显示属性
             SettingsChanger.RebaseDraftMonitorItems(_cfg, _draftCfg);
+
+            if (!string.Equals(oldSkin, _cfg.Skin, StringComparison.Ordinal) ||
+                !string.Equals(oldLanguage, _cfg.Language, StringComparison.Ordinal))
+                RefreshAppearance();
+
+            if (oldAdvancedSensors != _cfg.AdvancedSensorsEnabled)
+                MessageBox.Show(this, LanguageManager.T("Menu.RestartForSensors"), "MellowMeter", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void RefreshAppearance()
+        {
+            string selectedPage = _currentKey;
+            Rectangle previousBounds = Bounds;
+            Font previousFont = Font;
+            SuspendLayout();
+            try
+            {
+                AcceptButton = null;
+                CancelButton = null;
+                // Cached pages include detached controls; dispose those before replacing the shell.
+                foreach (var page in _pages.Values) page.Dispose();
+                _pages.Clear();
+                _currentKey = "";
+                while (Controls.Count > 0) Controls[0].Dispose();
+
+                InitializeComponent();
+                InitPages();
+                SwitchPage(selectedPage);
+                Bounds = previousBounds;
+            }
+            finally
+            {
+                if (!ReferenceEquals(previousFont, Font) && !previousFont.IsSystemFont)
+                    previousFont.Dispose();
+                ResumeLayout(true);
+                Invalidate(true);
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                // Detached pages are not in the form's Controls collection.
+                foreach (var page in _pages.Values) page.Dispose();
+                _pages.Clear();
+                _cfg.SyncToLanguage();
+            }
+            base.Dispose(disposing);
         }
     }
 }

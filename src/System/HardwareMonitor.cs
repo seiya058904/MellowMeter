@@ -7,6 +7,7 @@ using LibreHardwareMonitor.Hardware;
 using LiteMonitor.src.Core;
 using System.Linq;
 using System.Threading;
+using System.Diagnostics;
 
 namespace LiteMonitor.src.SystemServices
 {
@@ -26,7 +27,15 @@ namespace LiteMonitor.src.SystemServices
         private readonly SensorMap _sensorMap;
         private readonly NetworkManager _networkManager;
         private readonly DiskManager _diskManager;
-        private readonly FpsCounter _fpsCounter;
+        private readonly Lazy<FpsCounter> _fpsCounter;
+        private readonly BasicSystemSampler _basicSampler;
+        private readonly bool _advancedEnabled;
+        private volatile bool _disposed;
+        private volatile bool _advancedSampleValid;
+        private int _samplingGeneration;
+        private long _lastSlowScan;
+        private long _lastDiskScan;
+        private long _lastHistorySave = Stopwatch.GetTimestamp();
         private readonly DriverInstaller _driverInstaller;
         private readonly HardwareValueProvider _valueProvider;
 
@@ -59,32 +68,11 @@ namespace LiteMonitor.src.SystemServices
             _cfg = cfg;
             Instance = this;
 
-            // 1. 初始化 Computer
-            _computer = new Computer()
-            {
-                // ★★★ 修正：强制开启 CPU ★★★
-                // 必须始终为 true。如果依赖 IsAnyEnabled("")，当用户未开启任何 CPU 监控项时，
-                // LHM 将不会初始化 CPU 节点。后续即使通过热切换开启了风扇监控，
-                // 由于 RefreshHardwareConfig 仅切换 IsControllerEnabled 而不更新 IsCpuEnabled，
-                // 依然无法读取到依赖 CPU 节点的传感器数据。
-                IsCpuEnabled = true, 
-                
-                IsGpuEnabled = true,
-                IsMemoryEnabled = true,
-                IsNetworkEnabled = true,
-                IsStorageEnabled = true,
-                IsMotherboardEnabled = true,
-                
-                // ★★★ 优化 T0：动态开启控制器扫描 ★★★
-                // 默认关闭以避免 USB 冲突，仅当需要风扇/水泵时开启
-                IsControllerEnabled = ShouldEnableController(), 
-
-                // 开启电池监控
-                IsBatteryEnabled = true,
-
-                // 顺便确保 PSU 也关闭（通常不需要监控电源模块，除非是高端 Corsair 电源）
-                IsPsuEnabled = false
-            };
+            _advancedEnabled = cfg.AdvancedSensorsEnabled;
+            _basicSampler = new BasicSystemSampler(cfg);
+            // Constructing a tree is cheap; Open() is strictly opt-in.
+            _computer = new Computer();
+            ConfigureAdvancedHardware();
 
             // ★★★ [新增] 1. 初始化计数器管理器 (必须在 ValueProvider 之前) ★★★
             _perfCounterManager = new PerformanceCounterManager();
@@ -94,7 +82,7 @@ namespace LiteMonitor.src.SystemServices
             _networkManager = new NetworkManager(_perfCounterManager);
             _diskManager = new DiskManager();
             _driverInstaller = new DriverInstaller(cfg, ReloadComputerSafe, ReleaseComputerForDriverInstall);
-            _fpsCounter = new FpsCounter(_driverInstaller); // <--- 新增
+            _fpsCounter = new Lazy<FpsCounter>(() => new FpsCounter(_driverInstaller));
 
             // ★★★ [修改] 2. 将 Manager 注入给 ValueProvider ★★★
             _valueProvider = new HardwareValueProvider(
@@ -110,7 +98,7 @@ namespace LiteMonitor.src.SystemServices
             );
 
             // 3. 异步启动 (唯一优化：不卡UI)
-            InitializeAsync();
+            if (_advancedEnabled) InitializeAsync();
         }
         #endregion
 
@@ -118,55 +106,55 @@ namespace LiteMonitor.src.SystemServices
 
         public float? Get(string key)
         {
-            return _isOpening ? _valueProvider.GetStartupValue(key) : _valueProvider.GetValue(key);
+            if (_disposed) return null;
+            if (key is "CPU.Load" or "MEM.Load" or "NET.Up" or "NET.Down")
+                return _basicSampler.Get(key);
+            if (key == "DATA.DayUp") return TrafficLogger.GetTodayStats().up;
+            if (key == "DATA.DayDown") return TrafficLogger.GetTodayStats().down;
+            if (!_advancedEnabled || _isOpening || _isReloading || !_advancedSampleValid) return null;
+            return _valueProvider.GetValue(key);
         }
 
-        public string GetNetworkIP() => _networkManager.GetCurrentIP();
+        public string GetNetworkIP() => _basicSampler.GetIP();
+
+        public void ResetSamplingBaseline()
+        {
+            Interlocked.Increment(ref _samplingGeneration);
+            _basicSampler.Reset();
+            _advancedSampleValid = false;
+        }
 
         // ★★★ 新增：允许主程序手动触发驱动检查 (用于解决启动弹窗冲突) ★★★
-        public Task SmartCheckDriver() => _driverInstaller.SmartCheckDriver();
+        public Task SmartCheckDriver() => Task.CompletedTask; // Never install or prompt from monitoring.
 
         // ★★★ [新增] 动态刷新硬件配置 (热切换) ★★★
         public void RefreshHardwareConfig()
         {
-            // 1. 计算期望状态
-            bool targetState = ShouldEnableController();
-
-            // 2. 检查当前状态 (无需加锁，bool读写原子且 IsControllerEnabled 只是个属性)
-            bool currentState = _computer.IsControllerEnabled;
-
-            // 3. 如果状态一致，无需操作
-            if (targetState == currentState) return;
-
-            // ★★★ [需求变更] 关闭风扇/水泵不需要重载，仅首次开启时重载 ★★★
-            // 避免关闭监控项时触发重载导致软件短暂卡顿或设备重连
-            // 如果当前已开启 (true) 且目标是关闭 (false)，则保持开启状态，不执行重载
-            if (currentState && !targetState)
-            {
-                System.Diagnostics.Debug.WriteLine($"[HotSwap] Controller disable requested but ignored to avoid reload (Latch Mode).");
-                return;
-            }
-
-            // 4. 状态变更 (False -> True)，触发异步重载
-            System.Diagnostics.Debug.WriteLine($"[HotSwap] Controller State Change: {currentState} -> {targetState}");
-
-            // Fire-and-forget 异步任务，避免阻塞 UI
+            if (!_advancedEnabled || _disposed || _isOpening || _isReloading) return;
+            _isReloading = true;
             Task.Run(() =>
             {
-                // 更新配置属性
-                _computer.IsControllerEnabled = targetState;
-
-                // 触发安全重载
-                // 由于 ReloadComputerSafe 全程持有 _lock，
-                // 而 UpdateAll 和 GetValue 都改用了 TryEnter，
-                // 所以这里会独占 _lock 几秒钟，期间 UI 不会卡死（只会显示空数据）。
-                ReloadComputerSafe();
+                try { ReloadComputerSafe(); }
+                finally { _isReloading = false; }
             });
         }
 
         public void UpdateAll()
         {
-            if (_isOpening) return;
+            if (_disposed) return;
+            int generation = Volatile.Read(ref _samplingGeneration);
+            _basicSampler.Update();
+            long now = Stopwatch.GetTimestamp();
+            if (_cfg.HistoryEnabled && Stopwatch.GetElapsedTime(_lastHistorySave, now).TotalSeconds >= 60)
+            {
+                _lastHistorySave = now;
+                TrafficLogger.Save();
+            }
+            if (!_advancedEnabled || _isOpening || _isReloading)
+            {
+                OnValuesUpdated?.Invoke();
+                return;
+            }
 
             // [Fix #290] 标记是否需要触发重载（因硬件变更或故障）
             bool needsReload = false;
@@ -185,12 +173,17 @@ namespace LiteMonitor.src.SystemServices
                 {
                     // 每十分钟兜底重建后，同步取值缓存，避免继续使用旧传感器对象。
                     if (_sensorMap.EnsureFresh(_computer, _cfg))
+                    {
                         _valueProvider.PreCacheAllSensors(_sensorMap);
+                        DisableSensorHistory();
+                    }
 
                     // 3秒一次 (慢速扫描)
-                    bool isSlowScanTick = (_secondsCounter % 3 == 0); 
+                    bool isSlowScanTick = _lastSlowScan == 0 || Stopwatch.GetElapsedTime(_lastSlowScan, now).TotalSeconds >= 3;
+                    if (isSlowScanTick) _lastSlowScan = now;
                     // 10秒一次 (磁盘后台扫描)
-                    bool needDiskBgScan = (_secondsCounter % 10 == 0);
+                    bool needDiskBgScan = _lastDiskScan == 0 || Stopwatch.GetElapsedTime(_lastDiskScan, now).TotalSeconds >= 10;
+                    if (needDiskBgScan) _lastDiskScan = now;
                     bool repairGpuMapAfterLoop = false;
 
                     foreach (var hw in _computer.Hardware)
@@ -251,11 +244,12 @@ namespace LiteMonitor.src.SystemServices
                 }
                 
                 // 任务错峰执行 (调用 SystemOptimizer)
-                SystemOptimizer.RunMaintenanceTasks(_secondsCounter);
+                // Runtime GC owns memory management; no forced collections or working-set trimming.
                 
+                _advancedSampleValid = !needsReload && generation == Volatile.Read(ref _samplingGeneration);
                 OnValuesUpdated?.Invoke();
             }
-            catch { }
+            catch { _advancedSampleValid = false; }
 
             // [Fix #290] 硬件故障自动恢复
             // 如果检测到 GPU 丢失或驱动崩溃，触发安全重载以刷新硬件列表
@@ -270,7 +264,7 @@ namespace LiteMonitor.src.SystemServices
                     try
                     {
                         await Task.Delay(2000); // 等待 2秒让系统硬件列表稳定
-                        ReloadComputerSafe();
+                        if (!_disposed) ReloadComputerSafe();
                     }
                     finally
                     {
@@ -284,6 +278,7 @@ namespace LiteMonitor.src.SystemServices
 
         public void Dispose()
         {
+            _disposed = true;
             // ★★★ 核心修复：加锁！防止与正在运行的 UpdateAll() 冲突 ★★★
             lock (_lock)
             {
@@ -301,7 +296,7 @@ namespace LiteMonitor.src.SystemServices
 
             _valueProvider.Dispose();
             _perfCounterManager.Dispose(); // ★★★ [新增] 释放计数器资源 ★★★
-            _fpsCounter.Dispose(); // <--- 新增
+            if (_fpsCounter.IsValueCreated) _fpsCounter.Value.Dispose();
             _networkManager.ClearCache();
             _diskManager.ClearCache(); // 漏掉的，补上
         }
@@ -311,55 +306,42 @@ namespace LiteMonitor.src.SystemServices
 
         private void InitializeAsync()
         {
-            Task.Run(async () =>
+            _isOpening = true;
+            Task.Run(() =>
             {
-                _isOpening = true;
                 try
                 {
-                    // ★★★ [新增] 启动计数器预热 (不阻塞主 UI) ★★★
-                    _perfCounterManager.InitializeAsync();
-
                     lock (_lock)
                     {
-                        // LHM 打开双 Nvidia 显卡时可能很慢。启动阶段 Get() 已改走性能计数器兜底，
-                        // 这里继续加锁只会让设置页等硬件树稳定，不会拖住 CPU/MEM/DISK 首屏数据。
+                        if (_disposed) return;
                         _computer.Open();
                         WarmUpMotherboardSensors();
                         WarmUpBatterySensors();
-
-                        // 仅在启用 GPU 监控或网页服务时预热显卡，确保延迟出现的传感器能进入映射。
                         _sensorMap.Rebuild(_computer, _cfg);
-                        
-                        // ★★★ [新增] 静态化预热：将所有传感器对象存入 Provider 缓存 ★★★
                         _valueProvider.PreCacheAllSensors(_sensorMap);
+                        DisableSensorHistory();
                     }
-
-                    _isOpening = false;
-
-                    // 首轮缓存就绪后再做历史记录禁用和内存整理，避免延后第一屏数据。
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(3000);
-
-                        lock (_lock)
-                        {
-                            DisableSensorHistory();
-                        }
-
-                        // 优化 T1：启动后大扫除
-                        GC.Collect(2, GCCollectionMode.Forced, true, true);
-                        SystemOptimizer.TrimWorkingSet();
-                    });
                 }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Init Error: {ex.Message}");
-                }
-                finally
-                {
-                    _isOpening = false;
-                }
+                catch (Exception ex) { Debug.WriteLine($"Sensor initialization unavailable: {ex.Message}"); }
+                finally { _isOpening = false; }
             });
+        }
+
+        private void ConfigureAdvancedHardware()
+        {
+            bool enabled = _advancedEnabled;
+            bool all = _cfg.WebServerEnabled;
+            bool fans = ShouldEnableController();
+            _computer.IsCpuEnabled = enabled && (all || fans || _cfg.IsAnyEnabled("CPU.Temp") ||
+                _cfg.IsAnyEnabled("CPU.Clock") || _cfg.IsAnyEnabled("CPU.Power"));
+            _computer.IsGpuEnabled = enabled && (all || _cfg.IsAnyEnabled("GPU"));
+            _computer.IsMemoryEnabled = false;
+            _computer.IsNetworkEnabled = false;
+            _computer.IsStorageEnabled = enabled && (all || _cfg.IsAnyEnabled("DISK"));
+            _computer.IsMotherboardEnabled = enabled && (all || fans || _cfg.IsAnyEnabled("MOBO"));
+            _computer.IsControllerEnabled = enabled && fans;
+            _computer.IsBatteryEnabled = enabled && (all || _cfg.IsAnyEnabled("BAT"));
+            _computer.IsPsuEnabled = false;
         }
 
         // ★★★ [新增] 动态判断是否需要开启控制器 ★★★
@@ -475,6 +457,7 @@ namespace LiteMonitor.src.SystemServices
             {
                 lock (_lock)
                 {
+                    if (_disposed || !_advancedEnabled) return;
                     // 1. 清理业务缓存
                     _networkManager.ClearCache();
                     _diskManager.ClearCache();
@@ -499,6 +482,7 @@ namespace LiteMonitor.src.SystemServices
                         _computer.Hardware.Clear();
                     }
                     
+                    ConfigureAdvancedHardware();
                     _computer.Open();
                     WarmUpMotherboardSensors();
                     WarmUpBatterySensors();
@@ -511,8 +495,7 @@ namespace LiteMonitor.src.SystemServices
                 }
 
                 // 4. 优化 T1：重置后再次修剪内存
-                GC.Collect();
-                SystemOptimizer.TrimWorkingSet();
+                // Do not force GC or page out the working set after hardware refresh.
             }
             catch { }
         }
@@ -620,6 +603,7 @@ namespace LiteMonitor.src.SystemServices
             _gpuMapRepairAttempted = true;
             _sensorMap.Rebuild(_computer, _cfg);
             _valueProvider.PreCacheAllSensors(_sensorMap);
+            DisableSensorHistory();
         }
 
         private static bool IsMoboOrCooler(IHardware hw)
@@ -640,7 +624,7 @@ namespace LiteMonitor.src.SystemServices
         public static string GenerateSmartName(ISensor sensor, IHardware hardware) => 
             HardwareScanner.GenerateSmartName(sensor, hardware, Instance!._computer);
 
-        public static List<string> ListAllNetworks() => HardwareScanner.ListAllNetworks(Instance!._computer);
+        public static List<string> ListAllNetworks() => BasicSystemSampler.ListNetworks();
 
         public static List<string> ListAllDisks() => HardwareScanner.ListAllDisks(Instance!._computer);
 

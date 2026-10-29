@@ -44,7 +44,7 @@ namespace LiteMonitor
 
             _layout = new UILayout(ThemeManager.Current);
 
-            _timer = new System.Windows.Forms.Timer { Interval = Math.Max(80, _cfg.RefreshMs) };
+            _timer = new System.Windows.Forms.Timer { Interval = Math.Clamp(_cfg.RefreshMs, 250, 60000) };
             _timer.Tick += (_, __) => Tick();
             _timer.Start();
 
@@ -117,7 +117,7 @@ namespace LiteMonitor
 
             _form.BackColor = ThemeManager.ParseColor(t.Color.Background);
 
-            _timer.Interval = Math.Max(80, _cfg.RefreshMs);
+            _timer.Interval = Math.Clamp(_cfg.RefreshMs, 250, 60000);
             _form.Invalidate();
             _form.Update();
         }
@@ -141,7 +141,7 @@ namespace LiteMonitor
             // === 横屏模式 ===
             if (_cfg.HorizontalMode)
             {
-                _hxLayout ??= new HorizontalLayout(t, _form.Width, LayoutMode.Horizontal);
+                _hxLayout ??= new HorizontalLayout(t, _form.Width, LayoutMode.Horizontal, target: _form, settings: _cfg);
 
                 // [通用方案] 动态检测是否需要重新计算布局
                 // 移至 Tick() 中低频检查，避免 Render 高频调用
@@ -161,7 +161,7 @@ namespace LiteMonitor
             // === 竖屏模式 ===
             if (_layoutDirty)
             {
-                int h = _layout.Build(_groups);
+                int h = _layout.Build(_groups, graphics: g);
                 // [修复2补充] 设置高度时也使用 ClientSize，确保高度精准
                 _form.ClientSize = new Size(_form.ClientSize.Width, h);
                 _layoutDirty = false;
@@ -175,15 +175,39 @@ namespace LiteMonitor
         }
 
         private bool _busy = false;
+        private volatile bool _disposed;
+        private int _monitorDisposed;
+        private Task _samplingTask = Task.CompletedTask;
+        private Task _shutdownTask = Task.CompletedTask;
+        private bool _suspended;
+        private bool _sessionLocked;
+        public bool RenderingPaused => _suspended || _sessionLocked;
+        public int EffectiveRefreshMs => RenderingPaused ? 10000 :
+            SystemInformation.PowerStatus.PowerLineStatus == PowerLineStatus.Offline
+                ? Math.Clamp(_cfg.RefreshMs, 2000, 60000) : Math.Clamp(_cfg.RefreshMs, 250, 60000);
+
+        public void SetPowerState(bool? suspended = null, bool? locked = null)
+        {
+            if (_disposed) return;
+            if (suspended.HasValue) _suspended = suspended.Value;
+            if (locked.HasValue) _sessionLocked = locked.Value;
+            _mon.ResetSamplingBaseline();
+            _timer.Interval = EffectiveRefreshMs;
+        }
 
         private async void Tick()
         {
-            if (_dragging || _busy) return;
+            if (_disposed || _busy || _suspended) return;
+            bool visible = !_sessionLocked && (_form.Visible || _cfg.ShowTaskbar);
+            _timer.Interval = visible ? EffectiveRefreshMs : 10000;
+            if (!visible && !_cfg.HistoryEnabled) return;
             _busy = true;
 
             try
             {
-                await Task.Run(() => _mon.UpdateAll());
+                _samplingTask = Task.Run(() => _mon.UpdateAll());
+                await _samplingTask;
+                if (_disposed || _form.IsDisposed) return;
 
                 // ① 更新竖屏 items
                 foreach (var g in _groups)
@@ -230,12 +254,13 @@ namespace LiteMonitor
                 foreach (var col in _hxColsHorizontal) UpdateCol(col);
                 foreach (var col in _hxColsTaskbar) UpdateCol(col);
 
-                HardwareHistoryLogger.RecordSnapshot(_cfg, key => _mon.Get(key));
+                if (_cfg.HistoryEnabled) HardwareHistoryLogger.RecordSnapshot(_cfg, key => _mon.Get(key));
  
                 CheckTemperatureAlert();
 
                 // 驱动 DashboardService 更新
-                InfoService.Instance.Update();
+                if (_cfg.MonitorItems.Any(x => (x.VisibleInPanel || x.VisibleInTaskbar) && x.Key.StartsWith("DASH.")))
+                    InfoService.Instance.Update();
 
                 // [优化] 在数据更新后检查布局签名 (每秒一次)
                 // 只有当充电状态等导致样本变化时，才标记 Dirty
@@ -249,11 +274,13 @@ namespace LiteMonitor
                     }
                 }
 
-                _form.Invalidate();   
+                if (visible && !_dragging) _form.Invalidate();
             }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Sampling failed: {ex}"); }
             finally
             {
                 _busy = false;
+                if (_disposed) DisposeMonitor();
             }
         }
 
@@ -504,10 +531,26 @@ namespace LiteMonitor
                 _cfg.LastAlertTime = DateTime.Now;
             }
         }
+        public Task ShutdownAsync()
+        {
+            Dispose();
+            return _shutdownTask;
+        }
+
         public void Dispose()
         {
+            if (_disposed) return;
+            _disposed = true;
             _timer.Stop();
             _timer.Dispose();
+            // Cleanup must also run after the WinForms message loop has exited.
+            _shutdownTask = _samplingTask.ContinueWith(_ => DisposeMonitor(), CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        }
+
+        private void DisposeMonitor()
+        {
+            if (Interlocked.Exchange(ref _monitorDisposed, 1) != 0) return;
             _mon.Dispose();
         }
     }

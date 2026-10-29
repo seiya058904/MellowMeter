@@ -16,8 +16,8 @@ namespace LiteMonitor
         {
             int panelHeight = (int)g.VisibleClipBounds.Height;
 
-            using (var bg = new SolidBrush(ThemeManager.ParseColor(t.Color.Background)))
-                g.FillRectangle(bg, new Rectangle(0, 0, panelWidth, panelHeight));
+            g.FillRectangle(UIUtils.GetBrush(t.Color.Background),
+                new Rectangle(0, 0, panelWidth, panelHeight));
 
             foreach (var col in cols)
                 DrawColumn(g, col, t);
@@ -63,7 +63,7 @@ namespace LiteMonitor
                     t.FontItem,
                     rc,
                     valColor,
-                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding
+                    UIRenderer.TextFlags | TextFormatFlags.Left
                 );
                 return;
             }
@@ -74,25 +74,8 @@ namespace LiteMonitor
             string label = !string.IsNullOrEmpty(it.ShortLabel) ? it.ShortLabel : it.Label;
             if (string.IsNullOrEmpty(label)) label = it.Key;
 
-            TextRenderer.DrawText(
-                g,
-                label,
-                t.FontItem,
-                rc,
-                ThemeManager.ParseColor(t.Color.TextPrimary),
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding
-            );
-
-            // Value (右对齐)
-            // ★★★ 修复：统一使用 Item 字体 (即标签字体)，与任务栏保持一致 ★★★
-            TextRenderer.DrawText(
-                g,
-                value,
-                t.FontValue,
-                rc,
-                valColor,
-                TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding
-            );
+            UIRenderer.DrawMetricPair(g, label, value, t.FontItem, t.FontValue, rc,
+                ThemeManager.ParseColor(t.Color.TextPrimary), valColor);
         }
     }
 }

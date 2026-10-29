@@ -96,11 +96,22 @@ namespace LiteMonitor
 
         public Color GetTextColor(Theme t)
         {
+            if (TextValue == null && (!Value.HasValue || !float.IsFinite(Value.Value)))
+                return ThemeManager.ParseColor(t.Color.TextGroup);
             return UIUtils.GetStateColor(CachedColorState, t, true);
         }
 
         public string GetFormattedText(bool isHorizontal)
         {
+            if (TextValue == null && (!Value.HasValue || !float.IsFinite(Value.Value)))
+            {
+                _cachedDisplayValue = float.NaN;
+                CachedValueText = "—";
+                CachedUnitText = "";
+                CachedColorState = 0;
+                CachedPercent = 0;
+                return "—";
+            }
             // [Debug & Fix] 1. Always update color state for Plugin Items FIRST
             if (_dashColorKey != null) // Use cached check
             {
@@ -161,7 +172,7 @@ namespace LiteMonitor
             // 但因为 delta (0.06) 刚刚好大于 0.05 可能触发更新，
             // 但如果是 0.04 -> 0.00，delta=0.04 < 0.05，导致文本缓存不更新，UI 仍显示 0.04。
             // 考虑到显示精度通常为 0.00，阈值应至少小于 0.01。
-            if (Math.Abs(DisplayValue - _cachedDisplayValue) > 0.005f || powerChanged)
+            if (!float.IsFinite(_cachedDisplayValue) || Math.Abs(DisplayValue - _cachedDisplayValue) > 0.005f || powerChanged)
             {
                 _cachedDisplayValue = DisplayValue;
                 if (isBat) _cachedPowerState = currentPower;
@@ -226,20 +237,9 @@ namespace LiteMonitor
 
         public void TickSmooth(double speed)
         {
-            if (!Value.HasValue) return;
-            float target = Value.Value;
-            float diff = Math.Abs(target - DisplayValue);
-            
-            // ★★★ [Fix] 核心修复：微小差异直接吸附，而不是跳过 ★★★
-            if (diff < 0.05f) 
-            {
-                DisplayValue = target;
-                return;
-            }
-
-            // 大幅跳变或高速模式直接更新
-            if (diff > 15f || speed >= 0.9) DisplayValue = target;
-            else DisplayValue += (float)((target - DisplayValue) * speed);
+            // A tick represents a measured snapshot. Interpolating only once per
+            // second made numbers stale for several seconds and invented rates.
+            if (Value.HasValue && float.IsFinite(Value.Value)) DisplayValue = Value.Value;
         }
     }
 }

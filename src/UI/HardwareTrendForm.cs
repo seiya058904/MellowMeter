@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using LiteMonitor.src.Core;
+using LiteMonitor.src.UI.Controls;
 
 namespace LiteMonitor
 {
@@ -22,21 +23,21 @@ namespace LiteMonitor
         private readonly FlowLayoutPanel _summaryPanel;
         private readonly DataGridView _grid;
 
-        private TrendCategory _category = TrendCategory.Temperature;
+        private TrendCategory _category = TrendCategory.Load;
         private TrendRange _range = TrendRange.Hour1;
         private List<TrendChartSeries> _currentSeries = new List<TrendChartSeries>();
         private string? _selectedSeriesKey;
         private bool _fillingGrid;
         private float _scale = 1.0f;
 
-        private readonly Color C_Back = Color.FromArgb(32, 32, 32);
-        private readonly Color C_Panel = Color.FromArgb(45, 45, 45);
-        private readonly Color C_GridBack = Color.FromArgb(38, 38, 38);
-        private readonly Color C_GridLine = Color.FromArgb(60, 60, 60);
-        private readonly Color C_TextMain = Color.FromArgb(230, 230, 230);
-        private readonly Color C_TextDim = Color.FromArgb(160, 160, 160);
-        private readonly Color C_Header = Color.FromArgb(50, 50, 50);
-        private readonly Color C_Accent = Color.FromArgb(0, 122, 204);
+        private readonly Color C_Back = UIColors.MainBg;
+        private readonly Color C_Panel = UIColors.CardBg;
+        private readonly Color C_GridBack = UIColors.CardBg;
+        private readonly Color C_GridLine = UIColors.Border;
+        private readonly Color C_TextMain = UIColors.TextMain;
+        private readonly Color C_TextDim = UIColors.TextSub;
+        private readonly Color C_Header = UIColors.GroupHeader;
+        private readonly Color C_Accent = UIColors.Primary;
 
         protected override CreateParams CreateParams
         {
@@ -63,6 +64,7 @@ namespace LiteMonitor
         public HardwareTrendForm(Settings cfg)
         {
             _cfg = cfg;
+            AutoScaleMode = AutoScaleMode.None;
             DoubleBuffered = true;
 
             using (Graphics g = CreateGraphics())
@@ -70,13 +72,13 @@ namespace LiteMonitor
                 _scale = g.DpiX / 96.0f;
             }
 
-            Text = LanguageManager.T("Menu.MonitorHistory");
+            Text = "MellowMeter · " + LanguageManager.T("Menu.MonitorHistory");
             Size = new Size(S(980), S(680));
             MinimumSize = new Size(S(900), S(620));
             StartPosition = FormStartPosition.Manual;
             BackColor = C_Back;
             ForeColor = C_TextMain;
-            Font = new Font("Microsoft YaHei UI", 9F);
+            Font = new Font("Segoe UI", 9F);
 
             SuspendLayout();
 
@@ -145,11 +147,13 @@ namespace LiteMonitor
             };
 
             AddLabel(toolbar, T("分类", "Group"));
-            AddCategoryButton(toolbar, TrendCategory.Temperature, T("温度", "Temp"));
             AddCategoryButton(toolbar, TrendCategory.Load, T("负载", "Load"));
-            AddCategoryButton(toolbar, TrendCategory.Power, T("功耗", "Power"));
-            AddCategoryButton(toolbar, TrendCategory.Frequency, T("频率", "Clock"));
-            AddCategoryButton(toolbar, TrendCategory.Fps, "FPS");
+            if (_cfg.AdvancedSensorsEnabled)
+            {
+                AddCategoryButton(toolbar, TrendCategory.Temperature, T("温度", "Temp"));
+                AddCategoryButton(toolbar, TrendCategory.Power, T("功耗", "Power"));
+                AddCategoryButton(toolbar, TrendCategory.Frequency, T("频率", "Clock"));
+            }
 
             AddSpacer(toolbar, S(18));
             AddLabel(toolbar, T("范围", "Range"));
@@ -189,14 +193,16 @@ namespace LiteMonitor
             };
 
             grid.ColumnHeadersDefaultCellStyle.BackColor = C_Header;
-            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.Gainsboro;
-            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Microsoft YaHei UI", 9, FontStyle.Regular);
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = C_TextMain;
+            grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = C_Header;
+            grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = C_TextMain;
+            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9, FontStyle.Regular);
             grid.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
             grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
             grid.DefaultCellStyle.BackColor = C_GridBack;
             grid.DefaultCellStyle.ForeColor = C_TextMain;
-            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(70, 70, 70);
-            grid.DefaultCellStyle.SelectionForeColor = Color.White;
+            grid.DefaultCellStyle.SelectionBackColor = UIColors.NavSelected;
+            grid.DefaultCellStyle.SelectionForeColor = C_TextMain;
             grid.DefaultCellStyle.Font = new Font("Consolas", 10);
             grid.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
             grid.RowTemplate.Height = S(32);
@@ -399,7 +405,7 @@ namespace LiteMonitor
             return _category switch
             {
                 TrendCategory.Temperature => HardwareHistoryLogger.TemperatureKeys,
-                TrendCategory.Load => HardwareHistoryLogger.LoadKeys,
+                TrendCategory.Load => _cfg.AdvancedSensorsEnabled ? HardwareHistoryLogger.LoadKeys : new[] { "CPU.Load", "MEM.Load" },
                 TrendCategory.Power => HardwareHistoryLogger.PowerKeys,
                 TrendCategory.Frequency => HardwareHistoryLogger.FrequencyKeys,
                 TrendCategory.Fps => HardwareHistoryLogger.FpsKeys,
@@ -495,7 +501,7 @@ namespace LiteMonitor
 
         private Button CreateButton(string text, int width)
         {
-            var btn = new Button
+            var btn = new LiteButton(text)
             {
                 Text = text,
                 Size = new Size(width, S(30)),
@@ -503,7 +509,7 @@ namespace LiteMonitor
                 BackColor = C_Back,
                 ForeColor = C_TextDim,
                 Cursor = Cursors.Hand,
-                Font = new Font("Microsoft YaHei UI", 9)
+                Font = new Font("Segoe UI", 9)
             };
             btn.FlatAppearance.BorderSize = 0;
             return btn;
@@ -539,14 +545,14 @@ namespace LiteMonitor
             {
                 bool active = kv.Key == _category;
                 kv.Value.BackColor = active ? C_Accent : C_Back;
-                kv.Value.ForeColor = active ? Color.White : C_TextDim;
+                kv.Value.ForeColor = active ? UIColors.OnPrimary : C_TextDim;
             }
 
             foreach (var kv in _rangeButtons)
             {
                 bool active = kv.Key == _range;
                 kv.Value.BackColor = active ? C_Accent : C_Back;
-                kv.Value.ForeColor = active ? Color.White : C_TextDim;
+                kv.Value.ForeColor = active ? UIColors.OnPrimary : C_TextDim;
             }
         }
 
@@ -572,7 +578,7 @@ namespace LiteMonitor
                 Dock = DockStyle.Fill,
                 Text = text,
                 ForeColor = C_TextMain,
-                Font = new Font("Microsoft YaHei UI", 8.5F),
+                Font = new Font("Segoe UI", 8.5F),
                 TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(S(8), 0, S(4), 0),
                 AutoEllipsis = true
@@ -657,11 +663,10 @@ namespace LiteMonitor
 
         private int S(int pixel) => (int)(pixel * _scale);
 
-        protected override void OnFormClosed(FormClosedEventArgs e)
+        protected override void Dispose(bool disposing)
         {
-            _timer.Stop();
-            _timer.Dispose();
-            base.OnFormClosed(e);
+            if (disposing) _timer?.Dispose();
+            base.Dispose(disposing);
         }
     }
 }

@@ -129,7 +129,7 @@ namespace LiteMonitor.src.SystemServices
                         // IsReady 不会产生 Volume 字符串垃圾
                         if (di.IsReady) return (100f - (float)((double)di.TotalFreeSpace / di.TotalSize * 100.0));
                     } 
-                    catch { return 0f; }
+                    catch { return null; }
                 }
             }
             // ★★★ [新增] B. 尝试启动时缓存 (Settings 记忆) ★★★
@@ -171,7 +171,7 @@ namespace LiteMonitor.src.SystemServices
                 {
                     bestScore = score;
                     bestHw = hw;
-                    bestTarget = (key == "DISK.Read") ? read : write;
+                    bestTarget = key == "DISK.Read" ? read : key == "DISK.Write" ? write : null;
                 }
             }
 
@@ -197,7 +197,6 @@ namespace LiteMonitor.src.SystemServices
             // ★★★ [新增] 温度支持补漏 ★★★
             if (key == "DISK.Temp" && bestHw != null) return ReadDiskSensor(bestHw, key, lastValidMap, syncLock);
 
-            lock (syncLock) { if (lastValidMap.TryGetValue(key, out var last)) return last; }
             return null;
         }
 
@@ -246,7 +245,6 @@ namespace LiteMonitor.src.SystemServices
                 lock (syncLock) lastValidMap[key] = v;
                 return v;
             }
-            lock (syncLock) { if (lastValidMap.TryGetValue(key, out var last)) return last; }
             return null;
         }
     }

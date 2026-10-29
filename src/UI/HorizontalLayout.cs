@@ -17,6 +17,7 @@ namespace LiteMonitor
         private readonly Theme _t;
         private readonly LayoutMode _mode;
         private readonly Settings _settings;
+        private readonly Control _target;
 
         private readonly int _padding;
         private int _rowH;
@@ -26,21 +27,23 @@ namespace LiteMonitor
 
         public int PanelWidth { get; private set; }
 
-        public HorizontalLayout(Theme t, int initialWidth, LayoutMode mode, Settings? settings = null)
+        public HorizontalLayout(Theme t, int initialWidth, LayoutMode mode, Control target, Settings? settings = null)
         {
             _t = t;
             _mode = mode;
             _settings = settings ?? Settings.Load();
+            _target = target;
 
-            using (var g = Graphics.FromHwnd(IntPtr.Zero))
-            {
-                _dpiScale = g.DpiX / 96f;
-            }
+            _dpiScale = target.DeviceDpi / 96f;
 
-            _padding = t.Layout.Padding;
+            // Theme padding already includes the main window's DPI and user scale.
+            // Translate it to this window's DPI without scaling font points twice.
+            float themeScale = t.Layout.LayoutScale > 0 ? t.Layout.LayoutScale : 1f;
+            float userScale = _settings.UIScale > 0 ? (float)_settings.UIScale : 1f;
+            _padding = Math.Max(0, (int)Math.Round(t.Layout.Padding / themeScale * _dpiScale * userScale));
 
             if (mode == LayoutMode.Horizontal)
-                _rowH = Math.Max(t.FontItem.Height, t.FontValue.Height);
+                _rowH = (int)Math.Ceiling(Math.Max(t.FontItem.GetHeight(target.DeviceDpi), t.FontValue.GetHeight(target.DeviceDpi)));
             else
                 _rowH = 0; // 任务栏模式稍后根据 taskbarHeight 决定
 
@@ -69,7 +72,8 @@ namespace LiteMonitor
             int totalWidth = pad * 2;
             float dpi = _dpiScale;
 
-            using (var g = Graphics.FromHwnd(IntPtr.Zero))
+            // TextRenderer measures against the same window/device as the renderer.
+            using (var g = _target.CreateGraphics())
             {
                 foreach (var col in cols)
                 {
@@ -115,7 +119,7 @@ namespace LiteMonitor
 
                 if (_mode == LayoutMode.Taskbar)
                 {
-                    int fixOffset = 1; 
+                    int fixOffset = Math.Max(1, (int)Math.Round(dpi));
                     
                     if (isTaskbarSingle) {
                         col.BoundsTop = new Rectangle(x, col.Bounds.Y + fixOffset, col.ColumnWidth, colHeight);
@@ -187,7 +191,7 @@ namespace LiteMonitor
                         TextFormatFlags.NoPadding).Width;
                     
                     // 纯文本项建议稍微加一点点左右 padding，防止紧贴
-                    return w + 4;
+                    return w + Math.Max(4, (int)Math.Round(4 * dpi));
                 }
                 finally
                 {
@@ -233,7 +237,7 @@ namespace LiteMonitor
                     else
                         paddingX = (int)Math.Round(_settings.HorizontalInnerSpacing * dpi);
 
-                    return wLabel + wValue + paddingX;
+                    return wLabel + wValue + Math.Max(paddingX, (int)Math.Round(6 * dpi));
                 }
                 finally
                 {
@@ -258,7 +262,13 @@ namespace LiteMonitor
             // 2. 硬件监控项的特殊处理（如果没有 TextValue 且不是插件项，则使用硬件估算逻辑）
             if (string.IsNullOrEmpty(val) && !item.Key.StartsWith("DASH.", StringComparison.OrdinalIgnoreCase))
             {
-                val = MetricUtils.GetSampleValueStr(item.Key);
+                val = MetricUtils.GetType(item.Key) switch
+                {
+                    MetricType.Frequency => "8.88",
+                    MetricType.RPM => "88888",
+                    MetricType.DataSpeed or MetricType.DataSize => "888.8",
+                    _ => "888.8"
+                };
 
                 // [特殊保留] 网速/硬盘仍需强制 "MB"，防止 GetUnitStr 返回 "KB" 导致宽度不够出现抖动
                 var type = MetricUtils.GetType(item.Key);
@@ -272,7 +282,7 @@ namespace LiteMonitor
             string userFmt = item.BoundConfig?.UnitTaskbar;
             string unit = MetricUtils.GetDisplayUnit(item.Key, rawUnit, userFmt);
 
-            // 3. 拼接并生成样本 (将所有数字替换为 '0')
+            // Reserve a stable numeric footprint before values arrive.
             // [Optimization] 使用 string.Create 避免中间数组分配 (Net 8.0+)
             bool appendUnit = !string.IsNullOrEmpty(unit) && !val.EndsWith(unit);
             int totalLen = val.Length + (appendUnit ? unit.Length : 0);
@@ -282,10 +292,10 @@ namespace LiteMonitor
                 var (v, u, append) = state;
                 int pos = 0;
                 
-                // 写入数值部分 (数字转0)
+                // Use wide digits so changing readings do not resize the column.
                 foreach (char c in v)
                 {
-                    span[pos++] = char.IsDigit(c) ? '0' : c;
+                    span[pos++] = char.IsDigit(c) ? '8' : c;
                 }
                 
                 // 写入单位部分
@@ -293,7 +303,7 @@ namespace LiteMonitor
                 {
                     foreach (char c in u)
                     {
-                        span[pos++] = char.IsDigit(c) ? '0' : c; 
+                        span[pos++] = char.IsDigit(c) ? '8' : c;
                     }
                 }
             });

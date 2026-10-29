@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "measurementDate": "2026-10-29",
+  "environment": {
+    "os": "Windows 11 Enterprise",
+    "osVersion": "10.0.22631",
+    "processor": "AMD Ryzen 7 9700X",
+    "logicalProcessors": 16,
+    "physicalMemoryGiB": 32,
+    "displayWidthPixels": 3840,
+    "displayHeightPixels": 2160,
+    "displayScalePercent": 175,
+    "nativeDpi": 168,
+    "dotnetSdk": "8.0.427",
+    "dotnetRuntime": "8.0.33"
+  },
+  "configuration": {
+    "metrics": [
+      "CPU.Load",
+      "MEM.Load",
+      "NET.Up",
+      "NET.Down"
+    ],
+    "refreshMilliseconds": 1000,
+    "horizontalDesktopPanel": true,
+    "taskbarStrip": true,
+    "historyEnabled": true,
+    "warmupSeconds": 15,
+    "requestedSampleSeconds": 60,
+    "nominalSampleIntervalSeconds": 1,
+    "newDriversInstalled": false,
+    "forcedGc": false,
+    "workingSetTrimming": false,
+    "theme": "DarkFlat_Classic"
+  },
+  "baseline": {
+    "upstreamCommit": "3b91b5ca6d70a9056b8fdd01c9acddc985721240",
+    "modifiedForComparison": true,
+    "modifications": [
+      "Bypass startup driver dialogs",
+      "Use asInvoker manifest",
+      "Make absent optional text resource conditional",
+      "Instrument readiness after OnShown",
+      "Disable automatic forced GC and working-set trimming"
+    ]
+  },
+  "methodology": {
+    "runCountPerApplication": 1,
+    "executionOrder": "Sequential, baseline before MellowMeter",
+    "startup": "Wall time from launch until detection of main ready marker at end of OnShown; 100 ms polling; not first populated sensor frame",
+    "cpu": "Own-process CPU time delta divided by actual elapsed wall time and all logical processors, multiplied by 100",
+    "memoryAndHandles": "Arithmetic means, minima and maxima of approximately one-second samples",
+    "childProcessesIncluded": false,
+    "workload": "Ambient desktop workload; not controlled",
+    "statisticalComparison": false
+  },
+  "limitations": [
+    "Very low CPU totals are sensitive to timer granularity and ambient activity.",
+    "Startup difference is near the polling resolution.",
+    "One short run per application does not establish general performance or long-term stability."
+  ],
+  "runs": [
+    {
+      "application": "mellowmeter",
+      "status": "complete",
+      "startupMilliseconds": 596.4205,
+      "measuredSeconds": 60.0012911,
+      "sampleCount": 60,
+      "totalSampledCpuMilliseconds": 282.0,
+      "summary": {
+        "meanCpuPercentOfMachine": 0.0293743679125598,
+        "peakCpuPercentOfMachine": 0.4833597817890858,
+        "workingSetBytes": {
+          "Average": 72149333.33333333,
+          "Minimum": 71634944.0,
+          "Maximum": 73289728.0
+        },
+        "privateBytes": {
+          "Average": 19327795.2,
+          "Minimum": 18583552.0,
+          "Maximum": 20303872.0
+        },
+        "handleCount": {
+          "Average": 519.1333333333333,
+          "Minimum": 514.0,
+          "Maximum": 522.0
+        }
+      }
+    },
+    {
+      "application": "patched_litemonitor_baseline",
+      "status": "complete",
+      "startupMilliseconds": 699.4103,
+      "measuredSeconds": 60.0161992,
+      "sampleCount": 60,
+      "totalSampledCpuMilliseconds": 345,
+      "summary": {
+        "meanCpuPercentOfMachine": 0.03592779997304461,
+        "peakCpuPercentOfMachine": 0.7563142437520699,
+        "workingSetBytes": {
+          "Average": 112203980.8,
+          "Minimum": 110379008.0,
+          "Maximum": 113344512.0
+        },
+        "privateBytes": {
+          "Average": 43615573.333333336,
+          "Minimum": 41279488.0,
+          "Maximum": 46039040.0
+        },
+        "handleCount": {
+          "Average": 866.2666666666667,
+          "Minimum": 798.0,
+          "Maximum": 892.0
+        }
+      }
+    }
+  ]
+}

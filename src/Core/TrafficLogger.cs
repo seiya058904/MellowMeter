@@ -23,9 +23,9 @@ namespace LiteMonitor.src.Core
     // === 管理器 (静态单例) ===
     public static class TrafficLogger
     {
-        private static readonly string _filePath = Path.Combine(AppContext.BaseDirectory, "TrafficHistory.json");
-        private static readonly string _backupPath = Path.Combine(AppContext.BaseDirectory, "TrafficHistory.json.bak");
-        private static readonly string _tempPath = Path.Combine(AppContext.BaseDirectory, "TrafficHistory.json.tmp");
+        private static readonly string _filePath = AppPaths.DataFile("TrafficHistory.json");
+        private static readonly string _backupPath = AppPaths.DataFile("TrafficHistory.json.bak");
+        private static readonly string _tempPath = AppPaths.DataFile("TrafficHistory.json.tmp");
         private static readonly object _ioLock = new object(); // 文件锁
         private static readonly object _dataLock = new object(); // 数据锁
         // ====== 新增缓存字段 ======

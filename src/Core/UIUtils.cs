@@ -147,7 +147,7 @@ namespace LiteMonitor.src.Core
         {
             if (state == MetricUtils.STATE_CRIT) return ThemeManager.ParseColor(isValueText ? t.Color.ValueCrit : t.Color.BarHigh);
             if (state == MetricUtils.STATE_WARN) return ThemeManager.ParseColor(isValueText ? t.Color.ValueWarn : t.Color.BarMid);
-            return ThemeManager.ParseColor(t.Color.ValueSafe);
+            return ThemeManager.ParseColor(isValueText ? t.Color.ValueSafe : t.Color.BarLow);
         }
 
         // ============================================================
@@ -197,7 +197,8 @@ namespace LiteMonitor.src.Core
 
             // 2. Value Bar
             // [Refactor] CachedPercent already includes visual correction (min 5%, max 100%) via MetricUtils.GetProgressValue
-            double percent = item.CachedPercent; 
+            double percent = item.Value.HasValue && float.IsFinite(item.Value.Value)
+                ? item.CachedPercent : 0;
             
             int w = (int)(item.BarRect.Width * percent);
             if (w < 1 && percent > 0) w = 1; // 绝对防御：只要有百分比，至少画1像素

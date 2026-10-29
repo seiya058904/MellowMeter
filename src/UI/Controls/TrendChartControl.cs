@@ -5,6 +5,7 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Linq;
 using System.Windows.Forms;
+using LiteMonitor.src.UI.Controls;
 
 namespace LiteMonitor
 {
@@ -28,11 +29,11 @@ namespace LiteMonitor
 
     public class TrendChartControl : Control
     {
-        private readonly Color _gridColor = Color.FromArgb(58, 58, 58);
-        private readonly Color _axisColor = Color.FromArgb(95, 95, 95);
-        private readonly Color _textColor = Color.FromArgb(220, 220, 220);
-        private readonly Color _dimTextColor = Color.FromArgb(145, 145, 145);
-        private readonly Color _tooltipBack = Color.FromArgb(235, 38, 38, 38);
+        private Color _gridColor => UIColors.Border;
+        private Color _axisColor => UIColors.TextSub;
+        private Color _textColor => UIColors.TextMain;
+        private Color _dimTextColor => UIColors.TextSub;
+        private Color _tooltipBack => UIColors.CardBg;
         private readonly List<TrendChartSeries> _series = new List<TrendChartSeries>();
         private readonly HashSet<string> _hiddenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly List<LegendHit> _legendHits = new List<LegendHit>();
@@ -49,9 +50,9 @@ namespace LiteMonitor
         public TrendChartControl()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
-            BackColor = Color.FromArgb(38, 38, 38);
+            BackColor = UIColors.CardBg;
             ForeColor = _textColor;
-            Font = new Font("Microsoft YaHei UI", 9F);
+            Font = new Font("Segoe UI", 9F);
         }
 
         public void SetSeries(IEnumerable<TrendChartSeries> series)
@@ -271,7 +272,7 @@ namespace LiteMonitor
                 bool hidden = _hiddenKeys.Contains(s.Key);
                 bool highlighted = IsHighlighted(s);
                 Color lineColor = hidden ? Color.FromArgb(80, s.Color) : s.Color;
-                Color textColor = hidden ? Color.FromArgb(105, _dimTextColor) : (highlighted ? _textColor : _dimTextColor);
+                Color textColor = highlighted ? _textColor : _dimTextColor;
 
                 using var pen = new Pen(lineColor, hidden ? Math.Max(1f, SF(1)) : Math.Max(1f, SF(2)));
                 if (hidden) pen.DashStyle = DashStyle.Dot;
@@ -338,7 +339,7 @@ namespace LiteMonitor
             if (!Threshold.HasValue || Threshold.Value < minValue || Threshold.Value > maxValue) return;
 
             float y = ValueToY(Threshold.Value, plot, minValue, maxValue);
-            using var pen = new Pen(Color.FromArgb(210, 210, 75, 75), Math.Max(1f, SF(1))) { DashStyle = DashStyle.Dash };
+            using var pen = new Pen(UIColors.TextCrit, Math.Max(1f, SF(1))) { DashStyle = DashStyle.Dash };
             g.DrawLine(pen, plot.Left, y, plot.Right, y);
         }
 
@@ -381,7 +382,7 @@ namespace LiteMonitor
             if (!_hoverTime.HasValue) return;
 
             float x = TimeToX(_hoverTime.Value, plot, minTime, maxTime);
-            using var linePen = new Pen(Color.FromArgb(130, 220, 220, 220), 1);
+            using var linePen = new Pen(Color.FromArgb(130, _textColor), 1);
             g.DrawLine(linePen, x, plot.Top, x, plot.Bottom);
 
             var rows = new List<string> { _hoverTime.Value.ToString("MM-dd HH:mm") };
@@ -401,7 +402,7 @@ namespace LiteMonitor
 
             using var path = RoundedRect(new RectangleF(left, top, width, height), S(5));
             using var bg = new SolidBrush(_tooltipBack);
-            using var border = new Pen(Color.FromArgb(95, 95, 95), 1);
+            using var border = new Pen(UIColors.Border, 1);
             g.FillPath(bg, path);
             g.DrawPath(border, path);
 

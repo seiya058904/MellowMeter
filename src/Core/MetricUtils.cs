@@ -134,6 +134,7 @@ namespace LiteMonitor.src.Core
             }
 
             // 4. 标准模式 (Panel)
+            if (type == MetricType.Percent || type == MetricType.Temperature) return v.ToString("0.0");
             if (type == MetricType.FPS || type == MetricType.RPM) return $"{v:0}";
             if (type == MetricType.Frequency) return $"{v/1000f:F1}"; // 频率保持 F1，通常 GHz 需要一位小数
             
@@ -405,7 +406,7 @@ namespace LiteMonitor.src.Core
 
             // 3. 视觉修正：限制在 [0.05, 1.0] 之间
             // 确保即使数值很小也能看到一条细线
-            return Math.Max(0.05, Math.Min(1.0, rawPct));
+            return double.IsFinite(rawPct) ? Math.Clamp(rawPct, 0.0, 1.0) : 0.0;
         }
 
         public static double GetAdaptivePercentage(string key, double val)

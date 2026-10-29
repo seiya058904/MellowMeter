@@ -1,5 +1,5 @@
 {
-  "Title": "⚡️LiteMonitor",
+  "Title": "⚡ MellowMeter",
   "Groups": {
     "DASH": "ℹ️儀表板",
     "CPU": "💻CPU",
@@ -70,12 +70,19 @@
     "DISK.Temp": "磁碟",
     "DISK.Read": "讀",
     "DISK.Write": "寫",
-    "NET.Up": "🔼",
-    "NET.Down": "🔽",
+    "NET.Up": "↑",
+    "NET.Down": "↓",
     "DATA.DayUp": "⏫",
     "DATA.DayDown": "⏬"
   },
   "Menu": {
+    "AdvancedSensors": "高级传感器",
+    "AdvancedSensorsTip": "增加温度、功耗、频率和风扇指标。应用后重启 MellowMeter；读数取决于硬件支持及可用的兼容驱动。",
+    "HistoryEnabled": "记录本地历史",
+    "HistoryTip": "在本机保存负载与流量历史，不会上传数据。",
+    "BasicSensorsTip": "CPU、内存和网络无需硬件驱动。更多指标可在系统设置中启用高级传感器。",
+    "RestartForSensors": "传感器模式已保存，重启 MellowMeter 后生效。",
+    "UpstreamProject": "基于 Diorser 的 LiteMonitor 项目",
         "__Comment_Global__": "--- 全域/按鈕/右鍵選單 ---",
         "SettingsPanel": "設定面板",
         "About": "關於 LiteMonitor",

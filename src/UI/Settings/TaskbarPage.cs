@@ -26,13 +26,15 @@ namespace LiteMonitor.src.UI.SettingsPage
             this.BackColor = UIColors.MainBg;
             this.Dock = DockStyle.Fill;
             this.Padding = new Padding(0);
-            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(20) }; 
+            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(20)) };
             this.Controls.Add(_container);
 
             // 1. 启动后台任务 (字体扫描)
             _taskFonts = Task.Run(() => {
                 try {
-                    return FontFamily.Families.Select(f => f.Name).ToList();
+                    var families = FontFamily.Families;
+                    try { return families.Select(f => f.Name).ToList(); }
+                    finally { foreach (var family in families) family.Dispose(); }
                 } catch {
                     return new List<string> { Settings.DEFAULT_TB_FONT };
                 }
@@ -63,6 +65,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             if (_cbFont == null || _cbFont.Inner.Items.Count > 5) return; 
 
             var fonts = await _taskFonts;
+            if (IsDisposed || Disposing || _cbFont.IsDisposed) return;
             
             // ★★★ 锁定布局 ★★★
             this.SuspendLayout();
@@ -91,7 +94,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         public override void Save()
         {
             base.Save();
-            if(Config != null) TaskbarRenderer.ReloadStyle(Config);
+            // Rendering changes are applied only after the draft is committed.
         }
 
         private void CreateGeneralGroup()
@@ -141,9 +144,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                 LanguageManager.T("Menu.ActionToggleVisible"),
                 LanguageManager.T("Menu.ActionTaskMgr"), 
                 LanguageManager.T("Menu.ActionSettings"),
-                LanguageManager.T("Menu.ActionTrafficHistory"),
-                LanguageManager.T("Menu.CleanMemory"),
-                LanguageManager.T("Menu.OpenWeb")
+                LanguageManager.T("Menu.ActionTrafficHistory")
             };
             group.AddComboIndex(this, "Menu.DoubleClickAction", actions,
                 () => Config?.TaskbarDoubleClickAction ?? 0,

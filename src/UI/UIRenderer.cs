@@ -8,6 +8,30 @@ namespace LiteMonitor
 {
     public static class UIRenderer
     {
+        internal const TextFormatFlags TextFlags = TextFormatFlags.VerticalCenter |
+            TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix |
+            TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis;
+
+        internal static int MeasureTextHeight(Graphics graphics, Font font) =>
+            TextRenderer.MeasureText(graphics, "Ag", font, Size.Empty,
+                TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Height;
+
+        // Keep a real gap between labels and values, including long aliases and units.
+        // Value anchoring stays fixed while changing readings never overpaint a label.
+        internal static void DrawMetricPair(Graphics g, string label, string value,
+            Font labelFont, Font valueFont, Rectangle bounds, Color labelColor, Color valueColor)
+        {
+            if (bounds.Width <= 0 || bounds.Height <= 0) return;
+            int gap = Math.Max(4, (int)Math.Round(6 * g.DpiX / 96f));
+            int measured = TextRenderer.MeasureText(g, value, valueFont,
+                new Size(int.MaxValue, int.MaxValue), TextFlags).Width;
+            int valueWidth = Math.Min(measured, Math.Max(0, bounds.Width * 3 / 4));
+            var valueRect = new Rectangle(bounds.Right - valueWidth, bounds.Y, valueWidth, bounds.Height);
+            var labelRect = new Rectangle(bounds.X, bounds.Y,
+                Math.Max(0, bounds.Width - valueWidth - gap), bounds.Height);
+            TextRenderer.DrawText(g, label, labelFont, labelRect, labelColor, TextFlags | TextFormatFlags.Left);
+            TextRenderer.DrawText(g, value, valueFont, valueRect, valueColor, TextFlags | TextFormatFlags.Right);
+        }
         // ★★★ 优化：移除本地画刷缓存，改为调用 UIUtils ★★★
         // private static readonly Dictionary<string, SolidBrush> _brushCache = new();
         // private static SolidBrush GetBrush(string color, Theme t) { ... }
@@ -60,7 +84,7 @@ namespace LiteMonitor
             if (string.IsNullOrEmpty(title) || title == "Title") return;
 
             // 直接使用字体高度，不需要测量
-            int titleH = t.FontTitle.Height;
+            int titleH = MeasureTextHeight(g, t.FontTitle);
             
             // ★★★ [优化] 标题下方的微调间距也要随 DPI 缩放 ★★★
             int titlePadding = (int)(4 * t.Layout.LayoutScale);
@@ -83,7 +107,7 @@ namespace LiteMonitor
             // ★★★ 优化：直接使用缓存的 gr.Label，不再每帧调用 LanguageManager.T ★★★
             string label = string.IsNullOrEmpty(gr.Label) ? gr.GroupName : gr.Label;
 
-            int titleH = t.FontGroup.Height;
+            int titleH = MeasureTextHeight(g, t.FontGroup);
             int titleY = gr.Bounds.Y - t.Layout.GroupTitleOffset - titleH;
 
             // [Fix] 修复 Windows 10 下 Emoji 显示不全的问题
@@ -113,19 +137,14 @@ namespace LiteMonitor
             // ★★★ 优化：直接使用缓存的 it.Label ★★★
             string label = string.IsNullOrEmpty(it.Label) ? it.Key : it.Label;
 
-            TextRenderer.DrawText(g, label, t.FontItem, it.LabelRect,
-                ThemeManager.ParseColor(t.Color.TextPrimary),
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-
             // Value (右对齐)  传入 false 表示竖屏/普通模式
             string valText = it.GetFormattedText(false);
             
             
             Color valColor = it.GetTextColor(t);
 
-            TextRenderer.DrawText(g, valText, t.FontValue, it.ValueRect,
-                valColor,
-                TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            DrawMetricPair(g, label, valText, t.FontItem, t.FontValue, it.ValueRect,
+                ThemeManager.ParseColor(t.Color.TextPrimary), valColor);
 
             // Bar - 注意：这里调用的是 UIUtils.DrawBar，它现在已经使用了优化的画刷逻辑
             UIUtils.DrawBar(g, it, t);
@@ -143,7 +162,7 @@ namespace LiteMonitor
             
             TextRenderer.DrawText(g, label, t.FontItem, it.LabelRect,
                 ThemeManager.ParseColor(t.Color.TextPrimary),
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding);
+                TextFlags | TextFormatFlags.HorizontalCenter);
 
             // Value (居中底部)
             // ★★★ [优化]：如果用户使用了自定义单位 (HasCustomUnit)，则跳过窄屏自动精简逻辑 ★★★
@@ -157,7 +176,7 @@ namespace LiteMonitor
 
             TextRenderer.DrawText(g, valText, t.FontValue, it.ValueRect,
                 valColor,
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.Bottom | TextFormatFlags.NoPadding);
+                TextFlags | TextFormatFlags.HorizontalCenter);
         }
 
         // [新增] 绘制纯文本项方法
@@ -167,9 +186,6 @@ namespace LiteMonitor
 
             // 1. 绘制左侧标签 (IP)
             string label = string.IsNullOrEmpty(it.Label) ? it.Key : it.Label;
-            TextRenderer.DrawText(g, label, t.FontItem, it.LabelRect,
-                ThemeManager.ParseColor(t.Color.TextPrimary),
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
 
             // 2. 绘制右侧数值 (192.168.x.x)
             // ★★★ 修复：直接使用布局计算好的 ValueRect (已修正为全宽) ★★★
@@ -179,9 +195,8 @@ namespace LiteMonitor
             // ★★★ 修改：字体使用 FontItem (与标签一致)，颜色保持 ValueSafe ★★★
             // [Fix] Use GetTextColor(t) to respect Plugin Color Override
             Color valColor = it.GetTextColor(t);
-            TextRenderer.DrawText(g, text, t.FontItem, it.ValueRect,
-                valColor, 
-                TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            DrawMetricPair(g, label, text, t.FontItem, t.FontItem, it.ValueRect,
+                ThemeManager.ParseColor(t.Color.TextPrimary), valColor);
 
             // ★★★ 修复：补充分割线 (最后一行不画) ★★★
             if (!isLast)
@@ -194,7 +209,7 @@ namespace LiteMonitor
                 
                 // 线条稍微缩进一点，更美观
                 int lineY = it.Bounds.Bottom - 1;
-                g.DrawLine(pen, it.Bounds.Left + 5, lineY, it.Bounds.Right - 5, lineY);
+                g.DrawLine(pen, it.LabelRect.Left, lineY, it.LabelRect.Right, lineY);
             }
         }
 

@@ -10,6 +10,7 @@ namespace LiteMonitor.src.UI.SettingsPage
     {
         private Panel _container;
         private bool _isLoaded = false;
+        private bool _advanced;
 
         public ThresholdPage()
         {
@@ -23,12 +24,15 @@ namespace LiteMonitor.src.UI.SettingsPage
         public override void OnShow()
         {
             base.OnShow();
-            if (Config == null || _isLoaded) return;
+            if (Config == null || (_isLoaded && _advanced == Config.AdvancedSensorsEnabled)) return;
+            _advanced = Config.AdvancedSensorsEnabled;
 
             _container.SuspendLayout();
             ClearAndDispose(_container.Controls);
 
             // === 1. Alert Temp ===
+            if (_advanced)
+            {
             var grpAlert = new LiteSettingsGroup(LanguageManager.T("Menu.AlertTemp"));
             
             grpAlert.AddToggle(this, "Menu.AlertTemp", 
@@ -41,20 +45,21 @@ namespace LiteMonitor.src.UI.SettingsPage
                 width: 80, color: UIColors.TextCrit);
 
             AddGroupToPage(grpAlert);
+            }
 
             // === 2. Hardware ===
             var grpHardware = new LiteSettingsGroup(LanguageManager.T("Menu.GeneralHardware"));
             grpHardware.AddHint(LanguageManager.T("Menu.ThresholdsTips"));
             
             grpHardware.AddThreshold(this, LanguageManager.T("Menu.HardwareLoad"), "%", Config.Thresholds.Load);
-            grpHardware.AddThreshold(this, LanguageManager.T("Menu.HardwareTemp"), "°C", Config.Thresholds.Temp);
+            if (_advanced) grpHardware.AddThreshold(this, LanguageManager.T("Menu.HardwareTemp"), "°C", Config.Thresholds.Temp);
 
             AddGroupToPage(grpHardware);
 
             // === 3. Network & Disk ===
             var grpNet = new LiteSettingsGroup(LanguageManager.T("Menu.NetworkDiskSpeed"));
             
-            grpNet.AddThreshold(this, LanguageManager.T("Menu.DiskIOSpeed"), "MB/s", Config.Thresholds.DiskIOMB);
+            if (_advanced) grpNet.AddThreshold(this, LanguageManager.T("Menu.DiskIOSpeed"), "MB/s", Config.Thresholds.DiskIOMB);
             grpNet.AddThreshold(this, LanguageManager.T("Menu.UploadSpeed"), "MB/s", Config.Thresholds.NetUpMB);
             grpNet.AddThreshold(this, LanguageManager.T("Menu.DownloadSpeed"), "MB/s", Config.Thresholds.NetDownMB);
 

@@ -14,6 +14,8 @@ namespace LiteMonitor.src.UI.SettingsPage
     public class SystemHardwarPage : SettingsPageBase
     {
         private Panel _container;
+        private readonly List<Control> _advancedGroups = new();
+        private bool _loading;
         
         // ★★★ 修复：类型更正为 LiteComboBox ★★★
         private LiteComboBox _cbDisk, _cbNet, _cbGpu, _cbMobo;
@@ -24,7 +26,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             this.BackColor = UIColors.MainBg;
             this.Dock = DockStyle.Fill;
             this.Padding = new Padding(0);
-            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(20) }; 
+            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(20)) };
             this.Controls.Add(_container);
 
             InitializeUI();
@@ -41,24 +43,28 @@ namespace LiteMonitor.src.UI.SettingsPage
         {
             base.OnShow();
             if (Config == null) return;
+            foreach (var group in _advancedGroups) group.Parent.Visible = Config.AdvancedSensorsEnabled;
             PopulateAsyncData();
         }
 
         // 将 PopulateAsyncData 改为“批量处理”模式
         private async void PopulateAsyncData()
         {
+            if (_loading || IsDisposed) return;
+            _loading = true;
             try 
             {
                 string strAuto = LanguageManager.T("Menu.Auto");
 
                 // 1. 并行等待所有数据返回 (使用 HardwareScanner)
-                var taskDisks = Task.Run(() => HardwareScanner.ListAllDisks(HardwareMonitor.Instance.ComputerInstance));
-                var taskNets  = Task.Run(() => HardwareScanner.ListAllNetworks(HardwareMonitor.Instance.ComputerInstance));
-                var taskGpus  = Task.Run(() => HardwareMonitor.ListAllGpuOptions());
-                var taskFans  = Task.Run(() => HardwareScanner.ListAllFans(HardwareMonitor.Instance.ComputerInstance, HardwareMonitor.Instance.SyncLock));
-                var taskMobo  = Task.Run(() => HardwareScanner.ListAllMoboTemps(HardwareMonitor.Instance.ComputerInstance, HardwareMonitor.Instance.SyncLock));
+                var taskDisks = Config.AdvancedSensorsEnabled ? Task.Run(() => HardwareMonitor.ListAllDisks()) : Task.FromResult(new List<string>());
+                var taskNets  = Task.Run(() => HardwareMonitor.ListAllNetworks());
+                var taskGpus  = Config.AdvancedSensorsEnabled ? Task.Run(() => HardwareMonitor.ListAllGpuOptions()) : Task.FromResult(new List<HardwareScanner.GpuOption>());
+                var taskFans  = Config.AdvancedSensorsEnabled ? Task.Run(() => HardwareMonitor.ListAllFans()) : Task.FromResult(new List<string>());
+                var taskMobo  = Config.AdvancedSensorsEnabled ? Task.Run(() => HardwareScanner.ListAllMoboTemps(HardwareMonitor.Instance.ComputerInstance, HardwareMonitor.Instance.SyncLock)) : Task.FromResult(new List<string>());
 
                 await Task.WhenAll(taskDisks, taskNets, taskGpus, taskFans, taskMobo);
+                if (IsDisposed || Disposing) return;
 
                 // 2. ★★★ 锁定全局布局 (防止每填一个框就重绘一次) ★★★
                 this.SuspendLayout();
@@ -71,6 +77,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
                     var fullList = new List<string>(data);
                     fullList.Insert(0, strAuto);
+                    if (!string.IsNullOrEmpty(currentVal) && !fullList.Contains(currentVal)) fullList.Add(currentVal);
 
                     combo.Inner.BeginUpdate(); // 锁定 ComboBox 自身
                     combo.Inner.Items.Clear();
@@ -107,7 +114,8 @@ namespace LiteMonitor.src.UI.SettingsPage
                     foreach (var item in data) combo.AddItem(item.Label, item.Value);
 
                     var selected = ResolveCurrent();
-                    combo.SelectValue(selected?.Value ?? "");
+                    if (selected == null && !string.IsNullOrEmpty(currentVal)) combo.AddItem(currentVal, currentVal);
+                    combo.SelectValue(selected?.Value ?? currentVal ?? "");
                     combo.Inner.EndUpdate();
                 }
 
@@ -130,7 +138,8 @@ namespace LiteMonitor.src.UI.SettingsPage
             finally
             {
                 // 4. 恢复布局 (此时所有控件已就绪，一次性渲染)
-                this.ResumeLayout(true);
+                _loading = false;
+                if (!IsDisposed) this.ResumeLayout(true);
             }
         }
 
@@ -139,15 +148,8 @@ namespace LiteMonitor.src.UI.SettingsPage
             var group = new LiteSettingsGroup(LanguageManager.T("Menu.HardwareSettings"));
             string strAuto = LanguageManager.T("Menu.Auto");
             
-            group.AddToggle(this, "Menu.UseWinPerCounters", () => Config?.UseWinPerCounters ?? false, v => { if(Config!=null) Config.UseWinPerCounters = v; });
+            group.AddHint(LanguageManager.T("Menu.BasicSensorsTip"));
             
-            // ★★★ [新增] 忽略 SMB 流量开关 ★★★
-            // 直接使用中文作为 Key，如果 LanguageManager 找不到 Key 会原样返回
-            group.AddToggle(this, LanguageManager.T("Menu.IgnoreSMBTraffic"),
-                () => Config?.IgnoreSmbTraffic ?? false, 
-                v => { if(Config!=null) Config.IgnoreSmbTraffic = v; }
-            );
-
             // 内存/显存显示模式 (从主界面设置移来)
             string[] memOptions = { LanguageManager.T("Menu.Percent"), LanguageManager.T("Menu.UsedSize") };
             group.AddComboIndex(this, "Menu.MemoryDisplayMode", memOptions,
@@ -155,21 +157,35 @@ namespace LiteMonitor.src.UI.SettingsPage
                 idx => { if (Config != null) Config.MemoryDisplayMode = idx; }
             );
 
-            int[] rates = { 100, 200, 300, 500, 600, 700, 800, 1000, 1500, 2000, 3000 };
+            int[] rates = { 500, 1000, 1500, 2000, 3000 };
             group.AddCombo(this, "Menu.Refresh", rates.Select(r => r + " ms"),
                 () => (Config?.RefreshMs ?? 1000) + " ms",
                 v => { if (Config != null) Config.RefreshMs = MetricUtils.ParseInt(v); }
             );
 
-            // ★★★ 修复：强制转换为 LiteComboBox ★★★
-            _cbDisk = (LiteComboBox)group.AddCombo(this, "Menu.DiskSource", new List<string> { strAuto }, 
-                () => Config?.PreferredDisk ?? strAuto, 
-                v => { if(Config!=null) Config.PreferredDisk = (v == strAuto ? "" : v); });
-
-            _cbNet = (LiteComboBox)group.AddCombo(this, "Menu.NetworkSource", new List<string> { strAuto },
+            _cbNet = group.AddCombo(this, "Menu.NetworkSource", new List<string> { strAuto },
                 () => Config?.PreferredNetwork ?? strAuto,
-                v => { if (Config != null) Config.PreferredNetwork = (v == strAuto ? "" : v); });
+                v => { if (Config != null) Config.PreferredNetwork = v == strAuto ? "" : v; });
+            group.AddToggle(this, "Menu.HistoryEnabled", () => Config?.HistoryEnabled ?? true,
+                v => { if (Config != null) Config.HistoryEnabled = v; });
+            group.AddHint(LanguageManager.T("Menu.HistoryTip"));
+            AddGroupToPage(group);
 
+            var advanced = new LiteSettingsGroup(LanguageManager.T("Menu.AdvancedSensors"));
+            advanced.AddToggle(this, "Menu.AdvancedSensors", () => Config?.AdvancedSensorsEnabled ?? false,
+                v => {
+                    if (Config == null) return;
+                    Config.AdvancedSensorsEnabled = v;
+                    foreach (var control in _advancedGroups) control.Parent.Visible = v;
+                });
+            advanced.AddHint(LanguageManager.T("Menu.AdvancedSensorsTip"));
+            AddGroupToPage(advanced);
+
+            group = new LiteSettingsGroup(LanguageManager.T("Menu.HardwareSettings"));
+            _advancedGroups.Add(group);
+            _cbDisk = group.AddCombo(this, "Menu.DiskSource", new List<string> { strAuto },
+                () => Config?.PreferredDisk ?? strAuto,
+                v => { if (Config != null) Config.PreferredDisk = v == strAuto ? "" : v; });
             _cbGpu = (LiteComboBox)group.AddComboPair(this, LanguageManager.T("Menu.GpuSource"),
                 new[] { new { Label = strAuto, Value = "" } },
                 () => Config?.PreferredGpu ?? "",
@@ -193,6 +209,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         private void CreateCalibrationCard()
         {
             var group = new LiteSettingsGroup(LanguageManager.T("Menu.Calibration"));
+            _advancedGroups.Add(group);
             string suffix = " (" + LanguageManager.T("Menu.MaxLimits") + ")";
 
             void AddCalib(string key, string unit, Func<float> get, Action<float> set)
@@ -232,7 +249,6 @@ namespace LiteMonitor.src.UI.SettingsPage
             );
 
             group.AddToggle(this, "Menu.AutoStart", () => Config?.AutoStart ?? false, v => { if(Config!=null) Config.AutoStart = v; });
-            group.AddToggle(this, "Menu.AutoCheckUpdate", () => Config?.AutoCheckUpdate ?? true, v => { if(Config!=null) Config.AutoCheckUpdate = v; });
 
             var chkTray = group.AddToggle(this, "Menu.HideTrayIcon", 
                 () => Config?.HideTrayIcon ?? false, 
@@ -244,7 +260,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void AddGroupToPage(LiteSettingsGroup group)
         {
-            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 20) };
+            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = UIUtils.S(new Padding(0, 0, 0, 20)) };
             wrapper.Controls.Add(group);
             _container.Controls.Add(wrapper);
             _container.Controls.SetChildIndex(wrapper, 0);

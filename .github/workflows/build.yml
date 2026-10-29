@@ -1,0 +1,37 @@
+name: Windows build and regression checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build
+        run: dotnet build MellowMeter.csproj -c Release --nologo
+      - name: Native sampling regressions
+        run: dotnet run --project test/Monitoring/Monitoring.csproj -c Release
+      - name: Desktop rendering and settings regressions
+        run: dotnet run --project test/DesktopSmoke/DesktopSmoke.csproj -c Release -- --artifacts artifacts/desktop-smoke
+      - name: Inherited core regressions
+        run: dotnet run --project 'test/发版审查/发版审查.csproj' -c Release
+      - name: Inherited security regressions
+        run: dotnet run --project 'test/安全修复回归/安全修复回归.csproj' -c Release
+      - name: Inherited protocol regressions
+        run: dotnet run --project 'test/反馈核验/反馈核验.csproj' -c Release
+      - name: Inherited plugin regressions (mocked)
+        run: dotnet run --project 'test/节假日回退/节假日回退.csproj' -c Release
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-verification
+          path: artifacts/desktop-smoke/
+          if-no-files-found: ignore

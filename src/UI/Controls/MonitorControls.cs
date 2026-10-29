@@ -58,7 +58,7 @@ namespace LiteMonitor.src.UI.Controls
             this._isTaskbarMode = isTaskbarMode; // 记录模式
             this.Dock = DockStyle.Top;
             this.Height = MonitorLayout.H_ROW;
-            this.BackColor = Color.White;
+            this.BackColor = UIColors.CardBg;
 
             // 1. ID Label (主界面模式)
             _lblId = new Label
@@ -356,7 +356,7 @@ namespace LiteMonitor.src.UI.Controls
                 Location = new Point(MonitorLayout.X_COL1, UIUtils.S(12)), 
                 AutoSize = true, 
                 Font = UIFonts.Bold(9F), 
-                ForeColor = Color.Gray 
+                ForeColor = UIColors.TextSub
             };
 
             string defGName = LanguageManager.GetOriginal("Groups." + groupKey);

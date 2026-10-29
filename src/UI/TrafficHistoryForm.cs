@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Reflection; // 用于给 DataGridView 开缓冲
 using LiteMonitor.src.Core;
+using LiteMonitor.src.UI.Controls;
 
 namespace LiteMonitor
 {
@@ -45,24 +46,25 @@ namespace LiteMonitor
         }
 
         // === 配色 ===
-        private readonly Color C_Back = Color.FromArgb(32, 32, 32);
-        private readonly Color C_Panel = Color.FromArgb(45, 45, 45);
-        private readonly Color C_GridBack = Color.FromArgb(38, 38, 38);
-        private readonly Color C_GridLine = Color.FromArgb(60, 60, 60);
-        private readonly Color C_TextMain = Color.FromArgb(230, 230, 230);
-        private readonly Color C_TextDim = Color.FromArgb(160, 160, 160);
-        private readonly Color C_Header = Color.FromArgb(50, 50, 50);
-        private readonly Color C_Accent = Color.FromArgb(0, 122, 204);
+        private readonly Color C_Back = UIColors.MainBg;
+        private readonly Color C_Panel = UIColors.CardBg;
+        private readonly Color C_GridBack = UIColors.CardBg;
+        private readonly Color C_GridLine = UIColors.Border;
+        private readonly Color C_TextMain = UIColors.TextMain;
+        private readonly Color C_TextDim = UIColors.TextSub;
+        private readonly Color C_Header = UIColors.GroupHeader;
+        private readonly Color C_Accent = UIColors.Primary;
 
-        private readonly Color C_Up = Color.FromArgb(80, 160, 255);
-        private readonly Color C_Down = Color.FromArgb(80, 220, 120);
-        private readonly Color C_BarBg = Color.FromArgb(60, 60, 60);
+        private readonly Color C_Up = UIColors.IsDark ? Color.FromArgb(110, 173, 244) : Color.FromArgb(34, 104, 180);
+        private readonly Color C_Down = UIColors.IsDark ? Color.FromArgb(100, 203, 156) : Color.FromArgb(26, 124, 83);
+        private readonly Color C_BarBg = UIColors.Border;
 
-        private readonly Color C_Highlight = Color.FromArgb(255, 215, 0);
+        private readonly Color C_Highlight = UIColors.TextWarn;
 
         public TrafficHistoryForm(Settings cfg)
         {
             _cfg = cfg;
+            AutoScaleMode = AutoScaleMode.None;
             // 【修改点 1】开启窗体自身的双缓冲（解决背景白屏）
             this.DoubleBuffered = true;
 
@@ -71,13 +73,13 @@ namespace LiteMonitor
                 _scale = g.DpiX / 96.0f;
             }
 
-            this.Text = "流量统计中心 (Traffic Statistics)";
+            this.Text = "MellowMeter · " + LanguageManager.T("Menu.Traffic");
             this.Size = new Size(S(840), S(650));
             this.MinimumSize = new Size(S(840), S(650));
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = C_Back;
             this.ForeColor = C_TextMain;
-            this.Font = new Font("Microsoft YaHei UI", 9F);
+            this.Font = new Font("Segoe UI", 9F);
 
             // 【修改点 2】在 InitializeUI 前后加上挂起和恢复布局
             // 这会让系统知道：“我还没摆好控件，先别画，等我摆完了再一次性画出来”
@@ -93,6 +95,8 @@ namespace LiteMonitor
             _timer.Start();
         }
 
+        private string T(string zh, string en) => (_cfg.Language ?? "").StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? zh : en;
+
         private int S(int pixel) => (int)(pixel * _scale);
 
         private void InitializeUI()
@@ -105,19 +109,19 @@ namespace LiteMonitor
                 BackColor = C_Panel,
             };
 
-            CreateDirectDash(pnlDash, S(50), "本次运行 (Current Session)", out _lblSessionUp, out _lblSessionDown);
+            CreateDirectDash(pnlDash, S(50), T("本次运行", "Current session"), out _lblSessionUp, out _lblSessionDown);
 
             var split = new Label
             {
                 AutoSize = false,
                 Size = new Size(1, S(80)),
                 Location = new Point(S(400), S(25)),
-                BackColor = Color.FromArgb(80, 80, 80),
+                BackColor = UIColors.Border,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left
             };
             pnlDash.Controls.Add(split);
 
-            CreateDirectDash(pnlDash, S(450), "今日汇总 (Today Total)", out _lblTodayUp, out _lblTodayDown);
+            CreateDirectDash(pnlDash, S(450), T("今日汇总", "Today"), out _lblTodayUp, out _lblTodayDown);
 
             this.Controls.Add(pnlDash);
 
@@ -125,19 +129,19 @@ namespace LiteMonitor
             var pnlTool = new Panel { Dock = DockStyle.Top, Height = S(55), BackColor = C_Back };
             pnlTool.Controls.Add(new Label
             {
-                Text = "统计维度 (View):",
+                Text = T("统计维度", "View"),
                 ForeColor = C_TextDim,
                 Location = new Point(S(20), S(18)),
                 AutoSize = true,
-                Font = new Font("Microsoft YaHei UI", 9)
+                Font = new Font("Segoe UI", 9)
             });
 
             int btnX = S(140);
-            _viewButtons.Add(HistoryViewMode.Daily, CreateBtn(pnlTool, "日报 (Day)", ref btnX));
-            _viewButtons.Add(HistoryViewMode.Weekly, CreateBtn(pnlTool, "周报 (Week)", ref btnX));
-            _viewButtons.Add(HistoryViewMode.Monthly, CreateBtn(pnlTool, "月报 (Month)", ref btnX));
-            _viewButtons.Add(HistoryViewMode.Quarterly, CreateBtn(pnlTool, "季报 (Quarter)", ref btnX));
-            _viewButtons.Add(HistoryViewMode.Yearly, CreateBtn(pnlTool, "年报 (Year)", ref btnX));
+            _viewButtons.Add(HistoryViewMode.Daily, CreateBtn(pnlTool, T("日", "Day"), ref btnX));
+            _viewButtons.Add(HistoryViewMode.Weekly, CreateBtn(pnlTool, T("周", "Week"), ref btnX));
+            _viewButtons.Add(HistoryViewMode.Monthly, CreateBtn(pnlTool, T("月", "Month"), ref btnX));
+            _viewButtons.Add(HistoryViewMode.Quarterly, CreateBtn(pnlTool, T("季", "Quarter"), ref btnX));
+            _viewButtons.Add(HistoryViewMode.Yearly, CreateBtn(pnlTool, T("年", "Year"), ref btnX));
             this.Controls.Add(pnlTool);
 
             // === 3. 底部汇总栏 ===
@@ -149,7 +153,7 @@ namespace LiteMonitor
                 ForeColor = C_TextMain,
                 Font = new Font("Consolas", 11, FontStyle.Bold),
                 Padding = new Padding(0, 0, S(25), 0),
-                Text = "Loading..."
+                Text = T("正在加载…", "Loading…")
             };
             pnlBottom.Controls.Add(_lblListSummary);
             this.Controls.Add(pnlBottom);
@@ -174,34 +178,36 @@ namespace LiteMonitor
             };
 
             _grid.ColumnHeadersDefaultCellStyle.BackColor = C_Header;
-            _grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.Gainsboro;
-            _grid.ColumnHeadersDefaultCellStyle.Font = new Font("Microsoft YaHei UI", 10, FontStyle.Regular);
+            _grid.ColumnHeadersDefaultCellStyle.ForeColor = C_TextMain;
+            _grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = C_Header;
+            _grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = C_TextMain;
+            _grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10, FontStyle.Regular);
             _grid.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
             _grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
 
             _grid.DefaultCellStyle.BackColor = C_GridBack;
             _grid.DefaultCellStyle.ForeColor = C_TextMain;
-            _grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(70, 70, 70);
-            _grid.DefaultCellStyle.SelectionForeColor = Color.White;
+            _grid.DefaultCellStyle.SelectionBackColor = UIColors.NavSelected;
+            _grid.DefaultCellStyle.SelectionForeColor = C_TextMain;
             _grid.DefaultCellStyle.Font = new Font("Consolas", 11);
             _grid.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
             _grid.RowTemplate.Height = S(36);
 
             // 添加列，并显式指定 SortMode 为 Automatic
             // Tag结构: [0]=Total, [1]=Max, [2]=Up, [3]=Down
-            var colDate = new DataGridViewTextBoxColumn { Name = "Date", HeaderText = "时间段 (Period)", FillWeight = 90, SortMode = DataGridViewColumnSortMode.Automatic };
+            var colDate = new DataGridViewTextBoxColumn { Name = "Date", HeaderText = T("时间段", "Period"), FillWeight = 90, SortMode = DataGridViewColumnSortMode.Automatic };
             colDate.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
             _grid.Columns.Add(colDate);
 
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Up", HeaderText = "上传 (Up)", FillWeight = 80, SortMode = DataGridViewColumnSortMode.Automatic });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Up", HeaderText = T("上传", "Upload"), FillWeight = 80, SortMode = DataGridViewColumnSortMode.Automatic });
             _grid.Columns["Up"].DefaultCellStyle.ForeColor = C_Up;
 
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Down", HeaderText = "下载 (Down)", FillWeight = 80, SortMode = DataGridViewColumnSortMode.Automatic });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Down", HeaderText = T("下载", "Download"), FillWeight = 80, SortMode = DataGridViewColumnSortMode.Automatic });
             _grid.Columns["Down"].DefaultCellStyle.ForeColor = C_Down;
 
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Total", HeaderText = "总计 (Total)", FillWeight = 80, SortMode = DataGridViewColumnSortMode.Automatic });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Total", HeaderText = T("总计", "Total"), FillWeight = 80, SortMode = DataGridViewColumnSortMode.Automatic });
 
-            _grid.Columns.Add(new DataGridViewImageColumn { Name = "Chart", HeaderText = "流量占比 (Ratio)", FillWeight = 180, SortMode = DataGridViewColumnSortMode.Automatic });
+            _grid.Columns.Add(new DataGridViewImageColumn { Name = "Chart", HeaderText = T("流量占比", "Traffic share"), FillWeight = 180, SortMode = DataGridViewColumnSortMode.Automatic });
 
             // 绘图事件
             _grid.CellPainting += Grid_CellPainting;
@@ -256,20 +262,20 @@ namespace LiteMonitor
 
         private void CreateDirectDash(Panel p, int startX, string title, out Label lblUp, out Label lblDown)
         {
-            p.Controls.Add(new Label { Text = title, ForeColor = C_TextDim, Location = new Point(startX, S(15)), AutoSize = true, Font = new Font("Microsoft YaHei UI", 9) });
+            p.Controls.Add(new Label { Text = title, ForeColor = C_TextDim, Location = new Point(startX, S(15)), AutoSize = true, Font = new Font("Segoe UI", 9) });
             lblUp = new Label { Text = "0 KB", ForeColor = C_Up, Location = new Point(startX, S(45)), AutoSize = true, Font = new Font("Consolas", 20, FontStyle.Bold) };
             p.Controls.Add(lblUp);
-            p.Controls.Add(new Label { Text = "↑ 上传 (Upload)", ForeColor = C_Up, Location = new Point(startX + S(2), S(85)), AutoSize = true, Font = new Font("Microsoft YaHei UI", 8) });
+            p.Controls.Add(new Label { Text = T("↑ 上传", "↑ Upload"), ForeColor = C_Up, Location = new Point(startX + S(2), S(85)), AutoSize = true, Font = new Font("Segoe UI", 8) });
 
             int downX = startX + S(165);
             lblDown = new Label { Text = "0 KB", ForeColor = C_Down, Location = new Point(downX, S(45)), AutoSize = true, Font = new Font("Consolas", 20, FontStyle.Bold) };
             p.Controls.Add(lblDown);
-            p.Controls.Add(new Label { Text = "↓ 下载 (Download)", ForeColor = C_Down, Location = new Point(downX + S(2), S(85)), AutoSize = true, Font = new Font("Microsoft YaHei UI", 8) });
+            p.Controls.Add(new Label { Text = T("↓ 下载", "↓ Download"), ForeColor = C_Down, Location = new Point(downX + S(2), S(85)), AutoSize = true, Font = new Font("Segoe UI", 8) });
         }
 
         private Button CreateBtn(Panel p, string txt, ref int x)
         {
-            var btn = new Button
+            var btn = new LiteButton(txt)
             {
                 Text = txt,
                 Location = new Point(x, S(12)),
@@ -278,7 +284,7 @@ namespace LiteMonitor
                 BackColor = C_Back,
                 ForeColor = C_TextDim,
                 Cursor = Cursors.Hand,
-                Font = new Font("Microsoft YaHei UI", 9)
+                Font = new Font("Segoe UI", 9)
             };
             btn.FlatAppearance.BorderSize = 0;
             btn.Click += (s, e) => SwitchView(_viewButtons.FirstOrDefault(kv => kv.Value == s).Key);
@@ -303,7 +309,7 @@ namespace LiteMonitor
             {
                 bool active = kv.Key == mode;
                 kv.Value.BackColor = active ? C_Accent : C_Back;
-                kv.Value.ForeColor = active ? Color.White : C_TextDim;
+                kv.Value.ForeColor = active ? UIColors.OnPrimary : C_TextDim;
             }
             LoadGridData(mode);
         }
@@ -314,7 +320,7 @@ namespace LiteMonitor
             var raw = TrafficLogger.Data.History;
             if (raw == null || raw.Count == 0)
             {
-                _lblListSummary.Text = "暂无历史数据 (No Data)";
+                _lblListSummary.Text = T("暂无历史数据", "No history yet");
                 return;
             }
 
@@ -322,7 +328,7 @@ namespace LiteMonitor
             long maxTotal = list.Any() ? list.Max(x => x.Total) : 1;
             if (maxTotal == 0) maxTotal = 1;
 
-            double avg = list.Average(x => x.Total);
+            double avg = list.Count > 0 ? list.Average(x => x.Total) : 0;
             double threshold = Math.Max(avg * 2.0, 1024.0 * 1024 * 1024);
 
             long sumUp = 0, sumDown = 0;
@@ -347,7 +353,6 @@ namespace LiteMonitor
 
                 // ★★★ 修复：将🔥加回 Total 列 ★★★
                 string totalText = MetricUtils.FormatDataSize(item.Total);  
-                if (isOutlier) totalText = "🔥 " + totalText;
                 row.Cells["Total"].Value = totalText;
 
                 if (isOutlier)
@@ -365,8 +370,7 @@ namespace LiteMonitor
             }
 
             _grid.ClearSelection();
-            string modeName = mode switch { HistoryViewMode.Daily => "日", HistoryViewMode.Weekly => "周", HistoryViewMode.Monthly => "月", HistoryViewMode.Quarterly => "季", _ => "年" };
-            _lblListSummary.Text = $"{modeName}视图总计 (View Total):  ↑ {MetricUtils.FormatDataSize(sumUp)}    ↓ {MetricUtils.FormatDataSize(sumDown)}    (Σ {MetricUtils.FormatDataSize(sumUp + sumDown)})";
+            _lblListSummary.Text = $"{T("当前视图总计", "View total")}:  ↑ {MetricUtils.FormatDataSize(sumUp)}    ↓ {MetricUtils.FormatDataSize(sumDown)}    (Σ {MetricUtils.FormatDataSize(sumUp + sumDown)})";
         }
 
         private void Grid_CellPainting(object sender, DataGridViewCellPaintingEventArgs e)
@@ -396,8 +400,8 @@ namespace LiteMonitor
                             float pctUp = total > 0 ? (float)up / total : 0;
                             int wUp = (int)(wTotal * pctUp);
                             int wDown = wTotal - wUp;
-                            if (wUp > 0) e.Graphics.FillRectangle(new SolidBrush(C_Up), new Rectangle(r.X, r.Y, wUp, r.Height));
-                            if (wDown > 0) e.Graphics.FillRectangle(new SolidBrush(C_Down), new Rectangle(r.X + wUp, r.Y, wDown, r.Height));
+                            if (wUp > 0) { using var upBrush = new SolidBrush(C_Up); e.Graphics.FillRectangle(upBrush, new Rectangle(r.X, r.Y, wUp, r.Height)); }
+                            if (wDown > 0) { using var downBrush = new SolidBrush(C_Down); e.Graphics.FillRectangle(downBrush, new Rectangle(r.X + wUp, r.Y, wDown, r.Height)); }
                         }
                     }
                 }
@@ -431,11 +435,10 @@ namespace LiteMonitor
 
         private class DisplayItem { public string DateLabel; public DateTime SortDate; public long Upload; public long Download; public long Total => Upload + Download; }
 
-        protected override void OnFormClosed(FormClosedEventArgs e) 
-        { 
-            _timer.Stop(); 
-            _timer.Dispose();
-            base.OnFormClosed(e); 
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) _timer?.Dispose();
+            base.Dispose(disposing);
         }
 
         // 确保窗口在显示时居中

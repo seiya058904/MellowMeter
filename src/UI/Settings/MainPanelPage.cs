@@ -19,7 +19,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             this.BackColor = UIColors.MainBg;
             this.Dock = DockStyle.Fill;
             this.Padding = new Padding(0);
-            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(20) };
+            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(20)) };
             this.Controls.Add(_container);
         }
 
@@ -34,7 +34,6 @@ namespace LiteMonitor.src.UI.SettingsPage
             CreateBehaviorCard();
             CreateAppearanceCard();
             CreateHorizontalModeGroup();
-            CreateWebCard();
 
             _container.ResumeLayout();
             _isLoaded = true;
@@ -62,9 +61,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                 LanguageManager.T("Menu.ActionSwitchLayout"),
                 LanguageManager.T("Menu.ActionTaskMgr"),
                 LanguageManager.T("Menu.ActionSettings"),
-                LanguageManager.T("Menu.ActionTrafficHistory"),
-                LanguageManager.T("Menu.CleanMemory"),
-                LanguageManager.T("Menu.OpenWeb")
+                LanguageManager.T("Menu.ActionTrafficHistory")
             };
             group.AddComboIndex(this, "Menu.DoubleClickAction", actions,
                 () => Config.MainFormDoubleClickAction,
@@ -143,93 +140,9 @@ namespace LiteMonitor.src.UI.SettingsPage
             AddGroupToPage(groupHorz);
         }
 
-        private void CreateWebCard()
-        {
-            var group = new LiteSettingsGroup(LanguageManager.T("Menu.WebServer")); 
-
-            // A. Header with Action Button
-            group.AddButton(LanguageManager.T("Menu.WebServerTip"), LanguageManager.T("Menu.OpenWeb"), () => 
-            {
-                Core.Actions.WebActions.OpenWebMonitor(Config);
-            });
-
-            // B. Settings
-            group.AddToggle(this, "Menu.WebServer", 
-                () => Config.WebServerEnabled, 
-                v => Config.WebServerEnabled = v
-            );
-
-            group.AddInt(this, "Menu.WebServerPort", "", 
-                () => Config.WebServerPort, 
-                v => Config.WebServerPort = v,
-                60
-            );
-
-            
-
-            // Password
-            group.AddInput(this, "Menu.WebServerPassword",
-                () => Config.WebServerPassword,
-                v => Config.WebServerPassword = v,
-                LanguageManager.T("Menu.WebServerPasswordTip"),
-                100, HorizontalAlignment.Center);
-
-            // C. API Link
-            bool isChinese = !string.IsNullOrEmpty(Config.Language) && 
-                                     Config.Language.StartsWith("zh", StringComparison.OrdinalIgnoreCase);
-            
-            group.AddLink("API (JSON): http://<IP>:<Port>/api/snapshot?pwd=123456 ", 
-                isChinese ? "内网无法连接？" : "Connection Issue?", 
-                () => ShowFirewallHelp(isChinese));
-
-            AddGroupToPage(group);
-        }
-
-        private void ShowFirewallHelp(bool isChinese)
-        {
-            try
-            {
-                Process.Start(new ProcessStartInfo("firewall.cpl") { UseShellExecute = true });
-
-                string msg;
-                if (isChinese)
-                {
-                    msg = "如果您在首次启动时的【Windows 防火墙授权弹窗】中点击了“取消”，\n" +
-                          "或者是直接关闭了弹窗，会导致手机无法内网访问网页。\n\n" +
-                          "已为你打开防火墙设置，请按以下步骤手动“解封”：\n" +
-                          "------------------------------\n" +
-                          "1. 【关键】请点击新窗口左上侧的【允许应用或功能通过 Windows Defender 防火墙】。\n" +
-                          "2. 点击右上角的【更改设置】按钮（如果是灰色的）。\n" +
-                          "3. 在列表中找到【LiteMonitor】。\n" +
-                          "4. ★ 必须打三个勾（缺一不可）：\n" +
-                          "   ✅ 左侧名字【LiteMonitor】\n" +
-                          "   ✅ 右侧【专用】\n" +
-                          "   ✅ 右侧【公用】\n" +
-                          "5. 点击底部的【确定】保存。";
-                }
-                else
-                {
-                    msg = "If you clicked 'Cancel' or closed the firewall permission dialog on the first launch,\n" +
-                          "your mobile device will not be able to connect to the web page.\n\n" +
-                          "The firewall settings have been opened for you. Please follow these steps:\n" +
-                          "------------------------------\n" +
-                          "1. [Critical] Click 'Allow an app or feature through Windows Defender Firewall' on the top-left.\n" +
-                          "2. Click the 'Change settings' button (if greyed out).\n" +
-                          "3. Find 'LiteMonitor' in the list.\n" +
-                          "4. ★ You MUST check all three boxes:\n" +
-                          "   ✅ Left Name [LiteMonitor]\n" +
-                          "   ✅ Right [Private]\n" +
-                          "   ✅ Right [Public]\n" +
-                          "5. Click [OK] at the bottom to save.";
-                }
-                MessageBox.Show(msg, isChinese ? "内网连接修复指引" : "Connection Fix Guide", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-            catch (Exception ex) { MessageBox.Show(ex.Message); }
-        }
-
         private void AddGroupToPage(LiteSettingsGroup group)
         {
-            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 20) };
+            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = UIUtils.S(new Padding(0, 0, 0, 20)) };
             wrapper.Controls.Add(group);
             _container.Controls.Add(wrapper);
             _container.Controls.SetChildIndex(wrapper, 0);

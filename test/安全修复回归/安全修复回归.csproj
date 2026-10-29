@@ -10,9 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="回归程序.cs.txt" />
-    <Reference Include="LiteMonitor">
-      <HintPath>../../bin/Release/net8.0-windows/LiteMonitor.dll</HintPath>
-    </Reference>
+    <ProjectReference Include="../../MellowMeter.csproj" />
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
     <PackageReference Include="System.Text.Json" Version="9.0.10" />
     <Content Include="../../resources/lang/*.json" Link="resources/lang/%(Filename)%(Extension)" CopyToOutputDirectory="Always" />

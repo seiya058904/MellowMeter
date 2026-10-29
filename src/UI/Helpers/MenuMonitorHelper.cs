@@ -19,26 +19,6 @@ namespace LiteMonitor.src.UI.Helpers
         {
             var monitorRoot = new ToolStripMenuItem(LanguageManager.T("Menu.MonitorItemDisplay"));
 
-            // [新增] 插件管理入口 (Emoji + 跳转)
-            var pluginMgr = new ToolStripMenuItem("🧩 " + LanguageManager.T("Menu.Plugins")); 
-            pluginMgr.Click += (_, __) => 
-            {
-                try
-                {
-                    using (var f = new LiteMonitor.src.UI.SettingsForm(cfg, ui, form))
-                    {
-                        f.SwitchPage("Plugins"); 
-                        f.ShowDialog(form);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Open Settings Failed: " + ex.Message);
-                }
-            };
-            monitorRoot.DropDownItems.Add(pluginMgr);
-            monitorRoot.DropDownItems.Add(new ToolStripSeparator());
-
             // --- 内部辅助函数：首次开启时的最大值设定引导 ---
             void CheckAndRemind(string name)
             {
@@ -51,7 +31,7 @@ namespace LiteMonitor.src.UI.Helpers
                 cfg.MaxLimitTipShown = true;
                 cfg.Save();
 
-                if (MessageBox.Show(msg, "LiteMonitor Setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                if (MessageBox.Show(msg, "MellowMeter", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                 {
                     try
                     {
@@ -135,7 +115,7 @@ namespace LiteMonitor.src.UI.Helpers
             if (isTaskbarMode)
             {
                 // --- 模式 A: 任务栏 (平铺排序 + 显示全称和简称) ---
-                var sortedItems = cfg.MonitorItems.OrderBy(x => x.TaskbarSortIndex).ToList();
+                var sortedItems = cfg.MonitorItems.Where(item => IsAvailable(item.Key, cfg)).OrderBy(x => x.TaskbarSortIndex).ToList();
                 
                 foreach (var itemConfig in sortedItems)
                 {
@@ -191,7 +171,7 @@ namespace LiteMonitor.src.UI.Helpers
             else
             {
                 // --- 模式 B: 主界面 (HOST分组 + 组内排序) ---
-                var sortedItems = cfg.MonitorItems.OrderBy(x => x.SortIndex).ToList();
+                var sortedItems = cfg.MonitorItems.Where(item => IsAvailable(item.Key, cfg)).OrderBy(x => x.SortIndex).ToList();
                 var groups = sortedItems.GroupBy(x => x.UIGroup); // 利用 UIGroup 自动识别 HOST
 
                 // 辅助函数：创建单个菜单项
@@ -291,7 +271,27 @@ namespace LiteMonitor.src.UI.Helpers
                     monitorRoot.DropDownItems.RemoveAt(monitorRoot.DropDownItems.Count - 1);
             }
 
+            if (!cfg.AdvancedSensorsEnabled)
+            {
+                monitorRoot.DropDownItems.Add(new ToolStripSeparator());
+                var advanced = new ToolStripMenuItem(LanguageManager.T("Menu.AdvancedSensors") + "…");
+                advanced.Click += (_, __) => {
+                    using var settings = new LiteMonitor.src.UI.SettingsForm(cfg, ui, form);
+                    settings.SwitchPage("System");
+                    settings.ShowDialog(form);
+                };
+                monitorRoot.DropDownItems.Add(advanced);
+            }
             return monitorRoot;
+        }
+
+        public static bool IsAvailable(string key, Settings cfg)
+        {
+            if (key is "CPU.Load" or "MEM.Load" or "NET.Up" or "NET.Down" or "DATA.DayUp" or "DATA.DayDown") return true;
+            if (!cfg.AdvancedSensorsEnabled || key == "FPS") return false;
+            return key.StartsWith("CPU.", StringComparison.Ordinal) || key.StartsWith("GPU.", StringComparison.Ordinal)
+                || key.StartsWith("DISK.", StringComparison.Ordinal) || key.StartsWith("BAT.", StringComparison.Ordinal)
+                || key is "MOBO.Temp" or "CASE.Fan" or "DASH.HOST" or "DASH.Time" or "DASH.Uptime" or "DASH.IP";
         }
     }
 }

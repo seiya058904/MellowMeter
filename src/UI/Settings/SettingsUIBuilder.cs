@@ -121,13 +121,19 @@ namespace LiteMonitor.src.UI.SettingsPage
             if (cmb.Items.Contains(current)) cmb.SelectedItem = current;
             else if (cmb.Items.Count > 0) cmb.SelectedIndex = 0;
 
-            // Immediate binding
-            cmb.Inner.SelectedIndexChanged += (s, e) => set(cmb.Text);
+            // Refreshing an asynchronously populated list must not replace its saved value.
+            bool refreshing = false;
+            cmb.Inner.SelectedIndexChanged += (s, e) => { if (!refreshing && cmb.SelectedIndex >= 0) set(cmb.Text); };
             page.RegisterRefresh(() => 
             {
-                string current = get();
-                if (cmb.Items.Contains(current)) cmb.SelectedItem = current;
-                else if (cmb.Items.Count > 0) cmb.SelectedIndex = 0;
+                refreshing = true;
+                try
+                {
+                    string current = get();
+                    if (cmb.Items.Contains(current)) cmb.SelectedItem = current;
+                    else if (cmb.Items.Count > 0) cmb.SelectedIndex = 0;
+                }
+                finally { refreshing = false; }
             });
             
             // Auto-width logic
@@ -189,9 +195,13 @@ namespace LiteMonitor.src.UI.SettingsPage
             }
 
             cmb.SelectValue(get());
-            // Immediate binding
-            cmb.Inner.SelectedIndexChanged += (s, e) => set(cmb.SelectedValue);
-            page.RegisterRefresh(() => cmb.SelectValue(get()));
+            bool refreshing = false;
+            cmb.Inner.SelectedIndexChanged += (s, e) => { if (!refreshing && cmb.SelectedIndex >= 0) set(cmb.SelectedValue); };
+            page.RegisterRefresh(() => {
+                refreshing = true;
+                try { cmb.SelectValue(get()); }
+                finally { refreshing = false; }
+            });
             AttachAutoWidth(cmb);
 
             group.AddItem(new LiteSettingsItem(title, cmb));

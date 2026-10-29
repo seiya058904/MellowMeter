@@ -20,6 +20,13 @@ namespace LiteMonitor.src.SystemServices
     public class FpsCounter : IDisposable
     {
         // 状态标志
+        private System.Threading.Timer? _worker;
+        private int _workerBusy;
+        private long _lastHealthCheck;
+        private long _lastStartAttempt;
+        private volatile bool _permanentlyDisposed;
+        private readonly object _serviceLock = new();
+        private readonly bool _hasPermission;
         private bool _isRunning = false;     // FPS 计数服务运行状态
         private bool _isRestarting = false;  // 服务重启状态
         
@@ -73,7 +80,7 @@ namespace LiteMonitor.src.SystemServices
         private int _pendingCount = 0;          // 待切换进程的连续领先周期数
 
         // PresentMon 会话名称
-        private const string SESSION_NAME = "LiteMonitor_Golden_Session";
+        private const string SESSION_NAME = "MellowMeter_Fps_Session";
         
         // 累计窗口大小：4次采样 = 2.0秒（抹平 GpuTest 波动）
         private const int ACCUMULATOR_SIZE = 4;
@@ -106,35 +113,37 @@ namespace LiteMonitor.src.SystemServices
         public FpsCounter(DriverInstaller installer)
         {
             _driverInstaller = installer;
+            _hasPermission = IsAdministrator();
 
-            // [修改] 确保目录存在 (DriverInstaller 也会做，这里双重保险)
-            try { if (!Directory.Exists(AssetDir)) Directory.CreateDirectory(AssetDir); } catch { }
-            
-            // 清除旧日志文件
-            try { File.Delete(LogPath); } catch { }
+        }
 
-            // 500ms 刷新一次 FPS 计算（稳定版频率）
-            Task.Run(async () =>
+        private void EnsureWorker()
+        {
+            lock (_serviceLock)
             {
-                _cycleTimer.Start(); 
-                while (true)
+                if (_worker != null || _permanentlyDisposed) return;
+                _cycleTimer.Restart();
+                _worker = new System.Threading.Timer(_ =>
                 {
-                    await Task.Delay(500); 
-                    CalculateFps();
-                }
-            });
-
-            // 3秒检查一次服务健康状态和生命周期
-            Task.Run(async () =>
-            {
-                while (true)
-                {
-                    await Task.Delay(3000);
-                    CheckHealth();
-                }
-            });
-            
-            // ★★★ [修改] 构造函数中不再自动启动服务，改为按需启动 ★★★
+                    if (System.Threading.Interlocked.Exchange(ref _workerBusy, 1) != 0) return;
+                    try
+                    {
+                        lock (_serviceLock)
+                        {
+                            if (_permanentlyDisposed || _worker == null) return;
+                            CalculateFps();
+                            long now = Stopwatch.GetTimestamp();
+                            if (_lastHealthCheck == 0 || Stopwatch.GetElapsedTime(_lastHealthCheck, now).TotalSeconds >= 3)
+                            {
+                                _lastHealthCheck = now;
+                                CheckHealth();
+                            }
+                        }
+                    }
+                    catch { }
+                    finally { System.Threading.Volatile.Write(ref _workerBusy, 0); }
+                }, null, 500, 500);
+            }
         }
 
         private void Log(string msg)
@@ -149,21 +158,26 @@ namespace LiteMonitor.src.SystemServices
         /// <returns>当前聚焦进程的 FPS 值，无数据时返回 0</returns>
         public float? GetFps()
         {
+            // Optional helper must already be installed; sampling never downloads or elevates.
+            if (_permanentlyDisposed || !_hasPermission || !File.Exists(ExePath)) return null;
+            EnsureWorker();
             // ★★★ [修改] 记录本次访问时间，并触发惰性启动 ★★★
             _lastAccessTime = DateTime.Now;
 
             // 如果没运行且没在启动中，尝试启动服务
-            if (!_isRunning && !_isStarting && !_isRestarting)
+            if (!_isRunning && !_isStarting && !_isRestarting &&
+                (_lastStartAttempt == 0 || Stopwatch.GetElapsedTime(_lastStartAttempt).TotalSeconds >= 30))
             {
+                _lastStartAttempt = Stopwatch.GetTimestamp();
                 _isStarting = true; // 简单锁
                 Task.Run(() => StartService());
             }
 
-            if (!_isRunning) return 0f;
+            if (!_isRunning) return null;
             if (_calculatedProcessFps.IsEmpty) 
             {
                 _currentFocusPid = 0;
-                return 0f;
+                return null;
             }
 
             // 粘性锁定逻辑：找出全场 FPS 最高的进程（优化版，避免 OrderBy 全量排序）
@@ -178,7 +192,7 @@ namespace LiteMonitor.src.SystemServices
                 }
             }
 
-            if (challengerPid == 0) return 0f;
+            if (challengerPid == 0) return null;
 
             // 焦点进程仲裁逻辑
             if (_currentFocusPid == 0 || !_calculatedProcessFps.ContainsKey(_currentFocusPid))
@@ -239,7 +253,7 @@ namespace LiteMonitor.src.SystemServices
                 return (float)Math.Round(val);
             }
             
-            return 0f;
+            return null;
         }
 
         /// <summary>
@@ -260,9 +274,9 @@ namespace LiteMonitor.src.SystemServices
             if (_isRestarting || _isStarting) return;
 
             // ★★★ [新增] 自动关闭逻辑：如果超过 5 秒没有 UI 请求 FPS 数据，关闭进程 ★★★
-            if (_isRunning && (DateTime.Now - _lastAccessTime).TotalSeconds > 5)
+            if ((DateTime.Now - _lastAccessTime).TotalSeconds > 5)
             {
-                Dispose(); // 销毁进程
+                StopService();
                 return;
             }
 
@@ -287,11 +301,11 @@ namespace LiteMonitor.src.SystemServices
             try
             {
                 // 释放当前资源
-                Dispose();
+                StopService();
                 // 短暂延迟确保资源完全释放
                 await Task.Delay(1000);
                 // 重新启动服务
-                StartService();
+                if (!_permanentlyDisposed && (DateTime.Now - _lastAccessTime).TotalSeconds <= 5) StartService();
             }
             finally { _isRestarting = false; }
         }
@@ -302,74 +316,72 @@ namespace LiteMonitor.src.SystemServices
         /// </summary>
         private void StartService()
         {
-            try
+            lock (_serviceLock)
             {
-                _isStarting = true;
+                try
+                {
+                    _isStarting = true;
 
-                // 检查是否有管理员权限（PresentMon 需要管理员权限）
-                if (!IsAdministrator()) return;
+                    // 检查是否有管理员权限（PresentMon 需要管理员权限）
+                    if (!IsAdministrator()) return;
                 
-                // ★★★ [修改] 如果 PresentMon 不存在，调用 DriverInstaller 自动下载 ★★★
-                if (!File.Exists(ExePath))
-                {
-                    var downloadTask = _driverInstaller.CheckAndDownloadPresentMon(silent: true);
-                    downloadTask.Wait(); 
-                }
-                
-                if (!File.Exists(ExePath)) return;
+                    if (_permanentlyDisposed || !File.Exists(ExePath)) return;
 
-                // 清理可能存在的僵尸进程
-                ForceKillZombies();
-
-                // 配置 PresentMon 进程启动信息
-                var psi = new ProcessStartInfo
-                {
-                    FileName = ExePath,
-                    Arguments = $"-session_name {SESSION_NAME} -stop_existing_session -output_stdout",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true, 
-                    CreateNoWindow = true
-                };
-
-                // 启动 PresentMon 进程
-                _presentMonProc = Process.Start(psi);
-                if (_presentMonProc == null) return;
-
-                // 更新服务状态
-                _isRunning = true;
-                _lastDataTime = DateTime.Now; 
-                // 忽略错误输出
-                _presentMonProc.ErrorDataReceived += (s, e) => { };
-                _presentMonProc.BeginErrorReadLine();
-
-                // 监控进程退出状态
-                Task.Run(async () => { await _presentMonProc.WaitForExitAsync(); _isRunning = false; });
-
-                // 异步处理 PresentMon 输出数据
-                Task.Run(async () =>
-                {
-                    try
+                    // 配置 PresentMon 进程启动信息
+                    var psi = new ProcessStartInfo
                     {
-                        while (!_presentMonProc.StandardOutput.EndOfStream)
+                        FileName = ExePath,
+                        Arguments = $"-session_name {SESSION_NAME} -stop_existing_session -output_stdout",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    };
+
+                    // 启动 PresentMon 进程
+                    var process = Process.Start(psi);
+                    if (process == null) return;
+                    _presentMonProc = process;
+
+                    // 更新服务状态
+                    _isRunning = true;
+                    _lastDataTime = DateTime.Now;
+                    // 忽略错误输出
+                    process.ErrorDataReceived += (s, e) => { };
+                    process.BeginErrorReadLine();
+
+                    // 监控进程退出状态
+                    Task.Run(async () =>
+                    {
+                        try { await process.WaitForExitAsync(); } catch { }
+                        if (ReferenceEquals(_presentMonProc, process)) _isRunning = false;
+                    });
+
+                    // 异步处理 PresentMon 输出数据
+                    Task.Run(async () =>
+                    {
+                        try
                         {
-                            string? line = await _presentMonProc.StandardOutput.ReadLineAsync();
-                            if (!string.IsNullOrWhiteSpace(line)) 
+                            while (!process.StandardOutput.EndOfStream)
                             {
-                                // 解析输出数据
-                                ParseLine(line);
-                                // 更新最后数据时间
-                                _lastDataTime = DateTime.Now;
+                                string? line = await process.StandardOutput.ReadLineAsync();
+                                if (ReferenceEquals(_presentMonProc, process) && !string.IsNullOrWhiteSpace(line))
+                                {
+                                    // 解析输出数据
+                                    ParseLine(line);
+                                    // 更新最后数据时间
+                                    _lastDataTime = DateTime.Now;
+                                }
                             }
                         }
-                    }
-                    catch { }
-                });
-            }
-            catch { }
-            finally
-            {
-                _isStarting = false;
+                        catch { }
+                    });
+                }
+                catch { }
+                finally
+                {
+                    _isStarting = false;
+                }
             }
         }
 
@@ -546,9 +558,6 @@ namespace LiteMonitor.src.SystemServices
 
             try
             {
-                // 1. 优先终止所有名为 LiteMonitorFPS 的进程 (最重要)
-                foreach (var p in Process.GetProcessesByName("LiteMonitorFPS")) { try { p.Kill(); } catch { } }
-                
                 // 2. 停止 LiteMonitorFPS 会话
                 // 仅在 CLR 未关闭时尝试调用 logman，避免在程序退出极晚期引发异常
                 if (!Environment.HasShutdownStarted)
@@ -574,14 +583,28 @@ namespace LiteMonitor.src.SystemServices
         /// <summary>
         /// 释放资源
         /// </summary>
+        private void StopService()
+        {
+            lock (_serviceLock)
+            {
+                System.Threading.Interlocked.Exchange(ref _worker, null)?.Dispose();
+                var process = _presentMonProc;
+                _presentMonProc = null;
+                try { if (process != null && !process.HasExited) process.Kill(); } catch { }
+                process?.Dispose();
+                _isRunning = false;
+                _calculatedProcessFps.Clear();
+                _processFrameCounts.Clear();
+                _accumulatorHistory.Clear();
+                _olympicHistory.Clear();
+                _processNameCache.Clear();
+            }
+        }
+
         public void Dispose()
         {
-            try { 
-                // 终止 PresentMon 进程并清理僵尸进程
-                _presentMonProc?.Kill(); 
-                ForceKillZombies(); 
-                _isRunning = false; // 同步重置状态
-            } catch { }
+            _permanentlyDisposed = true;
+            StopService();
         }
     }
 }

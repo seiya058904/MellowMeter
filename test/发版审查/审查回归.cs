@@ -304,7 +304,7 @@ internal static class Program
             string expectedCapacity = key == "MEM.Load" ? "16.0" : "4.00";
             Check(MetricUtils.GetValueStr(key, 50, false, "%") == "50.0", "百分号单位未保留百分比数值");
             Check(MetricUtils.GetValueStr(key, 50, false, "{u}") == expectedCapacity, "默认容量转换错误");
-            var item = new MetricItem { Key = key, DisplayValue = 50, BoundConfig = new MonitorItemConfig { Key = key, UnitPanel = "%", UnitTaskbar = "{u}" } };
+            var item = new MetricItem { Key = key, Value = 50, DisplayValue = 50, BoundConfig = new MonitorItemConfig { Key = key, UnitPanel = "%", UnitTaskbar = "{u}" } };
             Check(item.GetFormattedText(false) == "50.0%", "面板格式化不一致");
             Check(item.GetFormattedText(true) == expectedCapacity + "GB", "任务栏格式化不一致");
         }

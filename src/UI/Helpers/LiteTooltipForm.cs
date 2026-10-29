@@ -58,7 +58,7 @@ namespace LiteMonitor.src.UI.Helpers
         {
             _groups = groups;
             _theme = theme;
-            _scale = scale;
+            _scale = Math.Max(0.5f, scale);
             _isBold = isBold;
             this.Opacity = Math.Clamp(opacity, 0.1, 1.0);
 
@@ -120,7 +120,7 @@ namespace LiteMonitor.src.UI.Helpers
             // 2. 计算总高度
             int paddingY = S(PADDING_Y);
             int groupGap = S(GROUP_GAP);
-            int rowHeight = S(ROW_HEIGHT);
+            int rowHeight = GetRowHeight();
 
             // 优化：预先计算总行数，避免循环累加
             int totalLines = _groups.Sum(g => g.Items.Count);
@@ -249,7 +249,7 @@ namespace LiteMonitor.src.UI.Helpers
             // 3. 绘制内容
             int paddingX = S(PADDING_X);
             int paddingY = S(PADDING_Y);
-            int rowHeight = S(ROW_HEIGHT);
+            int rowHeight = GetRowHeight();
             int groupGap = S(GROUP_GAP);
 
             int currentY = paddingY;
@@ -282,19 +282,19 @@ namespace LiteMonitor.src.UI.Helpers
                     
                     var rectLabel = new Rectangle(paddingX, currentY, Width - paddingX * 2, rowHeight);
 
-                    TextRenderer.DrawText(g, label, smallFont, rectLabel, labelColor, 
-                        TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
 
                     // B. Value (右对齐) - 占右半边 (复用同一个 Rect，靠右对齐即可)
                     string valText = item.GetFormattedText(false); 
                     Color valColor = item.GetTextColor(_theme);
                     
-                    TextRenderer.DrawText(g, valText, smallFont, rectLabel, valColor,
-                        TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+                    UIRenderer.DrawMetricPair(g, label, valText, smallFont, smallFont,
+                        rectLabel, labelColor, valColor);
 
                     currentY += rowHeight;
                 }
             }
         }
+
+        private int GetRowHeight() => Math.Max(S(ROW_HEIGHT), (_theme?.FontItem.Height ?? 0) + S(4));
     }
 }

@@ -1,0 +1,181 @@
+diff --git a/LiteMonitor.csproj b/LiteMonitor.csproj
+index 00d37bd..788bbdb 100644
+--- a/LiteMonitor.csproj
++++ b/LiteMonitor.csproj
+@@ -44,7 +44,7 @@
+ 		<Content Include="resources\LiteMonitor.Updater.exe">
+ 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+ 		</Content>
+-    <Content Include="使用说明(必读).txt">
++    <Content Include="使用说明(必读).txt" Condition="Exists('使用说明(必读).txt')">
+ 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+ 		</Content>
+ 	</ItemGroup>
+@@ -79,3 +79,4 @@
+     <Folder Include="src\UI\Settings\" />
+   </ItemGroup>
+ </Project>
++
+diff --git a/app.manifest b/app.manifest
+index 9aca4d7..ad5d1b1 100644
+--- a/app.manifest
++++ b/app.manifest
+@@ -1,4 +1,4 @@
+-﻿<?xml version="1.0" encoding="utf-8"?>
++<?xml version="1.0" encoding="utf-8"?>
+ <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+   <assemblyIdentity version="1.0.0.0" name="MyApplication.app"/>
+   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+@@ -9,14 +9,14 @@
+              以下节点之一替换 requestedExecutionLevel 节点。
+ 
+         <requestedExecutionLevel  level="asInvoker" uiAccess="false" />
+-        <requestedExecutionLevel  level="requireAdministrator" uiAccess="false" />
++        <requestedExecutionLevel  level="asInvoker" uiAccess="false" />
+         <requestedExecutionLevel  level="highestAvailable" uiAccess="false" />
+ 
+             指定 requestedExecutionLevel 元素将禁用文件和注册表虚拟化。
+             如果你的应用程序需要此虚拟化来实现向后兼容性，则移除此
+             元素。
+         -->
+-		<requestedExecutionLevel  level="requireAdministrator" uiAccess="false" />
++		<requestedExecutionLevel  level="asInvoker" uiAccess="false" />
+ 
+ 
+ 	  </requestedPrivileges>
+@@ -79,3 +79,4 @@
+   -->
+ 
+ </assembly>
++
+diff --git a/src/System/HardwareMonitor.cs b/src/System/HardwareMonitor.cs
+index f9f323a..bfe3b05 100644
+--- a/src/System/HardwareMonitor.cs
++++ b/src/System/HardwareMonitor.cs
+@@ -347,8 +347,8 @@ namespace LiteMonitor.src.SystemServices
+                         }
+ 
+                         // 优化 T1：启动后大扫除
+-                        GC.Collect(2, GCCollectionMode.Forced, true, true);
+-                        SystemOptimizer.TrimWorkingSet();
++                        // Benchmark: no forced GC or working-set trimming.
++                        // Benchmark: no forced GC or working-set trimming.
+                     });
+                 }
+                 catch (Exception ex)
+@@ -511,8 +511,8 @@ namespace LiteMonitor.src.SystemServices
+                 }
+ 
+                 // 4. 优化 T1：重置后再次修剪内存
+-                GC.Collect();
+-                SystemOptimizer.TrimWorkingSet();
++                // Benchmark: no forced GC or working-set trimming.
++                // Benchmark: no forced GC or working-set trimming.
+             }
+             catch { }
+         }
+@@ -705,3 +705,4 @@ namespace LiteMonitor.src.SystemServices
+         #endregion
+     }
+ }
++
+diff --git a/src/System/HardwareServices/SystemOptimizer.cs b/src/System/HardwareServices/SystemOptimizer.cs
+index fff8424..4b46fee 100644
+--- a/src/System/HardwareServices/SystemOptimizer.cs
++++ b/src/System/HardwareServices/SystemOptimizer.cs
+@@ -22,7 +22,7 @@ namespace LiteMonitor.src.SystemServices
+         {
+             // 1. 自身 GC (0-5%)
+             onProgress?.Invoke(0);
+-            GC.Collect(2, GCCollectionMode.Forced, true, true);
++            // Benchmark: no forced GC or working-set trimming.
+             onProgress?.Invoke(5);
+ 
+             // 2. 全局清理 (5-100%)
+@@ -67,7 +67,7 @@ namespace LiteMonitor.src.SystemServices
+             try
+             {
+                 using var proc = Process.GetCurrentProcess();
+-                EmptyWorkingSet(proc.Handle);
++                // Benchmark: no forced GC or working-set trimming.
+             }
+             catch { }
+         }
+@@ -87,7 +87,7 @@ namespace LiteMonitor.src.SystemServices
+             // 2. 内存软清理: 每 180 秒 (Offset 30s)
+             if (secondsCounter % 180 == 30)
+             {
+-                GC.Collect(2, GCCollectionMode.Optimized);
++                // Benchmark: no forced GC or working-set trimming.
+             }
+ 
+             // 3. 内存硬清理: 每 300 秒 (5分钟) (Offset 45s)
+@@ -99,7 +99,7 @@ namespace LiteMonitor.src.SystemServices
+                     // 阈值 30MB，确保极致轻量
+                     if (proc.WorkingSet64 > 30 * 1024 * 1024) 
+                     {
+-                        EmptyWorkingSet(proc.Handle);
++                        // Benchmark: no forced GC or working-set trimming.
+                     }
+                 }
+                 catch { }
+@@ -107,3 +107,4 @@ namespace LiteMonitor.src.SystemServices
+         }
+     }
+ }
++
+diff --git a/src/System/Program.cs b/src/System/Program.cs
+index 240fdad..44d675d 100644
+--- a/src/System/Program.cs
++++ b/src/System/Program.cs
+@@ -86,7 +86,7 @@ namespace LiteMonitor
+             {
+                 // ★★★ 3. 启动应用 ★★★
+                 ApplicationConfiguration.Initialize();
+-                if (!DriverInstaller.CheckPawnIOBeforeHardware(Settings.Load()))
++                if (false)
+                 {
+                     return;
+                 }
+@@ -155,3 +155,4 @@ namespace LiteMonitor
+         }
+     }
+ }
++
+diff --git a/src/UI/Helpers/MainFormBizHelper.cs b/src/UI/Helpers/MainFormBizHelper.cs
+index a443543..42fbfdf 100644
+--- a/src/UI/Helpers/MainFormBizHelper.cs
++++ b/src/UI/Helpers/MainFormBizHelper.cs
+@@ -344,7 +344,7 @@ namespace LiteMonitor.src.UI.Helpers
+         {
+             try
+             {
+-                if (HardwareMonitor.Instance != null) await HardwareMonitor.Instance.SmartCheckDriver();
++                // Benchmark only: no driver installation dialog.
+                 await UpdateChecker.CheckAsync();
+                 CheckUpdateSuccess();
+ 
+@@ -385,3 +385,4 @@ namespace LiteMonitor.src.UI.Helpers
+         }
+     }
+ }
++
+diff --git a/src/UI/MainForm_Transparent.cs b/src/UI/MainForm_Transparent.cs
+index 010754c..2c3e730 100644
+--- a/src/UI/MainForm_Transparent.cs
++++ b/src/UI/MainForm_Transparent.cs
+@@ -342,6 +342,7 @@ namespace LiteMonitor
+                     _winHelper.RefreshTopMost(true, forceReinsert: true);
+                 }));
+             }
++            if (Environment.GetEnvironmentVariable("MELLOWMETER_STARTUP_TRACE") is string trace) File.AppendAllText(trace, "0 ms main ready\n");
+         }
+ 
+         protected override void OnFormClosed(FormClosedEventArgs e)
+@@ -358,3 +359,6 @@ namespace LiteMonitor
+         }
+     }
+ }
++
++
++

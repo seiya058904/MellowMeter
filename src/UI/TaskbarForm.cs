@@ -77,7 +77,7 @@ namespace LiteMonitor
 
         public void ReloadLayout()
         {
-            _layout = new HorizontalLayout(ThemeManager.Current, 300, LayoutMode.Taskbar, _cfg);
+            _layout = new HorizontalLayout(ThemeManager.Current, 300, LayoutMode.Taskbar, target: this, settings: _cfg);
             _lastLayoutSignature = ""; // 重置签名，强制重算
             _winHelper.ApplyLayeredStyle(_bizHelper.TransparentKey, _cfg.TaskbarClickThrough);
             _bizHelper.CheckTheme(true);
@@ -171,6 +171,8 @@ namespace LiteMonitor
 
         private void Tick()
         {
+            _timer.Interval = _ui.EffectiveRefreshMs;
+            if (_ui.RenderingPaused) return;
             // [Fix] 周期性检查句柄，防止 Explorer 重启后句柄失效
             // 优化：仅在重试期或句柄无效时调用 FindHandles，且限制调用频率
             bool isHandleInvalid = !_bizHelper.IsTaskbarValid();
@@ -182,7 +184,7 @@ namespace LiteMonitor
                 _lastFindHandleTime = DateTime.Now;
             }
 
-            if (Math.Abs(Environment.TickCount) % 5000 < _cfg.RefreshMs) _bizHelper.CheckTheme();
+            if (Environment.TickCount64 % 5000 < _timer.Interval) _bizHelper.CheckTheme();
 
             // [Fix Part 1] 防空数据保护
             // 使用临时变量接收，先判断数据有效性，再赋值给成员变量 _cols
@@ -232,6 +234,13 @@ namespace LiteMonitor
         protected override void OnPaintBackground(PaintEventArgs e)
         {
             e.Graphics.Clear(_bizHelper.TransparentKey);
+        }
+
+        protected override void OnDpiChanged(DpiChangedEventArgs e)
+        {
+            base.OnDpiChanged(e);
+            TaskbarRenderer.ReloadStyle(_cfg);
+            ReloadLayout();
         }
 
         protected override void OnPaint(PaintEventArgs e)

@@ -137,7 +137,7 @@ namespace LiteMonitor.src.SystemServices
                 }
                 if (maxRaw > 0) _cfg.UpdateMaxRecord(key, maxRaw);
                 if (count > 0) return (float)(sum / count);
-                return maxRaw;
+                return maxRaw > 0 && float.IsFinite(maxRaw) ? maxRaw : null;
             }
 
             if (key == "CPU.Power")
