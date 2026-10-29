@@ -503,8 +503,18 @@ internal static class SmokeSuite
             {
                 if (!row.ClientRectangle.Contains(field.Bounds))
                     throw new InvalidOperationException($"{label}: {row.GetType().Name} field {field.GetType().Name} '{field.Text}' bounds {field.Bounds} escape row {row.ClientRectangle}.");
-                if (field is Label text && !string.IsNullOrWhiteSpace(text.Text) && text.Height + 1 < text.Font.Height)
-                    throw new InvalidOperationException($"{label}: label '{text.Text}' cannot display one line at its current font size.");
+                if (field is Label text && !string.IsNullOrWhiteSpace(text.Text))
+                {
+                    // Native Label uses GDI by default. Font.Height is a GDI+
+                    // metric and can be larger at 96 DPI despite complete text.
+                    using var graphics = text.CreateGraphics();
+                    int lineHeight = text.UseCompatibleTextRendering
+                        ? (int)Math.Ceiling(graphics.MeasureString(text.Text, text.Font).Height)
+                        : TextRenderer.MeasureText(graphics, text.Text, text.Font, new Size(int.MaxValue, int.MaxValue),
+                            TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Height;
+                    if (text.Height + 1 < lineHeight)
+                        throw new InvalidOperationException($"{label}: label '{text.Text}' height {text.Height} cannot fit its rendered line height {lineHeight}.");
+                }
             }
             for (int i = 0; i < fields.Count; i++)
             for (int j = i + 1; j < fields.Count; j++)

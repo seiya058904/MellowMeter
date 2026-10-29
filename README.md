@@ -22,6 +22,8 @@ Plugins, web serving, FPS, speed tests and memory cleanup remain in the inherite
 
 Windows 10/11 x64 and the **.NET 8 SDK** are required for development. No additional hardware driver is required for basic monitoring.
 
+Close a running MellowMeter instance before rebuilding: Windows locks the executable while it is in use.
+
 ```powershell
 # Optional: install a user-local SDK without changing global PATH
 .\scripts\setup.ps1
