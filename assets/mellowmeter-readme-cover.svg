@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="436" viewBox="0 0 1280 436" role="img" aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">MellowMeter — A softer way to keep an eye on your desktop.</title>
+  <desc id="hero-desc">A paper-cream and sage green illustrated cover. On the left, the MellowMeter wordmark and tagline; on the right, a stylized dark floating monitor with CPU, memory and network indicators. The panel is illustrative, not an application screenshot or live reading.</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FBFAF4"/>
+      <stop offset=".50" stop-color="#F3F5EA"/>
+      <stop offset="1" stop-color="#E2EDE4"/>
+    </linearGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#414642"/>
+      <stop offset="1" stop-color="#242C2A"/>
+    </linearGradient>
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#92DBA8"/>
+      <stop offset="1" stop-color="#65C793"/>
+    </linearGradient>
+    <linearGradient id="cream" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#F5D892"/>
+      <stop offset="1" stop-color="#E6B75D"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-40%" width="180%" height="190%">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#315943" flood-opacity=".16"/>
+    </filter>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <pattern id="dots" width="19" height="19" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#56745D" opacity=".12"/>
+    </pattern>
+    <clipPath id="outer"><rect x="2" y="2" width="1276" height="432" rx="28"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#outer)">
+    <rect width="1280" height="436" fill="url(#paper)"/>
+    <path d="M772-35C892 48 899 84 994 89s206-37 334 28v355H786C697 346 738 219 772-35Z" fill="#DDEBDD" opacity=".66"/>
+    <circle cx="1106" cy="55" r="152" fill="#A9D7AF" opacity=".20" filter="url(#soft)"/>
+    <circle cx="712" cy="371" r="150" fill="#F6D79B" opacity=".17" filter="url(#soft)"/>
+    <rect x="703" y="14" width="552" height="395" fill="url(#dots)" opacity=".78"/>
+
+    <g font-family="Segoe UI, Arial, sans-serif">
+      <g transform="translate(75 57)">
+        <rect width="242" height="36" rx="18" fill="#E0EFE2" stroke="#CBDFCE"/>
+        <circle cx="20" cy="18" r="5" fill="#4F9B6B"/>
+        <text x="36" y="23" fill="#3C6B4E" font-size="12" font-weight="700" letter-spacing="1.45">THE QUIET LITTLE MONITOR</text>
+      </g>
+      <text x="68" y="189" fill="#293F37" font-size="81" font-weight="750" letter-spacing="-4.1">Mellow<tspan fill="#559D72">Meter</tspan><tspan fill="#D6AE5E">.</tspan></text>
+      <path d="M77 208h535" stroke="#D2DCCB" stroke-width="2" stroke-linecap="round"/>
+      <text x="77" y="258" fill="#394D43" font-size="27" font-weight="500" letter-spacing="-.4">Your desktop, softly in focus.</text>
+      <text x="78" y="296" fill="#64756B" font-size="16.5">A calm companion for CPU, memory and network activity.</text>
+
+      <g transform="translate(78 336)" font-size="12.5" font-weight="700" letter-spacing=".55">
+        <g><rect width="103" height="32" rx="16" fill="#DDEFE2"/><text x="51.5" y="20.5" text-anchor="middle" fill="#4B7656">● CPU</text></g>
+        <g transform="translate(114 0)"><rect width="118" height="32" rx="16" fill="#F7EEDB"/><text x="59" y="20.5" text-anchor="middle" fill="#8B6937">◒ MEMORY</text></g>
+        <g transform="translate(243 0)"><rect width="121" height="32" rx="16" fill="#E9E7F4"/><text x="60.5" y="20.5" text-anchor="middle" fill="#74678B">↕ NETWORK</text></g>
+      </g>
+    </g>
+
+    <!-- An original conceptual monitor drawing; deliberately no fabricated numerical measurements. -->
+    <g filter="url(#shadow)">
+      <g transform="translate(803 72) rotate(7 203 159)">
+        <rect width="402" height="286" rx="25" fill="#FEFCF5" stroke="#D7E2D5" stroke-width="2"/>
+        <rect x="23" y="23" width="356" height="240" rx="17" fill="#F2F3E9"/>
+        <rect x="43" y="49" width="157" height="10" rx="5" fill="#C8D5C9"/>
+        <rect x="43" y="79" width="293" height="38" rx="12" fill="#FAFAF4"/>
+        <rect x="56" y="93" width="26" height="11" rx="6" fill="#8AC5A0"/>
+        <rect x="93" y="93" width="166" height="11" rx="6" fill="#DFE9D8"/>
+        <rect x="43" y="126" width="293" height="38" rx="12" fill="#FAFAF4"/>
+        <rect x="56" y="140" width="26" height="11" rx="6" fill="#E9C979"/>
+        <rect x="93" y="140" width="131" height="11" rx="6" fill="#E6E9DC"/>
+        <rect x="43" y="173" width="293" height="38" rx="12" fill="#FAFAF4"/>
+        <rect x="56" y="187" width="26" height="11" rx="6" fill="#B8B0D8"/>
+        <rect x="93" y="187" width="189" height="11" rx="6" fill="#E7E8DE"/>
+        <rect x="43" y="222" width="115" height="7" rx="3.5" fill="#BEC9BD"/>
+      </g>
+    </g>
+    <g filter="url(#shadow)">
+      <g transform="translate(733 112)">
+        <rect width="433" height="231" rx="23" fill="url(#shade)" stroke="#596C5C" stroke-width="1.5"/>
+        <rect x="17" y="17" width="399" height="197" rx="14" fill="#2E3431" stroke="#45504B" stroke-width="1"/>
+        <circle cx="40" cy="39" r="6" fill="#82D8A0"/>
+        <text x="55" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" fill="#F2F7EC">mellow <tspan font-weight="400" fill="#A8B9AB">/ floating panel</tspan></text>
+        <rect x="334" y="29" width="56" height="20" rx="10" fill="#404D43"/>
+        <text x="362" y="43" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="700" fill="#9DC4A7">DEMO</text>
+
+        <g font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" letter-spacing="1">
+          <text x="40" y="91" fill="#AFC2B5">CPU</text>
+          <text x="40" y="133" fill="#AFC2B5">MEM</text>
+          <text x="40" y="175" fill="#AFC2B5">NET</text>
+        </g>
+        <g stroke-linecap="round">
+          <path d="M116 86h267" stroke="#414D46" stroke-width="8"/>
+          <path d="M116 86h94" stroke="url(#mint)" stroke-width="8"/>
+          <circle cx="209" cy="86" r="4" fill="#C0F0CB"/>
+          <path d="M116 128h267" stroke="#414D46" stroke-width="8"/>
+          <path d="M116 128h182" stroke="url(#cream)" stroke-width="8"/>
+          <circle cx="297" cy="128" r="4" fill="#FFE9B5"/>
+          <path d="M116 171L144 165L164 179L189 163L214 170L239 158L262 171L290 165L311 174L336 159L382 169" stroke="#9DB3D9" stroke-width="3.5" stroke-linejoin="round" fill="none"/>
+        </g>
+        <path d="M34 193h365" stroke="#48544C" stroke-width="1"/>
+        <text x="40" y="208" font-family="Segoe UI, Arial, sans-serif" font-size="10.5" fill="#93A69C" letter-spacing="1.3">NO NOISE. JUST THE ESSENTIALS.</text>
+      </g>
+    </g>
+    <g font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#65766B" letter-spacing=".75">
+      <text x="938" y="390" text-anchor="middle">*CONCEPT ART · NOT A LIVE READING OR APP SCREENSHOT</text>
+    </g>
+  </g>
+  <rect x="2" y="2" width="1276" height="432" rx="28" fill="none" stroke="#D7E4D6" stroke-width="2"/>
+</svg>
