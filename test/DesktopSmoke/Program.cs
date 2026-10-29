@@ -4,7 +4,9 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using LiteMonitor;
 using LiteMonitor.src.Core;
+using LiteMonitor.src.Core.Actions;
 using LiteMonitor.src.UI;
+using LiteMonitor.src.UI.Controls;
 
 namespace DesktopSmoke;
 
@@ -192,7 +194,15 @@ internal static class SmokeSuite
                     Capture(traffic, "history_dark_traffic");
                     traffic.Close();
                 }
-                Check(Captures.Count == 16, "All nine DPI renderings and seven native form captures were saved");
+                _stage = "theme linkage across open windows";
+                await TestThemeLinkage(main, cfg, ui);
+                string[] requiredNativeCaptures = { "main_light", "settings_light_system", "main_dark",
+                    "settings_dark_system", "settings_dark_metrics", "history_dark_load", "history_dark_traffic",
+                    "settings_cyan", "settings_purple", "settings_amber" };
+                var capturedNames = Captures.Select(path => Path.GetFileNameWithoutExtension(path)).ToHashSet();
+                Check(Captures.Count(path => Path.GetFileName(path).StartsWith("render_")) == 9 &&
+                    requiredNativeCaptures.All(capturedNames.Contains) && capturedNames.Count == Captures.Count &&
+                    Captures.All(File.Exists), "All DPI, native-form and theme-linkage captures were saved without duplicates");
                 _stage = "power and taskbar recovery";
                 await TestLifecycle(main, cfg, ui);
                 _stage = "paused-history shutdown";
@@ -253,6 +263,121 @@ internal static class SmokeSuite
             Check(zero != "—" && zero.Contains('0') && metric.CachedPercent == 0,
                 $"{horizontal}: a real zero remains numeric with zero progress");
         }
+    }
+
+    private static async Task TestThemeLinkage(MainForm main, Settings cfg, UIController ui)
+    {
+        using var settings = new SettingsForm(cfg, ui, main);
+        using var history = new HardwareTrendForm(cfg);
+        using var traffic = new TrafficHistoryForm(cfg);
+        settings.Show(main);
+        settings.SwitchPage("System");
+        history.Show(main);
+        traffic.Show(main);
+        await Task.Delay(120);
+
+        int liveWidth = cfg.PanelWidth;
+        int pendingWidth = liveWidth + 40;
+        Field<Settings>(settings, "_draftCfg").PanelWidth = pendingWidth;
+        var ranges = Field<System.Collections.IDictionary>(history, "_rangeButtons");
+        foreach (System.Collections.DictionaryEntry range in ranges)
+            if (range.Key.ToString() == "Day7") ((Button)range.Value!).PerformClick();
+        Field<Dictionary<HistoryViewMode, Button>>(traffic, "_viewButtons")[HistoryViewMode.Monthly].PerformClick();
+        Check(Field<object>(history, "_range").ToString() == "Day7" &&
+            Field<HistoryViewMode>(traffic, "_currentMode") == HistoryViewMode.Monthly,
+            "Theme linkage fixture has nondefault history selections");
+
+        var variants = new[] {
+            (Skin: "DarkFlat_Classic", Slug: "classic", CaptureSettings: false),
+            (Skin: "CyberBlue_Neon", Slug: "cyan", CaptureSettings: true),
+            (Skin: "AuroraDream_Purple", Slug: "purple", CaptureSettings: true),
+            (Skin: "SolarAmber_Warm", Slug: "amber", CaptureSettings: true),
+            (Skin: "MellowLight", Slug: "light", CaptureSettings: false)
+        };
+        int capturesBefore = Captures.Count;
+        var taskbarAccents = new Dictionary<string, Color>();
+        foreach (var variant in variants)
+        {
+            cfg.Skin = variant.Skin;
+            AppActions.ApplyThemeAndLayout(cfg, ui, main);
+            await Task.Delay(150);
+            string expectedThemeName = variant.Skin == "DarkFlat_Classic" ? "MinimalDarkFlat v2.0" :
+                variant.Skin == "MellowLight" ? "Mellow Light" : variant.Skin;
+            Check(ThemeManager.Current.Name == expectedThemeName, variant.Skin + ": selected theme loads without fallback");
+            Color background = ThemeManager.ParseColor(ThemeManager.Current.Color.Background);
+            Color card = ThemeManager.ParseColor(ThemeManager.Current.Color.GroupBackground);
+            Color border = UIColors.Border;
+            Color text = ThemeManager.ParseColor(ThemeManager.Current.Color.TextTitle);
+            Check(main.BackColor == background && settings.BackColor == background &&
+                history.BackColor == background && traffic.BackColor == background,
+                variant.Skin + ": open float, settings and both histories share the selected background");
+            Check(Field<string>(settings, "_currentKey") == "System" &&
+                Field<Settings>(settings, "_draftCfg").PanelWidth == pendingWidth && cfg.PanelWidth == liveWidth,
+                variant.Skin + ": refresh preserves the active settings page and unapplied width");
+            Check(Field<object>(history, "_range").ToString() == "Day7" &&
+                Field<HistoryViewMode>(traffic, "_currentMode") == HistoryViewMode.Monthly,
+                variant.Skin + ": history range and traffic period survive refresh");
+            var chart = Field<TrendChartControl>(history, "_chart");
+            var gridColor = (Color)typeof(TrendChartControl).GetProperty("_gridColor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(chart)!;
+            Check(chart.BackColor == card && chart.ForeColor == text && gridColor == border,
+                variant.Skin + ": the existing chart adopts background, text and grid colors");
+            foreach (var historyGrid in new[] { Field<DataGridView>(history, "_grid"), Field<DataGridView>(traffic, "_grid") })
+                Check(historyGrid.BackgroundColor == card && historyGrid.GridColor == border &&
+                    historyGrid.DefaultCellStyle.ForeColor == text,
+                    variant.Skin + ": history grid uses the selected palette");
+
+            var stateColor = typeof(TaskbarRenderer).GetMethod("GetStateColor", BindingFlags.Static | BindingFlags.NonPublic)!;
+            foreach (bool lightSystem in new[] { false, true })
+            {
+                Color surface = lightSystem ? Color.FromArgb(210, 210, 210) : Color.FromArgb(40, 40, 40);
+                for (int state = 0; state <= 2; state++)
+                {
+                    Color color = (Color)stateColor.Invoke(null, new object[] { state, lightSystem })!;
+                    Check(ContrastRatio(color, surface) >= 4.5,
+                        variant.Skin + $": taskbar state {state} has readable contrast on {(lightSystem ? "light" : "dark")} system chrome");
+                    if (state == 0 && !lightSystem) taskbarAccents[variant.Slug] = color;
+                }
+                using var bitmap = new Bitmap(320, 72);
+                using (var graphics = Graphics.FromImage(bitmap))
+                {
+                    graphics.Clear(surface);
+                    var metric = new MetricItem { Key = "CPU.Load", Label = "CPU", ShortLabel = "CPU",
+                        Value = 27, DisplayValue = 27, BoundConfig = new MonitorItemConfig { Key = "CPU.Load" } };
+                    TaskbarRenderer.Render(graphics, new List<Column> {
+                        new Column { Top = metric, Bounds = new Rectangle(12, 12, 296, 48) }
+                    }, lightSystem);
+                }
+                Save(bitmap, $"taskbar_{variant.Slug}_{(lightSystem ? "light" : "dark")}_system");
+            }
+            if (variant.CaptureSettings)
+            {
+                settings.BringToFront();
+                Capture(settings, "settings_" + variant.Slug);
+            }
+        }
+        Check(new[] { "cyan", "purple", "amber" }.Select(key => taskbarAccents[key].ToArgb()).Distinct().Count() == 3,
+            "Cyan, purple and amber selections produce distinct taskbar accents");
+        Check(Captures.Count == capturesBefore + variants.Length * 2 + variants.Count(variant => variant.CaptureSettings),
+            "Each selected theme has both taskbar renders and each requested settings capture");
+        settings.CancelButton!.PerformClick();
+        Check(cfg.PanelWidth == liveWidth, "Closing themed settings does not commit the preserved draft");
+        history.Close();
+        traffic.Close();
+    }
+
+    private static double ContrastRatio(Color first, Color second)
+    {
+        static double Luminance(Color color)
+        {
+            static double Linear(byte component)
+            {
+                double value = component / 255d;
+                return value <= 0.04045 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
+            }
+            return 0.2126 * Linear(color.R) + 0.7152 * Linear(color.G) + 0.0722 * Linear(color.B);
+        }
+        double a = Luminance(first), b = Luminance(second);
+        return (Math.Max(a, b) + 0.05) / (Math.Min(a, b) + 0.05);
     }
 
     private static async Task TestLifecycle(MainForm main, Settings cfg, UIController ui)

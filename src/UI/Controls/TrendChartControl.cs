@@ -70,6 +70,14 @@ namespace LiteMonitor
             Invalidate();
         }
 
+        public void RefreshTheme()
+        {
+            BackColor = UIColors.CardBg;
+            ForeColor = UIColors.TextMain;
+            // Keep hidden series, highlight and hover position intact.
+            Invalidate();
+        }
+
         public void SetHighlightedSeries(string? key)
         {
             if (string.IsNullOrWhiteSpace(key))

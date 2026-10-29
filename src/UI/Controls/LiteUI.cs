@@ -27,10 +27,7 @@ namespace LiteMonitor.src.UI.Controls
                     _accentBackground = colors.GroupBackground;
                     Color source = ThemeManager.ParseColor(colors.BarLow);
                     Color background = CardBg;
-                    Color endpoint = Luminance(background) < 0.18 ? Color.White : Color.Black;
-                    _accent = source;
-                    for (int step = 1; step <= 20 && Contrast(_accent, background) < 4.5; step++)
-                        _accent = Blend(source, endpoint, step / 20f);
+                    _accent = EnsureContrast(source, background);
                 }
                 return _accent;
             }
@@ -63,6 +60,15 @@ namespace LiteMonitor.src.UI.Controls
         {
             double a = Luminance(first), b = Luminance(second);
             return (Math.Max(a, b) + 0.05) / (Math.Min(a, b) + 0.05);
+        }
+
+        public static Color EnsureContrast(Color source, Color background)
+        {
+            Color endpoint = Luminance(background) < 0.18 ? Color.White : Color.Black;
+            Color result = source;
+            for (int step = 1; step <= 20 && Contrast(result, background) < 4.5; step++)
+                result = Blend(source, endpoint, step / 20f);
+            return result;
         }
     }
 

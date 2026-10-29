@@ -64,6 +64,14 @@ namespace LiteMonitor.src.UI.Helpers
             _pollingTimer?.Dispose();
             _pollingTimer = null;
 
+            // A theme reload disposes its old fonts. Never leave a visible tooltip
+            // holding that theme; the next hover binds fresh metrics and styling.
+            _tooltipForm?.Dispose();
+            _tooltipForm = null;
+            _isHovering = false;
+            _canShow = false;
+            _cachedTargetWidth = 0;
+
             // 重新初始化
             SetupMode();
         }
@@ -141,6 +149,8 @@ namespace LiteMonitor.src.UI.Helpers
 
         private void OnMouseMove(object? sender, MouseEventArgs e)
         {
+            // Theme/layout reloads may occur while the pointer stays over the strip.
+            _isHovering = true;
             // 如果 ToolTip 还没显示，且鼠标在移动，则重置计时器 (防抖)
             // 这样只有鼠标停下 (或移动非常慢) HOVER_DELAY_MS 后才会显示
             if (_tooltipForm != null && !_tooltipForm.Visible)

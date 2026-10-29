@@ -9,7 +9,7 @@ MellowMeter preserves the original WinForms layout and hardware-monitoring found
 ## Everyday monitoring
 
 - **Desktop strip and taskbar strip:** CPU busy time, memory and upload/download rates by default. Double-click the desktop strip to expand it into the original grouped panel; right-click for display controls, history and settings.
-- **The original look, kept:** DarkFlat Classic and the original taskbar typography remain the defaults. Existing layouts, colorful values, small icons and round progress bars are preserved. Settings, menus and history now follow the selected theme. Optional Mellow Dark/Light variants add subtle warmer neutrals.
+- **One shared theme:** DarkFlat Classic and the original taskbar typography remain the defaults. Existing layouts, colorful values, small icons and round progress bars are preserved. Settings, menus, taskbar values and already-open history windows follow the selected theme. Settings keep unapplied edits during a theme change; taskbar colors adapt to light/dark Windows surfaces. Optional Mellow Dark/Light variants add subtle warmer neutrals.
 - **Driver-free basic mode:** CPU, memory and network use Windows APIs. No administrator request, driver installer, FPS helper, plugin worker, web service or update request is started by default.
 - **Optional advanced sensors:** enable them in **Settings > System**, apply, then restart. GPU, temperature, disk, clock, power and fan metrics depend on supported hardware, permissions and an available compatible driver. Missing readings show **—**; MellowMeter does not install drivers for you.
 - **Local history:** retained load/temperature trends, traffic history and CSV export. Recording can be paused without deleting old records. No monitoring data is uploaded.
@@ -51,9 +51,15 @@ Settings and histories live in `%LOCALAPPDATA%/MellowMeter`, separate from LiteM
 ![MellowMeter light panel](docs/screenshots/panel-light.png)
 ![MellowMeter expanded panel](docs/screenshots/expanded-dark.png)
 ![MellowMeter settings](docs/screenshots/settings-dark.png)
+![Settings following the original AuroraDream Purple theme](docs/screenshots/settings-purple.png)
 ![MellowMeter history](docs/screenshots/history-dark.png)
 
-Panel and form captures are produced from the real WinForms renderer. `DrawToBitmap` captures may differ from desktop window chrome and region clipping. Expanded-panel and history regression captures contain seeded example data; they are not performance measurements. The upstream gallery remains under `resources/screenshots` and is not presented as MellowMeter artwork.
+The same purple theme adapts to dark and light taskbar surfaces:
+
+![Purple taskbar values on a dark surface](docs/screenshots/taskbar-purple-dark.png)
+![Purple taskbar values on a light surface](docs/screenshots/taskbar-purple-light.png)
+
+Panel and form captures are produced from the real WinForms renderer. `DrawToBitmap` captures may differ from desktop window chrome and region clipping. Expanded-panel, history and taskbar regression captures contain seeded example data; taskbar samples use simulated system backgrounds. They are not performance measurements. The upstream gallery remains under `resources/screenshots` and is not presented as MellowMeter artwork.
 
 ## Engineering and verification
 

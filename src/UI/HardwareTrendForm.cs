@@ -22,6 +22,7 @@ namespace LiteMonitor
         private readonly TrendChartControl _chart;
         private readonly FlowLayoutPanel _summaryPanel;
         private readonly DataGridView _grid;
+        private Control _toolbar;
 
         private TrendCategory _category = TrendCategory.Load;
         private TrendRange _range = TrendRange.Hour1;
@@ -29,15 +30,17 @@ namespace LiteMonitor
         private string? _selectedSeriesKey;
         private bool _fillingGrid;
         private float _scale = 1.0f;
+        private string _visualSkin;
+        private string _visualLanguage;
 
-        private readonly Color C_Back = UIColors.MainBg;
-        private readonly Color C_Panel = UIColors.CardBg;
-        private readonly Color C_GridBack = UIColors.CardBg;
-        private readonly Color C_GridLine = UIColors.Border;
-        private readonly Color C_TextMain = UIColors.TextMain;
-        private readonly Color C_TextDim = UIColors.TextSub;
-        private readonly Color C_Header = UIColors.GroupHeader;
-        private readonly Color C_Accent = UIColors.Primary;
+        private Color C_Back => UIColors.MainBg;
+        private Color C_Panel => UIColors.CardBg;
+        private Color C_GridBack => UIColors.CardBg;
+        private Color C_GridLine => UIColors.Border;
+        private Color C_TextMain => UIColors.TextMain;
+        private Color C_TextDim => UIColors.TextSub;
+        private Color C_Header => UIColors.GroupHeader;
+        private Color C_Accent => UIColors.Primary;
 
         protected override CreateParams CreateParams
         {
@@ -64,6 +67,8 @@ namespace LiteMonitor
         public HardwareTrendForm(Settings cfg)
         {
             _cfg = cfg;
+            _visualSkin = cfg.Skin;
+            _visualLanguage = LanguageManager.CurrentLang;
             AutoScaleMode = AutoScaleMode.None;
             DoubleBuffered = true;
 
@@ -82,8 +87,8 @@ namespace LiteMonitor
 
             SuspendLayout();
 
-            var toolbar = CreateToolbar();
-            Controls.Add(toolbar);
+            _toolbar = CreateToolbar();
+            Controls.Add(_toolbar);
 
             _summaryPanel = new FlowLayoutPanel
             {
@@ -123,6 +128,63 @@ namespace LiteMonitor
         {
             base.OnShown(e);
             CenterOnDesktop();
+        }
+
+        public void RefreshTheme()
+        {
+            if (IsDisposed || (_visualSkin == _cfg.Skin && _visualLanguage == LanguageManager.CurrentLang)) return;
+            SuspendLayout();
+            try
+            {
+                Text = "MellowMeter · " + LanguageManager.T("Menu.MonitorHistory");
+                BackColor = C_Back;
+                ForeColor = C_TextMain;
+                int toolbarIndex = Controls.GetChildIndex(_toolbar);
+                _toolbar.Dispose();
+                _categoryButtons.Clear();
+                _rangeButtons.Clear();
+                _toolbar = CreateToolbar();
+                Controls.Add(_toolbar);
+                Controls.SetChildIndex(_toolbar, toolbarIndex);
+                SetActiveButtons();
+                _summaryPanel.BackColor = C_Panel;
+                _grid.BackgroundColor = C_GridBack;
+                _grid.GridColor = C_GridLine;
+                _grid.ColumnHeadersDefaultCellStyle.BackColor = C_Header;
+                _grid.ColumnHeadersDefaultCellStyle.ForeColor = C_TextMain;
+                _grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = C_Header;
+                _grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = C_TextMain;
+                _grid.DefaultCellStyle.BackColor = C_GridBack;
+                _grid.DefaultCellStyle.ForeColor = C_TextMain;
+                _grid.DefaultCellStyle.SelectionBackColor = UIColors.NavSelected;
+                _grid.DefaultCellStyle.SelectionForeColor = C_TextMain;
+                _grid.Columns["Name"].HeaderText = T("指标", "Metric");
+                _grid.Columns["Current"].HeaderText = T("最新", "Latest");
+                _grid.Columns["Avg"].HeaderText = T("平均", "Average");
+                _grid.Columns["Max"].HeaderText = T("最高", "Max");
+                _grid.Columns["Min"].HeaderText = T("最低", "Min");
+                _grid.Columns["Count"].HeaderText = T("样本", "Samples");
+                for (int index = 0; index < _currentSeries.Count; index++)
+                {
+                    var series = _currentSeries[index];
+                    series.Color = GetSeriesColor(index);
+                    series.Label = GetMetricLabel(series.Key);
+                    foreach (DataGridViewRow row in _grid.Rows)
+                        if (row.Tag is string key && key == series.Key)
+                        {
+                            row.Cells["Name"].Style.ForeColor = series.Color;
+                            row.Cells["Name"].Value = series.Label;
+                        }
+                }
+                _chart.Title = GetCategoryTitle();
+                _chart.EmptyText = HasEnabledMetricInCurrentCategory()
+                    ? T("暂无历史数据", "No history") : T("当前分类没有开启的监控项", "No enabled metrics in this group");
+                _chart.RefreshTheme();
+                FillSummary();
+                _visualSkin = _cfg.Skin;
+                _visualLanguage = LanguageManager.CurrentLang;
+            }
+            finally { ResumeLayout(true); Invalidate(true); }
         }
 
         private void CenterOnDesktop()
@@ -280,7 +342,7 @@ namespace LiteMonitor
         private void FillSummary()
         {
             _summaryPanel.SuspendLayout();
-            _summaryPanel.Controls.Clear();
+            while (_summaryPanel.Controls.Count > 0) _summaryPanel.Controls[0].Dispose();
 
             if (_currentSeries.Count == 0)
             {
@@ -647,11 +709,11 @@ namespace LiteMonitor
         {
             Color[] colors =
             {
-                Color.FromArgb(80, 160, 255),
-                Color.FromArgb(80, 220, 120),
-                Color.FromArgb(245, 196, 80),
-                Color.FromArgb(230, 95, 95),
-                Color.FromArgb(180, 140, 255)
+                UIColors.Primary,
+                UIColors.IsDark ? Color.FromArgb(130, 188, 255) : Color.FromArgb(35, 99, 170),
+                UIColors.TextWarn,
+                UIColors.TextCrit,
+                UIColors.IsDark ? Color.FromArgb(197, 161, 255) : Color.FromArgb(117, 66, 171)
             };
             return colors[index % colors.Length];
         }

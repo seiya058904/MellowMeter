@@ -22,6 +22,9 @@ namespace LiteMonitor.src.UI
         // 缓存所有页面实例
         private Dictionary<string, SettingsPageBase> _pages = new Dictionary<string, SettingsPageBase>();
         private string _currentKey = "";
+        private string _visualSkin = "";
+        private string _visualLanguage = "";
+        private bool _applyingSettings;
 
         protected override CreateParams CreateParams
         {
@@ -118,6 +121,8 @@ namespace LiteMonitor.src.UI
             pnlSidebar.BringToFront(); 
             pnlBottom.SendToBack(); 
             _pnlContent.BringToFront();
+            _visualSkin = _cfg.Skin;
+            _visualLanguage = LanguageManager.CurrentLang;
         }
 
         private void InitPages()
@@ -129,11 +134,11 @@ namespace LiteMonitor.src.UI
             _currentKey = "";
             
             // 注册所有页面
-            AddNav("MainPanel", LanguageManager.T("Menu.MainFormSettings"), new MainPanelPage());
-            AddNav("Taskbar", LanguageManager.T("Menu.TaskbarSettings"), new TaskbarPage());
-            AddNav("Monitor", LanguageManager.T("Menu.MonitorItemDisplay"), new MonitorPage());
-            AddNav("Threshold", LanguageManager.T("Menu.Thresholds"), new ThresholdPage());
-            AddNav("System", LanguageManager.T("Menu.SystemHardwar"), new SystemHardwarPage());
+            AddNav("MainPanel", "🖥️ " + LanguageManager.T("Menu.MainFormSettings"), new MainPanelPage());
+            AddNav("Taskbar", "➖ " + LanguageManager.T("Menu.TaskbarSettings"), new TaskbarPage());
+            AddNav("Monitor", "📊 " + LanguageManager.T("Menu.MonitorItemDisplay"), new MonitorPage());
+            AddNav("Threshold", "🔔 " + LanguageManager.T("Menu.Thresholds"), new ThresholdPage());
+            AddNav("System", "⚙️ " + LanguageManager.T("Menu.SystemHardwar"), new SystemHardwarPage());
 
             _pnlNavContainer.PerformLayout();
             SwitchPage("MainPanel");
@@ -196,19 +201,7 @@ namespace LiteMonitor.src.UI
         {
             bool oldAutoStart = _cfg.AutoStart;
             bool oldAdvancedSensors = _cfg.AdvancedSensorsEnabled;
-            string oldSkin = _cfg.Skin;
-            string oldLanguage = _cfg.Language;
-
-            // 保存逻辑顺序优化
-            foreach (var kv in _pages) 
-            {
-                if (kv.Key != "Monitor") kv.Value.Save(); 
-            }
-            
-            if (_pages.ContainsKey("Monitor")) 
-            {
-                _pages["Monitor"].Save();
-            }
+            SaveDraftPages();
             
             // ★★★ Draft 机制核心：提交事务 ★★★
             // 1. 全局校验 (防止全隐藏死锁)
@@ -232,18 +225,36 @@ namespace LiteMonitor.src.UI
             _cfg.Save();
             
             // 4. 应用副作用 (刷新界面)
-            AppActions.ApplyAllSettings(_cfg, _mainForm, _ui, autoStartChanged);
+            _applyingSettings = true;
+            try { AppActions.ApplyAllSettings(_cfg, _mainForm, _ui, autoStartChanged); }
+            finally { _applyingSettings = false; }
 
             // 5. [Fix] Rebase Draft to match Live
             // 将 Live 环境中由插件生成的最新监控项同步回 Draft，并保留动态显示属性
             SettingsChanger.RebaseDraftMonitorItems(_cfg, _draftCfg);
 
-            if (!string.Equals(oldSkin, _cfg.Skin, StringComparison.Ordinal) ||
-                !string.Equals(oldLanguage, _cfg.Language, StringComparison.Ordinal))
-                RefreshAppearance();
+            RefreshTheme();
 
             if (oldAdvancedSensors != _cfg.AdvancedSensorsEnabled)
                 MessageBox.Show(this, LanguageManager.T("Menu.RestartForSensors"), "MellowMeter", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void SaveDraftPages()
+        {
+            foreach (var page in _pages)
+                if (page.Key != "Monitor") page.Value.Save();
+            if (_pages.TryGetValue("Monitor", out var monitor)) monitor.Save();
+        }
+
+        public void RefreshTheme()
+        {
+            if (IsDisposed || _applyingSettings ||
+                (_visualSkin == _cfg.Skin && _visualLanguage == LanguageManager.CurrentLang)) return;
+            SaveDraftPages();
+            // Follow an external appearance change only where the user has no pending override.
+            if (_draftCfg.Skin == _visualSkin) _draftCfg.Skin = _cfg.Skin;
+            if (_draftCfg.Language == _visualLanguage) _draftCfg.Language = _cfg.Language;
+            RefreshAppearance();
         }
 
         private void RefreshAppearance()

@@ -1,4 +1,5 @@
 using LiteMonitor.src.Core;
+using LiteMonitor.src.UI.Controls;
 using System.Drawing.Text;
 
 namespace LiteMonitor
@@ -13,17 +14,10 @@ namespace LiteMonitor
         // 字体缓存 - 直接初始化，避免每次渲染都创建字体
         private static Font? _cachedFont = null;
 
-        // 浅色主题
-        private static readonly Color LABEL_LIGHT = Color.FromArgb(0x30, 0x47, 0x52);
-        private static readonly Color SAFE_LIGHT = Color.FromArgb(0x23, 0x6F, 0x63);
-        private static readonly Color WARN_LIGHT = Color.FromArgb(0x8A, 0x60, 0x1B);
-        private static readonly Color CRIT_LIGHT = Color.FromArgb(0xB2, 0x47, 0x47);
-
-        // 深色主题
-        private static readonly Color LABEL_DARK = Color.FromArgb(0xCF, 0xDB, 0xE1);
-        private static readonly Color SAFE_DARK = Color.FromArgb(0x85, 0xD4, 0xC5);
-        private static readonly Color WARN_DARK = Color.FromArgb(0xE9, 0xC3, 0x79);
-        private static readonly Color CRIT_DARK = Color.FromArgb(0xF1, 0x99, 0x98);
+        // Share the floating theme's hues, adapted once for either Windows taskbar surface.
+        private static Color _labelLight, _labelDark, _mutedLight, _mutedDark;
+        private static readonly Color[] _statesLight = new Color[3];
+        private static readonly Color[] _statesDark = new Color[3];
 
         // ★★★ [新增] 自定义颜色缓存 ★★★
         private static bool _useCustom = false;
@@ -47,6 +41,22 @@ namespace LiteMonitor
             // 无论开关怎么变，这里拿到的永远是正确参数
             // This renderer owns its font; shared UIUtils fonts may be invalidated on theme changes.
             _cachedFont = new Font(s.Font, s.Size, s.Bold ? FontStyle.Bold : FontStyle.Regular);
+
+            var theme = ThemeManager.Current.Color;
+            Color lightSurface = Color.FromArgb(210, 210, 210);
+            Color darkSurface = Color.FromArgb(40, 40, 40);
+            static Color Adapt(string source, Color surface) =>
+                UIColors.EnsureContrast(ThemeManager.ParseColor(source), surface);
+            _labelLight = Adapt(theme.TextPrimary, lightSurface);
+            _labelDark = Adapt(theme.TextPrimary, darkSurface);
+            _mutedLight = Adapt(theme.TextGroup, lightSurface);
+            _mutedDark = Adapt(theme.TextGroup, darkSurface);
+            string[] stateColors = { theme.ValueSafe, theme.ValueWarn, theme.ValueCrit };
+            for (int i = 0; i < stateColors.Length; i++)
+            {
+                _statesLight[i] = Adapt(stateColors[i], lightSurface);
+                _statesDark[i] = Adapt(stateColors[i], darkSurface);
+            }
 
             // 颜色依然允许自定义
             _useCustom = cfg.TaskbarCustomStyle;
@@ -129,13 +139,12 @@ namespace LiteMonitor
             }
             else
             {
-                // 原有模式
-                labelColor = light ? LABEL_LIGHT : LABEL_DARK;
+                labelColor = light ? _labelLight : _labelDark;
                 valueColor = GetStateColor(item.CachedColorState, light);
             }
 
             if (item.TextValue == null && (!item.Value.HasValue || !float.IsFinite(item.Value.Value)))
-                valueColor = light ? Color.FromArgb(0x53, 0x69, 0x75) : Color.FromArgb(0xA7, 0xBA, 0xC4);
+                valueColor = _useCustom ? _cLabel : light ? _mutedLight : _mutedDark;
 
             // ★★★ 修复：如果开启了隐藏标签 (如 IP/Dashboard)，则仅绘制 Value (左对齐) ★★★
             if (hideLabel)
@@ -152,9 +161,7 @@ namespace LiteMonitor
         // [新增] 辅助：根据状态快速获取颜色 (替代原来的 PickColor)
         private static Color GetStateColor(int state, bool light)
         {
-            if (state == 2) return light ? CRIT_LIGHT : CRIT_DARK;
-            if (state == 1) return light ? WARN_LIGHT : WARN_DARK;
-            return light ? SAFE_LIGHT : SAFE_DARK;
+            return (light ? _statesLight : _statesDark)[state is 1 or 2 ? state : 0];
         }
 
         // [新增] 辅助：自定义模式

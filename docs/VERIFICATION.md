@@ -1,6 +1,6 @@
 # Verification record
 
-Local evidence collected on **2026-10-29**. The original default theme and taskbar font are retained. Final WinForms renderer captures were reviewed in dark/light modes after returning checkboxes to the native implementation. The earlier interactive desktop check was stopped with Esc; the last styling changes have renderer coverage but no final interactive recheck. Remote CI is pending.
+Local evidence collected on **2026-10-29**. The original default theme and taskbar font are retained. WinForms renderer captures were reviewed in dark/light modes and in the original cyan, purple and amber themes after returning checkboxes to the native implementation. The earlier interactive desktop check was stopped with Esc; the last styling changes have renderer coverage but no final interactive recheck. The [initial Windows CI run](https://github.com/seiya058904/MellowMeter/actions/runs/40875378179) passed all six suites; subsequent commit results are available in the [workflow history](https://github.com/seiya058904/MellowMeter/actions/workflows/build.yml).
 
 ## Environment and completed checks
 
@@ -10,7 +10,7 @@ Windows 11 Enterprise **10.0.22631**, AMD Ryzen 7 9700X (**16 logical processors
 | --- | --- |
 | Release build | 0 errors; nullable/unused-code warnings remain, predominantly inherited |
 | Native monitoring regression | Passed: native readings, missing adapters, counter resets, slow refresh, history boundaries and nonblocking reset |
-| Desktop smoke | 174 assertions passed; 16 captures |
+| Desktop smoke | 246 assertions passed; 29 captures |
 | Inherited release review | 28 passed |
 | Inherited security regression | 25 passed |
 | WebSocket protocol compatibility | 5 passed |
@@ -19,11 +19,13 @@ Windows 11 Enterprise **10.0.22631**, AMD Ryzen 7 9700X (**16 logical processors
 
 Desktop checks cover settings Apply/Cancel, missing-value display and recovery, four metric defaults, history preservation and shutdown draining, and simulated lock/suspend/hidden/recovery transitions. These invoke application behavior; they do not physically lock or suspend Windows. See the [desktop harness](../test/DesktopSmoke/README.md) and [build script](../scripts/build.ps1), which runs all six suites.
 
-The renderer was exercised at synthetic **100%, 150% and 200%** scales. Native form captures use the host's actual **175%** scale. Physical DPI changes, mixed-DPI multi-monitor transitions, real sleep/wake, Explorer restart, and a broad hardware/driver compatibility matrix **were not tested**. Advanced sensor availability remains hardware- and permission-dependent.
+Theme linkage was checked across DarkFlat Classic, CyberBlue Neon, AuroraDream Purple, SolarAmber Warm and Mellow Light with settings and both histories already open. Unapplied settings, the active page, seven-day trend range and monthly traffic view survived each switch. Taskbar state colors met 4.5:1 contrast on the two representative dark/light test surfaces. Actual wallpaper, transparency and custom taskbar colors may differ from those surfaces.
+
+The renderer was exercised at synthetic **100%, 150% and 200%** scales. Local native form captures use the host's actual **175%** scale; the initial Windows CI run also passed at **96 DPI**. Physical DPI changes, mixed-DPI multi-monitor transitions, real sleep/wake, Explorer restart, and a broad hardware/driver compatibility matrix **were not tested**. Advanced sensor availability remains hardware- and permission-dependent.
 
 ## Matched local benchmark
 
-Both applications displayed **CPU.Load, MEM.Load, NET.Up and NET.Down**, with **DarkFlat Classic**, a **1-second refresh**, horizontal desktop panel, taskbar strip and history enabled. Each visible application ran separately, with **15 seconds of warmup** after readiness and approximately **60 seconds of measurement** at 1-second intervals. The final MellowMeter measurement uses the retained original theme and font.
+Both applications displayed **CPU.Load, MEM.Load, NET.Up and NET.Down**, with **DarkFlat Classic**, a **1-second refresh**, horizontal desktop panel, taskbar strip and history enabled. Each visible application ran separately, with **15 seconds of warmup** after readiness and approximately **60 seconds of measurement** at 1-second intervals. The MellowMeter measurement uses the retained original theme and font; it predates the final theme-linkage fixes.
 
 The baseline is LiteMonitor commit `3b91b5ca6d70a9056b8fdd01c9acddc985721240`, modified for this local comparison: bypass startup driver dialogs, run as the current user, tolerate an absent optional text resource, add a readiness trace, and disable automatic forced GC/working-set trimming. The [exact baseline patch](benchmark-baseline.patch) is retained. This is a **patched comparison baseline**, not an untouched upstream release. Neither measured run used forced collection or working-set trimming.
 

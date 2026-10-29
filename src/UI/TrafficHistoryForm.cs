@@ -15,12 +15,16 @@ namespace LiteMonitor
         private Label _lblSessionUp, _lblSessionDown;
         private Label _lblTodayUp, _lblTodayDown;
         private Label _lblListSummary;
+        private Panel _dashboardPanel, _toolbarPanel, _footerPanel;
+        private Label _dashboardSeparator, _viewLabel;
         private DataGridView _grid;
         private Dictionary<HistoryViewMode, Button> _viewButtons = new Dictionary<HistoryViewMode, Button>();
 
         private HistoryViewMode _currentMode = HistoryViewMode.Daily;
 
         private float _scale = 1.0f;
+        private string _visualSkin;
+        private string _visualLanguage;
 
         // 参考 SettingsForm，使用 WS_EX_COMPOSITED 消除首次打开闪烁
         protected override CreateParams CreateParams
@@ -46,24 +50,26 @@ namespace LiteMonitor
         }
 
         // === 配色 ===
-        private readonly Color C_Back = UIColors.MainBg;
-        private readonly Color C_Panel = UIColors.CardBg;
-        private readonly Color C_GridBack = UIColors.CardBg;
-        private readonly Color C_GridLine = UIColors.Border;
-        private readonly Color C_TextMain = UIColors.TextMain;
-        private readonly Color C_TextDim = UIColors.TextSub;
-        private readonly Color C_Header = UIColors.GroupHeader;
-        private readonly Color C_Accent = UIColors.Primary;
+        private Color C_Back = UIColors.MainBg;
+        private Color C_Panel = UIColors.CardBg;
+        private Color C_GridBack = UIColors.CardBg;
+        private Color C_GridLine = UIColors.Border;
+        private Color C_TextMain = UIColors.TextMain;
+        private Color C_TextDim = UIColors.TextSub;
+        private Color C_Header = UIColors.GroupHeader;
+        private Color C_Accent = UIColors.Primary;
 
-        private readonly Color C_Up = UIColors.IsDark ? Color.FromArgb(110, 173, 244) : Color.FromArgb(34, 104, 180);
-        private readonly Color C_Down = UIColors.IsDark ? Color.FromArgb(100, 203, 156) : Color.FromArgb(26, 124, 83);
-        private readonly Color C_BarBg = UIColors.Border;
+        private Color C_Up = UIColors.IsDark ? Color.FromArgb(110, 173, 244) : Color.FromArgb(34, 104, 180);
+        private Color C_Down = UIColors.Primary;
+        private Color C_BarBg = UIColors.Border;
 
-        private readonly Color C_Highlight = UIColors.TextWarn;
+        private Color C_Highlight = UIColors.TextWarn;
 
         public TrafficHistoryForm(Settings cfg)
         {
             _cfg = cfg;
+            _visualSkin = cfg.Skin;
+            _visualLanguage = LanguageManager.CurrentLang;
             AutoScaleMode = AutoScaleMode.None;
             // 【修改点 1】开启窗体自身的双缓冲（解决背景白屏）
             this.DoubleBuffered = true;
@@ -97,6 +103,82 @@ namespace LiteMonitor
 
         private string T(string zh, string en) => (_cfg.Language ?? "").StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? zh : en;
 
+        public void RefreshTheme()
+        {
+            if (IsDisposed || (_visualSkin == _cfg.Skin && _visualLanguage == LanguageManager.CurrentLang)) return;
+            C_Back = UIColors.MainBg;
+            C_Panel = C_GridBack = UIColors.CardBg;
+            C_GridLine = C_BarBg = UIColors.Border;
+            C_TextMain = UIColors.TextMain;
+            C_TextDim = UIColors.TextSub;
+            C_Header = UIColors.GroupHeader;
+            C_Accent = C_Down = UIColors.Primary;
+            C_Up = UIColors.IsDark ? Color.FromArgb(110, 173, 244) : Color.FromArgb(34, 104, 180);
+            C_Highlight = UIColors.TextWarn;
+            SuspendLayout();
+            try
+            {
+                Text = "MellowMeter · " + LanguageManager.T("Menu.Traffic");
+                BackColor = C_Back;
+                ForeColor = C_TextMain;
+                _dashboardPanel.BackColor = _footerPanel.BackColor = C_Panel;
+                _toolbarPanel.BackColor = C_Back;
+                _dashboardSeparator.BackColor = C_GridLine;
+                _lblSessionUp.ForeColor = _lblTodayUp.ForeColor = C_Up;
+                _lblSessionDown.ForeColor = _lblTodayDown.ForeColor = C_Down;
+                _lblListSummary.ForeColor = C_TextMain;
+                _viewLabel.Text = T("统计维度", "View");
+                _viewLabel.ForeColor = C_TextDim;
+                foreach (Control control in _dashboardPanel.Controls)
+                    if (control.Tag is ValueTuple<string, string, string> caption)
+                    {
+                        control.Text = T(caption.Item2, caption.Item3);
+                        control.ForeColor = caption.Item1 switch { "up" => C_Up, "down" => C_Down, _ => C_TextDim };
+                    }
+                _grid.BackgroundColor = C_GridBack;
+                _grid.GridColor = C_GridLine;
+                _grid.ColumnHeadersDefaultCellStyle.BackColor = C_Header;
+                _grid.ColumnHeadersDefaultCellStyle.ForeColor = C_TextMain;
+                _grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = C_Header;
+                _grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = C_TextMain;
+                _grid.DefaultCellStyle.BackColor = C_GridBack;
+                _grid.DefaultCellStyle.ForeColor = C_TextMain;
+                _grid.DefaultCellStyle.SelectionBackColor = UIColors.NavSelected;
+                _grid.DefaultCellStyle.SelectionForeColor = C_TextMain;
+                _grid.Columns["Up"].DefaultCellStyle.ForeColor = C_Up;
+                _grid.Columns["Down"].DefaultCellStyle.ForeColor = C_Down;
+                _grid.Columns["Date"].HeaderText = T("时间段", "Period");
+                _grid.Columns["Up"].HeaderText = T("上传", "Upload");
+                _grid.Columns["Down"].HeaderText = T("下载", "Download");
+                _grid.Columns["Total"].HeaderText = T("总计", "Total");
+                _grid.Columns["Chart"].HeaderText = T("流量占比", "Traffic share");
+                long sumUp = 0, sumDown = 0;
+                foreach (DataGridViewRow row in _grid.Rows)
+                {
+                    if (!row.DefaultCellStyle.ForeColor.IsEmpty) row.DefaultCellStyle.ForeColor = C_Highlight;
+                    if (!row.Cells["Up"].Style.ForeColor.IsEmpty) row.Cells["Up"].Style.ForeColor = C_Up;
+                    if (!row.Cells["Down"].Style.ForeColor.IsEmpty) row.Cells["Down"].Style.ForeColor = C_Down;
+                    if (row.Tag is long[] values) { sumUp += values[2]; sumDown += values[3]; }
+                }
+                _lblListSummary.Text = _grid.Rows.Count == 0 ? T("暂无历史数据", "No history yet") :
+                    $"{T("当前视图总计", "View total")}:  ↑ {MetricUtils.FormatDataSize(sumUp)}    ↓ {MetricUtils.FormatDataSize(sumDown)}    (Σ {MetricUtils.FormatDataSize(sumUp + sumDown)})";
+                foreach (var pair in _viewButtons)
+                {
+                    pair.Value.Text = pair.Key switch {
+                        HistoryViewMode.Daily => T("日", "Day"), HistoryViewMode.Weekly => T("周", "Week"),
+                        HistoryViewMode.Monthly => T("月", "Month"), HistoryViewMode.Quarterly => T("季", "Quarter"),
+                        _ => T("年", "Year") };
+                    pair.Value.BackColor = pair.Key == _currentMode ? C_Accent : C_Back;
+                    pair.Value.ForeColor = pair.Key == _currentMode ? UIColors.OnPrimary : C_TextDim;
+                    pair.Value.FlatAppearance.MouseOverBackColor = UIColors.NavHover;
+                    pair.Value.FlatAppearance.MouseDownBackColor = UIColors.NavSelected;
+                }
+                _visualSkin = _cfg.Skin;
+                _visualLanguage = LanguageManager.CurrentLang;
+            }
+            finally { ResumeLayout(true); Invalidate(true); }
+        }
+
         private int S(int pixel) => (int)(pixel * _scale);
 
         private void InitializeUI()
@@ -108,8 +190,9 @@ namespace LiteMonitor
                 Height = S(120),
                 BackColor = C_Panel,
             };
+            _dashboardPanel = pnlDash;
 
-            CreateDirectDash(pnlDash, S(50), T("本次运行", "Current session"), out _lblSessionUp, out _lblSessionDown);
+            CreateDirectDash(pnlDash, S(50), "本次运行", "Current session", out _lblSessionUp, out _lblSessionDown);
 
             var split = new Label
             {
@@ -119,22 +202,26 @@ namespace LiteMonitor
                 BackColor = UIColors.Border,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left
             };
+            _dashboardSeparator = split;
             pnlDash.Controls.Add(split);
 
-            CreateDirectDash(pnlDash, S(450), T("今日汇总", "Today"), out _lblTodayUp, out _lblTodayDown);
+            CreateDirectDash(pnlDash, S(450), "今日汇总", "Today", out _lblTodayUp, out _lblTodayDown);
 
             this.Controls.Add(pnlDash);
 
             // === 2. 视图切换栏 ===
             var pnlTool = new Panel { Dock = DockStyle.Top, Height = S(55), BackColor = C_Back };
-            pnlTool.Controls.Add(new Label
+            _toolbarPanel = pnlTool;
+            _viewLabel = new Label
             {
                 Text = T("统计维度", "View"),
+                Tag = ("统计维度", "View"),
                 ForeColor = C_TextDim,
                 Location = new Point(S(20), S(18)),
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9)
-            });
+            };
+            pnlTool.Controls.Add(_viewLabel);
 
             int btnX = S(140);
             _viewButtons.Add(HistoryViewMode.Daily, CreateBtn(pnlTool, T("日", "Day"), ref btnX));
@@ -146,6 +233,7 @@ namespace LiteMonitor
 
             // === 3. 底部汇总栏 ===
             var pnlBottom = new Panel { Dock = DockStyle.Bottom, Height = S(45), BackColor = C_Panel };
+            _footerPanel = pnlBottom;
             _lblListSummary = new Label
             {
                 Dock = DockStyle.Fill,
@@ -260,17 +348,17 @@ namespace LiteMonitor
             e.Handled = true; // 告诉系统：我排完了，你别管了
         }
 
-        private void CreateDirectDash(Panel p, int startX, string title, out Label lblUp, out Label lblDown)
+        private void CreateDirectDash(Panel p, int startX, string titleZh, string titleEn, out Label lblUp, out Label lblDown)
         {
-            p.Controls.Add(new Label { Text = title, ForeColor = C_TextDim, Location = new Point(startX, S(15)), AutoSize = true, Font = new Font("Segoe UI", 9) });
+            p.Controls.Add(new Label { Text = T(titleZh, titleEn), Tag = ("title", titleZh, titleEn), ForeColor = C_TextDim, Location = new Point(startX, S(15)), AutoSize = true, Font = new Font("Segoe UI", 9) });
             lblUp = new Label { Text = "0 KB", ForeColor = C_Up, Location = new Point(startX, S(45)), AutoSize = true, Font = new Font("Consolas", 20, FontStyle.Bold) };
             p.Controls.Add(lblUp);
-            p.Controls.Add(new Label { Text = T("↑ 上传", "↑ Upload"), ForeColor = C_Up, Location = new Point(startX + S(2), S(85)), AutoSize = true, Font = new Font("Segoe UI", 8) });
+            p.Controls.Add(new Label { Text = T("↑ 上传", "↑ Upload"), Tag = ("up", "↑ 上传", "↑ Upload"), ForeColor = C_Up, Location = new Point(startX + S(2), S(85)), AutoSize = true, Font = new Font("Segoe UI", 8) });
 
             int downX = startX + S(165);
             lblDown = new Label { Text = "0 KB", ForeColor = C_Down, Location = new Point(downX, S(45)), AutoSize = true, Font = new Font("Consolas", 20, FontStyle.Bold) };
             p.Controls.Add(lblDown);
-            p.Controls.Add(new Label { Text = T("↓ 下载", "↓ Download"), ForeColor = C_Down, Location = new Point(downX + S(2), S(85)), AutoSize = true, Font = new Font("Segoe UI", 8) });
+            p.Controls.Add(new Label { Text = T("↓ 下载", "↓ Download"), Tag = ("down", "↓ 下载", "↓ Download"), ForeColor = C_Down, Location = new Point(downX + S(2), S(85)), AutoSize = true, Font = new Font("Segoe UI", 8) });
         }
 
         private Button CreateBtn(Panel p, string txt, ref int x)

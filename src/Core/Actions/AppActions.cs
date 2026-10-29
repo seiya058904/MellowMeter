@@ -65,6 +65,7 @@ namespace LiteMonitor.src.Core.Actions
             
             // 5. 刷新任务栏窗口（如果有）
             ReloadTaskbarWindows();
+            if (ui != null) RefreshThemedWindows();
         }
 
         public static void ApplyAutoStart(Settings cfg)
@@ -159,6 +160,7 @@ namespace LiteMonitor.src.Core.Actions
             // 如果切换了横竖屏模式，菜单结构会变，需要重建
             form.RebuildMenus();
             ReloadTaskbarWindows();
+            RefreshThemedWindows();
 
             // 4. 执行居中重定位
             if (center.HasValue)
@@ -201,10 +203,8 @@ namespace LiteMonitor.src.Core.Actions
         {
             // 1. 刷新所有任务栏窗口
             // 这一步会触发 TaskbarForm.ReloadLayout()，进而自动读取 cfg 中的新颜色和穿透设置
+            TaskbarRenderer.ReloadStyle(cfg);
             ReloadTaskbarWindows();
-            
-            // 如果样式影响了主程序计算（极少情况），可解开下面注释
-            ui?.ApplyTheme(cfg.Skin); 
         }
 
         // =============================================================
@@ -246,6 +246,18 @@ namespace LiteMonitor.src.Core.Actions
         }
 
         // --- 内部辅助 ---
+        private static void RefreshThemedWindows()
+        {
+            // Snapshot the collection: rebuilding a page can dispose owned controls.
+            foreach (var window in Application.OpenForms.Cast<Form>().ToArray())
+            {
+                if (window.IsDisposed) continue;
+                if (window is SettingsForm settings) settings.RefreshTheme();
+                else if (window is HardwareTrendForm trends) trends.RefreshTheme();
+                else if (window is TrafficHistoryForm traffic) traffic.RefreshTheme();
+            }
+        }
+
         private static void ReloadTaskbarWindows()
         {
             // [Fix] 使用 ToList() 创建副本，防止 ReloadLayout -> TooltipHelper -> Dispose 修改 OpenForms 集合导致枚举异常
