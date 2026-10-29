@@ -196,9 +196,14 @@ internal static class SmokeSuite
                 }
                 _stage = "theme linkage across open windows";
                 await TestThemeLinkage(main, cfg, ui);
+                _stage = "grouped settings layout and keyboard controls";
+                await TestSettingsPages(main, cfg, ui);
                 string[] requiredNativeCaptures = { "main_light", "settings_light_system", "main_dark",
                     "settings_dark_system", "settings_dark_metrics", "history_dark_load", "history_dark_traffic",
-                    "settings_cyan", "settings_purple", "settings_amber" };
+                    "settings_cyan", "settings_purple", "settings_amber",
+                    "settings_dark_main", "settings_dark_taskbar", "settings_dark_threshold",
+                    "settings_light_main", "settings_light_taskbar", "settings_light_metrics", "settings_light_threshold",
+                    "settings_light_main_zh" };
                 var capturedNames = Captures.Select(path => Path.GetFileNameWithoutExtension(path)).ToHashSet();
                 Check(Captures.Count(path => Path.GetFileName(path).StartsWith("render_")) == 9 &&
                     requiredNativeCaptures.All(capturedNames.Contains) && capturedNames.Count == Captures.Count &&
@@ -307,7 +312,7 @@ internal static class SmokeSuite
             Color background = ThemeManager.ParseColor(ThemeManager.Current.Color.Background);
             Color card = ThemeManager.ParseColor(ThemeManager.Current.Color.GroupBackground);
             Color border = UIColors.Border;
-            Color text = ThemeManager.ParseColor(ThemeManager.Current.Color.TextTitle);
+            Color text = ThemeManager.ParseColor(ThemeManager.Current.Color.TextPrimary);
             Check(main.BackColor == background && settings.BackColor == background &&
                 history.BackColor == background && traffic.BackColor == background,
                 variant.Skin + ": open float, settings and both histories share the selected background");
@@ -378,6 +383,216 @@ internal static class SmokeSuite
         }
         double a = Luminance(first), b = Luminance(second);
         return (Math.Max(a, b) + 0.05) / (Math.Min(a, b) + 0.05);
+    }
+
+    private static async Task TestSettingsPages(MainForm main, Settings cfg, UIController ui)
+    {
+        var pages = new[] { (Key: "MainPanel", Slug: "main"), (Key: "Taskbar", Slug: "taskbar"),
+            (Key: "Monitor", Slug: "metrics"), (Key: "Threshold", Slug: "threshold"), (Key: "System", Slug: "system") };
+        int collapsedGroupsChecked = 0;
+        foreach (var appearance in new[] { (Skin: "DarkFlat_Classic", Slug: "dark"), (Skin: "MellowLight", Slug: "light") })
+        {
+            cfg.Skin = appearance.Skin;
+            AppActions.ApplyThemeAndLayout(cfg, ui, main);
+            using var settings = new SettingsForm(cfg, ui, main);
+            settings.Show(main);
+            foreach (var page in pages)
+            {
+                settings.SwitchPage(page.Key);
+                await Task.Delay(120);
+                Control content = Field<Control>(settings, "_pnlContent");
+                Control activePage = content.Controls.Cast<Control>().Single(control => control.Visible);
+                string label = appearance.Slug + " " + page.Slug;
+                string captureName = $"settings_{appearance.Slug}_{page.Slug}";
+                // Three of these views already have captures from the retained Apply/Cancel tests.
+                if (!Captures.Any(path => Path.GetFileNameWithoutExtension(path) == captureName)) Capture(settings, captureName);
+                CheckSettingsRowGeometry(activePage, label);
+                if (page.Key == "Monitor")
+                {
+                    var editLabels = Field<LiteCheck>(activePage, "_chkEditLabels");
+                    Check(!editLabels.Checked, label + ": label and unit editing stays out of the default monitor list");
+                    editLabels.Checked = true;
+                    CheckSettingsRowGeometry(activePage, label + " with label editors");
+                    var cpuRow = Descendants(activePage).OfType<MonitorItemRow>().Single(row => row.Config.Key == "CPU.Load");
+                    var nameInput = Field<LiteUnderlineInput>(cpuRow, "_inputName");
+                    string previousLabel = nameInput.Inner.Text;
+                    string liveLabel = cfg.MonitorItems.Single(item => item.Key == "CPU.Load").UserLabel;
+                    nameInput.Inner.Text = "Processor preview";
+                    editLabels.Checked = false;
+                    Check(Field<List<MonitorItemConfig>>(activePage, "_workingList").Single(item => item.Key == "CPU.Load").UserLabel == "Processor preview" &&
+                        cfg.MonitorItems.Single(item => item.Key == "CPU.Load").UserLabel == liveLabel,
+                        label + ": hiding label editors preserves the pending label without changing live settings");
+                    editLabels.Checked = true;
+                    cpuRow = Descendants(activePage).OfType<MonitorItemRow>().Single(row => row.Config.Key == "CPU.Load");
+                    Field<LiteUnderlineInput>(cpuRow, "_inputName").Inner.Text = previousLabel;
+                    editLabels.Checked = false;
+                    Field<Button>(activePage, "_btnTabBar").PerformClick();
+                    await Task.Delay(30);
+                    CheckSettingsRowGeometry(activePage, label + " taskbar tab");
+                    editLabels.Checked = true;
+                    CheckSettingsRowGeometry(activePage, label + " taskbar label editors");
+                    editLabels.Checked = false;
+                    Field<Button>(activePage, "_btnTabMain").PerformClick();
+                }
+
+                var groups = Descendants(activePage).OfType<LiteSettingsGroup>()
+                    .Where(group => group.Visible && group.Collapsible).ToList();
+                foreach (var group in groups)
+                {
+                    await TestCollapsedGroup(settings, group, label);
+                    collapsedGroupsChecked++;
+                }
+                if (groups.Count > 0)
+                {
+                    var originalStates = groups.Select(group => group.Collapsed).ToArray();
+                    foreach (var group in groups) group.Collapsed = false;
+                    activePage.PerformLayout();
+                    await Task.Delay(30);
+                    CheckSettingsRowGeometry(activePage, label + " with optional groups expanded");
+                    for (int i = 0; i < groups.Count; i++) groups[i].Collapsed = originalStates[i];
+                }
+                if (page.Key == "System") TestBoundHistoryToggle(settings, activePage, label);
+            }
+            settings.CancelButton!.PerformClick();
+        }
+        Check(collapsedGroupsChecked > 0, "Optional settings groups were exercised instead of silently skipping collapse tests");
+
+        string language = LanguageManager.CurrentLang;
+        string liveLanguage = cfg.Language;
+        string persistedLanguage = SettingsHelper.Load().Language;
+        try
+        {
+            LanguageManager.Load("zh");
+            using var variantChinese = new SettingsForm(cfg, ui, main);
+            variantChinese.Show(main);
+            variantChinese.SwitchPage("MainPanel");
+            await Task.Delay(120);
+            Check(variantChinese.Text.Contains("设置"), "Chinese settings variant uses translated labels");
+            Capture(variantChinese, "settings_light_main_zh");
+            variantChinese.CancelButton!.PerformClick();
+        }
+        finally { LanguageManager.Load(language); cfg.SyncToLanguage(); }
+        Check(cfg.Language == liveLanguage && SettingsHelper.Load().Language == persistedLanguage,
+            "Chinese capture leaves live and persisted language preferences unchanged");
+    }
+
+    private static IEnumerable<Control> Descendants(Control parent)
+    {
+        foreach (Control child in parent.Controls)
+        {
+            yield return child;
+            foreach (var descendant in Descendants(child)) yield return descendant;
+        }
+    }
+
+    private static void CheckSettingsRowGeometry(Control page, string label)
+    {
+        var rows = Descendants(page).Where(control => control.Visible &&
+            control is LiteSettingsItem or LiteActionRow or LiteThresholdRow or MonitorItemRow or MonitorGroupHeader).ToList();
+        if (page.GetType().Name == "MonitorPage")
+        {
+            rows.Add(Field<Panel>(page, "_tabPanel"));
+            rows.Add(Field<Panel>(page, "_headerPanel"));
+        }
+        Check(rows.Count > 0, label + ": populated settings rows are available for geometry checks");
+        foreach (Control row in rows)
+        {
+            row.PerformLayout();
+            var fields = row.Controls.Cast<Control>().Where(control => control.Visible && control.Width > 0 && control.Height > 0).ToList();
+            foreach (Control field in fields)
+            {
+                if (!row.ClientRectangle.Contains(field.Bounds))
+                    throw new InvalidOperationException($"{label}: {row.GetType().Name} field {field.GetType().Name} '{field.Text}' bounds {field.Bounds} escape row {row.ClientRectangle}.");
+                if (field is Label text && !string.IsNullOrWhiteSpace(text.Text) && text.Height + 1 < text.Font.Height)
+                    throw new InvalidOperationException($"{label}: label '{text.Text}' cannot display one line at its current font size.");
+            }
+            for (int i = 0; i < fields.Count; i++)
+            for (int j = i + 1; j < fields.Count; j++)
+                if (fields[i].Bounds.IntersectsWith(fields[j].Bounds))
+                    throw new InvalidOperationException($"{label}: '{fields[i].Text}' ({fields[i].Bounds}) overlaps '{fields[j].Text}' ({fields[j].Bounds}) in {row.GetType().Name}.");
+        }
+        Check(true, label + $": {rows.Count} visible rows keep labels and fields separate and inside their bounds");
+    }
+
+    private static async Task TestCollapsedGroup(SettingsForm settings, LiteSettingsGroup group, string label)
+    {
+        bool originalCollapsed = group.Collapsed;
+        group.Collapsed = false;
+        settings.PerformLayout();
+        await Task.Delay(20);
+        var header = Field<Button>(group, "_titleButton");
+        Check(header.TabStop && header.CanSelect, label + ": optional group header is keyboard reachable");
+        Func<string> readPendingValue;
+        var numeric = Descendants(group).OfType<TextBox>().FirstOrDefault(text => text.Enabled && !text.ReadOnly && int.TryParse(text.Text, out _));
+        // Exercise a harmless preference. Visibility guardrails intentionally open
+        // a dialog, and advanced sensors expose hardware-specific controls.
+        var excluded = new[] { "Menu.HideMainForm", "Menu.HideTrayIcon", "Menu.TaskbarShow", "Menu.AdvancedSensors" }
+            .Select(LanguageManager.T).ToHashSet();
+        var toggle = Descendants(group).OfType<CheckBox>().FirstOrDefault(check => check.Enabled &&
+            !excluded.Contains(check.AccessibleName ?? check.Text));
+        if (numeric != null)
+        {
+            numeric.Text = (int.Parse(numeric.Text) + 1).ToString();
+            readPendingValue = () => numeric.Text;
+        }
+        else if (toggle != null)
+        {
+            toggle.Checked = !toggle.Checked;
+            readPendingValue = () => toggle.Checked.ToString();
+        }
+        else
+        {
+            var input = Descendants(group).OfType<TextBox>().FirstOrDefault(text => text.Enabled && !text.ReadOnly);
+            readPendingValue = input != null ? () => input.Text : () => JsonSerializer.Serialize(Field<Settings>(settings, "_draftCfg"));
+        }
+        string pending = readPendingValue();
+        string draft = JsonSerializer.Serialize(Field<Settings>(settings, "_draftCfg"));
+        int expandedHeight = group.Height;
+        header.PerformClick();
+        settings.PerformLayout();
+        await Task.Delay(20);
+        Check(group.Collapsed && group.Height < expandedHeight, label + ": optional group collapses and releases its body space");
+        PressSpace(header);
+        settings.PerformLayout();
+        await Task.Delay(20);
+        Check(!group.Collapsed, label + ": Space expands the focused group header");
+        Check(readPendingValue() == pending && JsonSerializer.Serialize(Field<Settings>(settings, "_draftCfg")) == draft,
+            label + ": collapse and keyboard expansion preserve pending field and draft values");
+        group.Collapsed = originalCollapsed;
+    }
+
+    private static void TestBoundHistoryToggle(SettingsForm settings, Control page, string label)
+    {
+        string historyLabel = LanguageManager.T("Menu.HistoryEnabled");
+        var row = Descendants(page).OfType<LiteSettingsItem>().Single(item => item.Label.Text == historyLabel);
+        var toggle = Descendants(row).OfType<CheckBox>().Single();
+        var draft = Field<Settings>(settings, "_draftCfg");
+        bool original = toggle.Checked;
+        int changes = 0;
+        EventHandler changed = (_, _) => changes++;
+        toggle.CheckedChanged += changed;
+        try
+        {
+            toggle.Checked = !original;
+            Check(changes == 1 && draft.HistoryEnabled == !original, label + ": pill checkbox preserves CheckedChanged draft binding");
+            PressSpace(toggle);
+            Check(changes == 2 && toggle.Checked == original && draft.HistoryEnabled == original,
+                label + ": Space toggles the focused pill checkbox exactly once and updates its draft");
+        }
+        finally { toggle.CheckedChanged -= changed; toggle.Checked = original; }
+    }
+
+    private static void PressSpace(Control target)
+    {
+        for (Control? parent = target.Parent; parent != null; parent = parent.Parent)
+            if (parent is ScrollableControl scroll && scroll.AutoScroll) scroll.ScrollControlIntoView(target);
+        target.FindForm()?.Activate();
+        Check(target.Focus(), target.GetType().Name + ": test keyboard target receives focus");
+        var wndProc = typeof(Control).GetMethod("WndProc", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        object[] down = { Message.Create(target.Handle, 0x0100, (IntPtr)Keys.Space, (IntPtr)0x00390001) };
+        object[] up = { Message.Create(target.Handle, 0x0101, (IntPtr)Keys.Space, new IntPtr(unchecked((int)0xC0390001))) };
+        wndProc.Invoke(target, down);
+        wndProc.Invoke(target, up);
     }
 
     private static async Task TestLifecycle(MainForm main, Settings cfg, UIController ui)

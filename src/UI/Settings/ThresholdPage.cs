@@ -17,7 +17,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             this.BackColor = UIColors.MainBg;
             this.Dock = DockStyle.Fill;
             this.Padding = new Padding(0);
-            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(20)) }; 
+            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(18)) };
             this.Controls.Add(_container);
         }
 
@@ -79,7 +79,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void AddGroupToPage(LiteSettingsGroup group)
         {
-            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = UIUtils.S(new Padding(0, 0, 0, 20)) };
+            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = UIUtils.S(new Padding(0, 0, 0, 12)) };
             wrapper.Controls.Add(group);
             _container.Controls.Add(wrapper);
             _container.Controls.SetChildIndex(wrapper, 0);

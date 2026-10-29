@@ -25,6 +25,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         private Button _btnTabBar;
         private LiteCheck _chkLinkHorizontal;
         private LiteCheck _chkOnlyVisible;
+        private LiteCheck _chkEditLabels;
         
         private Label _lblCol1; 
         private Label _lblCol2; 
@@ -44,7 +45,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             {
                 Dock = DockStyle.Fill,
                 AutoScroll = true,
-                Padding = UIUtils.S(new Padding(20, 5, 20, 0))
+                Padding = UIUtils.S(new Padding(18, 5, 18, 0))
             };
             this.Controls.Add(_container);
 
@@ -58,10 +59,6 @@ namespace LiteMonitor.src.UI.SettingsPage
             { 
                 Dock = DockStyle.Top, Height = UIUtils.S(42), BackColor = UIColors.MainBg,
                 Padding = UIUtils.S(new Padding(20, 0, 20, 0))
-            };
-            _tabPanel.Paint += (s, e) => {
-                using (var p = new Pen(UIColors.Border))
-                    e.Graphics.DrawLine(p, 0, _tabPanel.Height - 1, _tabPanel.Width, _tabPanel.Height - 1);
             };
 
             _btnTabMain = CreateTabButton(LanguageManager.T("Menu.MainForm"), true);
@@ -98,13 +95,21 @@ namespace LiteMonitor.src.UI.SettingsPage
                 SaveToWorkingList(isFilteredOverride: !_chkOnlyVisible.Checked);
                 ReloadList();
             };
+
+            _chkEditLabels = new LiteCheck(false, LanguageManager.T("Menu.CustomizeLabels")) { AccessibleName = LanguageManager.T("Menu.CustomizeLabels") };
+            _chkEditLabels.CheckedChanged += (_, _) => {
+                if (!_isLoaded) return;
+                SaveToWorkingList();
+                ReloadList();
+            };
             
             _tabPanel.Resize += (s, e) => {
-                _chkLinkHorizontal.Location = new Point(_tabPanel.Width - _chkLinkHorizontal.Width - UIUtils.S(20), UIUtils.S(10));
-                _chkOnlyVisible.Location = new Point(_chkLinkHorizontal.Left - _chkOnlyVisible.Width - UIUtils.S(20), UIUtils.S(10));
+                _chkOnlyVisible.Location = new Point(UIUtils.S(20), UIUtils.S(48));
+                _chkLinkHorizontal.Location = new Point(_chkOnlyVisible.Right + UIUtils.S(20), UIUtils.S(48));
+                _chkEditLabels.Location = new Point(_tabPanel.Width - _chkEditLabels.Width - UIUtils.S(20), UIUtils.S(10));
             };
 
-            _tabPanel.Controls.AddRange(new Control[] { _btnTabMain, _btnTabBar, _chkLinkHorizontal, _chkOnlyVisible });
+            _tabPanel.Controls.AddRange(new Control[] { _btnTabMain, _btnTabBar, _chkLinkHorizontal, _chkOnlyVisible, _chkEditLabels });
 
             _headerPanel = new Panel
             {
@@ -126,16 +131,15 @@ namespace LiteMonitor.src.UI.SettingsPage
         private Button CreateTabButton(string text, bool active)
         {
             // [Fix] Scale Padding for High DPI
-            var btn = new Button { Text = text, AutoSize = true, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = UIFonts.Bold(9F), Padding = UIUtils.S(new Padding(5, 0, 5, 0)) };
-            btn.FlatAppearance.BorderSize = 0;
+            var btn = new LiteNavBtn(text);
+            btn.Size = new Size(TextRenderer.MeasureText(text, btn.Font).Width + UIUtils.S(32), UIUtils.S(30));
             UpdateBtnStyle(btn, active);
             return btn;
         }
 
         private void UpdateBtnStyle(Button btn, bool active)
         {
-            btn.BackColor = active ? UIColors.Primary : Color.Transparent;
-            btn.ForeColor = active ? UIColors.OnPrimary : UIColors.TextSub;
+            if (btn is LiteNavBtn tab) tab.IsActive = active;
         }
 
         private void SwitchTab(bool toTaskbarMode)
@@ -151,6 +155,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             
             _chkLinkHorizontal.Visible = _isTaskbarTab;
             _chkOnlyVisible.Visible = _isTaskbarTab;
+            _tabPanel.Height = UIUtils.S(_isTaskbarTab ? 82 : 42);
             
             if (_isTaskbarTab && Config != null)
                 _chkLinkHorizontal.Checked = Config.HorizontalFollowsTaskbar;
@@ -275,7 +280,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                 UpdateHeaderLayout();
 
                 var controlsToAdd = new List<Control>();
-                var spacer = new Panel { Dock = DockStyle.Top, Height = UIUtils.S(30), BackColor = Color.Transparent };
+                var spacer = new Panel { Dock = DockStyle.Top, Height = UIUtils.S(12), BackColor = Color.Transparent };
                 controlsToAdd.Add(spacer);
 
                 if (_isTaskbarTab)
@@ -291,7 +296,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
                     for (int i = items.Count - 1; i >= 0; i--)
                     {
-                        var row = new MonitorItemRow(items[i], true);
+                        var row = new MonitorItemRow(items[i], true) { ShowEditors = _chkEditLabels.Checked };
                         row.MoveUp += Row_MoveUp; row.MoveDown += Row_MoveDown;
                         controlsToAdd.Add(row);
                     }
@@ -318,7 +323,8 @@ namespace LiteMonitor.src.UI.SettingsPage
                 ForeColor = UIColors.TextSub, 
                 Font = new Font("Segoe UI", 8.5F),
                 Dock = DockStyle.Bottom,
-                Padding = UIUtils.S(new Padding(0, 25, 20, 10))
+                Padding = UIUtils.S(new Padding(0, 12, 12, 10)),
+                MaximumSize = new Size(_container.ClientSize.Width - UIUtils.S(36), 0)
             };
             _container.Controls.Add(bottomLabel);
             }
@@ -371,7 +377,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         private void UpdateHeaderLayout()
         {
             int y = UIUtils.S(10); 
-            int offset = UIUtils.S(20); 
+            int offset = UIUtils.S(18);
 
             _lblCol1.Text = LanguageManager.T("Menu.MonitorItem");
             _lblCol1.Location = new Point(MonitorLayout.X_COL1 + offset, y);
@@ -382,6 +388,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             _lblColUnit.Text = LanguageManager.T("Menu.Unit");
             _lblColUnit.Location = new Point(MonitorLayout.X_COL_UNIT + offset, y);
+            _lblCol2.Visible = _lblColUnit.Visible = _chkEditLabels.Checked;
 
             _lblCol3.Text = LanguageManager.T("Menu.showHide"); 
             _lblCol3.Location = new Point(MonitorLayout.X_COL3 + offset, y);
@@ -393,7 +400,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         private GroupBlock CreateGroupBlock(string groupKey, List<MonitorItemConfig> items)
         {
             string alias = Config.GroupAliases.ContainsKey(groupKey) ? Config.GroupAliases[groupKey] : "";
-            var header = new MonitorGroupHeader(groupKey, alias);
+            var header = new MonitorGroupHeader(groupKey, alias) { ShowEditors = _chkEditLabels.Checked };
             var rowsPanel = new Panel { Dock = DockStyle.Top, AutoSize = true, BackColor = UIColors.CardBg };
             var block = new GroupBlock(header, rowsPanel);
 
@@ -408,7 +415,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             var rows = new List<Control>();
             for (int i = items.Count - 1; i >= 0; i--)
             {
-                var row = new MonitorItemRow(items[i], false);
+                var row = new MonitorItemRow(items[i], false) { ShowEditors = _chkEditLabels.Checked };
                 row.MoveUp += Row_MoveUp; row.MoveDown += Row_MoveDown;
                 rows.Add(row);
             }
@@ -563,7 +570,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             {
                 Header = header; RowsPanel = rowsPanel;
                 Dock = DockStyle.Top; AutoSize = true;
-                Padding = UIUtils.S(new Padding(0, 0, 0, 20));
+                Padding = UIUtils.S(new Padding(0, 0, 0, 12));
                 var card = new LiteCard { Dock = DockStyle.Top };
                 card.Controls.Add(rowsPanel); card.Controls.Add(header);
                 Controls.Add(card);

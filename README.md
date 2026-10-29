@@ -10,6 +10,7 @@ MellowMeter preserves the original WinForms layout and hardware-monitoring found
 
 - **Desktop strip and taskbar strip:** CPU busy time, memory and upload/download rates by default. Double-click the desktop strip to expand it into the original grouped panel; right-click for display controls, history and settings.
 - **One shared theme:** DarkFlat Classic and the original taskbar typography remain the defaults. Existing layouts, colorful values, small icons and round progress bars are preserved. Settings, menus, taskbar values and already-open history windows follow the selected theme. Settings keep unapplied edits during a theme change; taskbar colors adapt to light/dark Windows surfaces. Optional Mellow Dark/Light variants add subtle warmer neutrals.
+- **Simpler, rounded settings:** single-column grouped rows, pill switches and softly rounded value controls share the monitor's palette. Everyday options lead; behavior, placement and custom styling expand in place. The monitor list starts with names, switches and sorting, with label/unit editing available when needed. The existing Apply/Cancel draft behavior remains intact.
 - **Driver-free basic mode:** CPU, memory and network use Windows APIs. No administrator request, driver installer, FPS helper, plugin worker, web service or update request is started by default.
 - **Optional advanced sensors:** enable them in **Settings > System**, apply, then restart. GPU, temperature, disk, clock, power and fan metrics depend on supported hardware, permissions and an available compatible driver. Missing readings show **—**; MellowMeter does not install drivers for you.
 - **Local history:** retained load/temperature trends, traffic history and CSV export. Recording can be paused without deleting old records. No monitoring data is uploaded.
@@ -51,6 +52,7 @@ Settings and histories live in `%LOCALAPPDATA%/MellowMeter`, separate from LiteM
 ![MellowMeter light panel](docs/screenshots/panel-light.png)
 ![MellowMeter expanded panel](docs/screenshots/expanded-dark.png)
 ![MellowMeter settings](docs/screenshots/settings-dark.png)
+![MellowMeter light settings](docs/screenshots/settings-light.png)
 ![Settings following the original AuroraDream Purple theme](docs/screenshots/settings-purple.png)
 ![MellowMeter history](docs/screenshots/history-dark.png)
 
@@ -63,7 +65,7 @@ Panel and form captures are produced from the real WinForms renderer. `DrawToBit
 
 ## Engineering and verification
 
-The project remains **C# / .NET 8 / Windows Forms**. Existing renderer, themes, history and LHM hardware handling are reused. Native basic sampling avoids opening the hardware tree until advanced monitoring is explicitly enabled; elapsed time and rate baselines use a monotonic clock. Displayed numbers represent samples rather than multi-second interpolation. No forced collection or working-set trimming runs in the monitor.
+The project remains **C# / .NET 8 / Windows Forms**. Existing renderer, themes, history and LHM hardware handling are reused. The [interface direction](docs/DESIGN.md) records the shared visual decisions. Native basic sampling avoids opening the hardware tree until advanced monitoring is explicitly enabled; elapsed time and rate baselines use a monotonic clock. Displayed numbers represent samples rather than multi-second interpolation. No forced collection or working-set trimming runs in the monitor.
 
 See [verification and measured limitations](docs/VERIFICATION.md) for local test evidence, benchmark methodology and scenarios that still need physical-device testing. `scripts/Measure-Process.ps1` records per-process startup, CPU, working set, private bytes and handles without forcing collection. It requires PowerShell 7.4 or newer. GitHub Actions builds on Windows and runs native, desktop and inherited core regressions.
 

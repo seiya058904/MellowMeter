@@ -26,7 +26,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             this.BackColor = UIColors.MainBg;
             this.Dock = DockStyle.Fill;
             this.Padding = new Padding(0);
-            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(20)) };
+            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(18)) };
             this.Controls.Add(_container);
 
             InitializeUI();
@@ -148,8 +148,6 @@ namespace LiteMonitor.src.UI.SettingsPage
             var group = new LiteSettingsGroup(LanguageManager.T("Menu.HardwareSettings"));
             string strAuto = LanguageManager.T("Menu.Auto");
             
-            group.AddHint(LanguageManager.T("Menu.BasicSensorsTip"));
-            
             // 内存/显存显示模式 (从主界面设置移来)
             string[] memOptions = { LanguageManager.T("Menu.Percent"), LanguageManager.T("Menu.UsedSize") };
             group.AddComboIndex(this, "Menu.MemoryDisplayMode", memOptions,
@@ -168,10 +166,9 @@ namespace LiteMonitor.src.UI.SettingsPage
                 v => { if (Config != null) Config.PreferredNetwork = v == strAuto ? "" : v; });
             group.AddToggle(this, "Menu.HistoryEnabled", () => Config?.HistoryEnabled ?? true,
                 v => { if (Config != null) Config.HistoryEnabled = v; });
-            group.AddHint(LanguageManager.T("Menu.HistoryTip"));
             AddGroupToPage(group);
 
-            var advanced = new LiteSettingsGroup(LanguageManager.T("Menu.AdvancedSensors"));
+            var advanced = new LiteSettingsGroup(LanguageManager.T("Menu.AdvancedSensors")) { Collapsible = true, Collapsed = true };
             advanced.AddToggle(this, "Menu.AdvancedSensors", () => Config?.AdvancedSensorsEnabled ?? false,
                 v => {
                     if (Config == null) return;
@@ -208,7 +205,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void CreateCalibrationCard()
         {
-            var group = new LiteSettingsGroup(LanguageManager.T("Menu.Calibration"));
+            var group = new LiteSettingsGroup(LanguageManager.T("Menu.Calibration")) { Collapsible = true, Collapsed = true };
             _advancedGroups.Add(group);
             string suffix = " (" + LanguageManager.T("Menu.MaxLimits") + ")";
 
@@ -260,7 +257,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void AddGroupToPage(LiteSettingsGroup group)
         {
-            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = UIUtils.S(new Padding(0, 0, 0, 20)) };
+            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = UIUtils.S(new Padding(0, 0, 0, 12)) };
             wrapper.Controls.Add(group);
             _container.Controls.Add(wrapper);
             _container.Controls.SetChildIndex(wrapper, 0);

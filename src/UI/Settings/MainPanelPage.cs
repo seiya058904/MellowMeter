@@ -19,7 +19,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             this.BackColor = UIColors.MainBg;
             this.Dock = DockStyle.Fill;
             this.Padding = new Padding(0);
-            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(20)) };
+            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(18)) };
             this.Controls.Add(_container);
         }
 
@@ -31,8 +31,8 @@ namespace LiteMonitor.src.UI.SettingsPage
             _container.SuspendLayout();
             ClearAndDispose(_container.Controls);
 
-            CreateBehaviorCard();
             CreateAppearanceCard();
+            CreateBehaviorCard();
             CreateHorizontalModeGroup();
 
             _container.ResumeLayout();
@@ -41,7 +41,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void CreateBehaviorCard()
         {
-            var group = new LiteSettingsGroup(LanguageManager.T("Menu.MainFormSettings"));
+            var group = new LiteSettingsGroup(LanguageManager.T("Menu.MainFormSettings")) { Collapsible = true, Collapsed = true };
 
             // 1. Hide Main Form (with logic)
             var chkHide = group.AddToggle(this, "Menu.HideMainForm", 
@@ -114,7 +114,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         private void CreateHorizontalModeGroup()
         {
             // --- Group: Horizontal Mode ---
-            var groupHorz = new LiteSettingsGroup(LanguageManager.T("Menu.Horizontal"));
+            var groupHorz = new LiteSettingsGroup(LanguageManager.T("Menu.Horizontal")) { Collapsible = true, Collapsed = true };
 
           
 
@@ -142,7 +142,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void AddGroupToPage(LiteSettingsGroup group)
         {
-            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = UIUtils.S(new Padding(0, 0, 0, 20)) };
+            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = UIUtils.S(new Padding(0, 0, 0, 12)) };
             wrapper.Controls.Add(group);
             _container.Controls.Add(wrapper);
             _container.Controls.SetChildIndex(wrapper, 0);

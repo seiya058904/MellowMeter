@@ -6,6 +6,7 @@ using LiteMonitor.src.Core;
 using LiteMonitor.src.Core.Actions;
 using LiteMonitor.src.UI.Controls;
 using LiteMonitor.src.UI.SettingsPage;
+using LiteMonitor.src.UI.Helpers;
 
 namespace LiteMonitor.src.UI
 {
@@ -42,6 +43,22 @@ namespace LiteMonitor.src.UI
             base.OnResizeBegin(e);
         }
 
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            WindowTheme.Apply(this);
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            // A short high-DPI desktop should scroll the page, never hide the actions.
+            var work = Screen.FromControl(this).WorkingArea;
+            int margin = UIUtils.S(12);
+            Size = new Size(Math.Min(Width, work.Width - margin * 2), Math.Min(Height, work.Height - margin * 2));
+            Location = new Point(work.Left + (work.Width - Width) / 2, work.Top + (work.Height - Height) / 2);
+        }
+
         protected override void OnResizeEnd(EventArgs e)
         {
             base.OnResizeEnd(e);
@@ -68,7 +85,7 @@ namespace LiteMonitor.src.UI
             UIUtils.ScaleFactor = this.DeviceDpi / 96f;
 
             this.AutoScaleMode = AutoScaleMode.None; // Controls use UIUtils DPI scaling.
-            this.ClientSize = UIUtils.S(new Size(880, 640));
+            this.ClientSize = UIUtils.S(new Size(800, 540));
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = true;
@@ -80,15 +97,20 @@ namespace LiteMonitor.src.UI
             this.ShowInTaskbar = true;
 
             // 侧边栏
-            var pnlSidebar = new Panel { Dock = DockStyle.Left, Width = UIUtils.S(160), BackColor = UIColors.SidebarBg };
+            var pnlSidebar = new Panel { Dock = DockStyle.Left, Width = UIUtils.S(156), BackColor = UIColors.SidebarBg };
             
             _pnlNavContainer = new FlowLayoutPanel 
             { 
                 Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, 
-                Padding = UIUtils.S(new Padding(0, 20, 0, 0)), BackColor = UIColors.SidebarBg
+                Padding = UIUtils.S(new Padding(6, 8, 6, 0)), BackColor = UIColors.SidebarBg
             };
-            
+            var navigationTitle = new Label {
+                Text = LanguageManager.T("Menu.SettingsPanel"), Dock = DockStyle.Top,
+                Height = UIUtils.S(52), Padding = UIUtils.S(new Padding(18, 18, 0, 0)),
+                Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UIColors.TextMain
+            };
             pnlSidebar.Controls.Add(_pnlNavContainer);
+            pnlSidebar.Controls.Add(navigationTitle);
             this.Controls.Add(pnlSidebar);
 
             // 底部按钮
@@ -97,12 +119,14 @@ namespace LiteMonitor.src.UI
             var flowBtns = new FlowLayoutPanel 
             { 
                 Dock = DockStyle.Right, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, 
-                Padding = UIUtils.S(new Padding(0, 14, 20, 0)), WrapContents = false, BackColor = Color.Transparent 
+                Padding = UIUtils.S(new Padding(0, 12, 18, 0)), WrapContents = false, BackColor = Color.Transparent
             };
             
             var btnOk = new LiteButton(LanguageManager.T("Menu.OK"), true);
             var btnCancel = new LiteButton(LanguageManager.T("Menu.Cancel"), false);
             var btnApply = new LiteButton(LanguageManager.T("Menu.Apply"), false);
+            foreach (var button in new[] { btnOk, btnCancel, btnApply })
+                button.Margin = UIUtils.S(new Padding(4, 0, 4, 0));
             this.AcceptButton = btnOk;
             this.CancelButton = btnCancel;
 
@@ -123,6 +147,7 @@ namespace LiteMonitor.src.UI
             _pnlContent.BringToFront();
             _visualSkin = _cfg.Skin;
             _visualLanguage = LanguageManager.CurrentLang;
+            WindowTheme.Apply(this);
         }
 
         private void InitPages()
@@ -149,7 +174,7 @@ namespace LiteMonitor.src.UI
             // ★★★ 关键点 2：将 Draft 传递给页面，而不是 Live Settings ★★★
             page.SetContext(_draftCfg, _mainForm, _ui);
             _pages[key] = page;
-            var btn = new LiteNavBtn(text) { Tag = key };
+            var btn = new LiteNavBtn(text) { Tag = key, Width = UIUtils.S(144), Margin = UIUtils.S(new Padding(0, 3, 0, 3)) };
             btn.Click += (s, e) => SwitchPage(key);
             _pnlNavContainer.Controls.Add(btn);
         }

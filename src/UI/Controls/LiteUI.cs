@@ -33,8 +33,9 @@ namespace LiteMonitor.src.UI.Controls
             }
         }
         public static Color OnPrimary => Contrast(Primary, Color.Black) >= Contrast(Primary, Color.White) ? Color.Black : Color.White;
-        public static Color TextMain => ThemeManager.ParseColor(ThemeManager.Current.Color.TextTitle);
-        public static Color TextSub => ThemeManager.ParseColor(ThemeManager.Current.Color.TextGroup);
+        public static Color TextMain => ThemeManager.ParseColor(ThemeManager.Current.Color.TextPrimary);
+        public static Color TextSub => EnsureContrast(Blend(CardBg, TextMain, 0.66f), CardBg);
+        public static Color FieldBg => Blend(CardBg, TextMain, IsDark ? 0.07f : 0.045f);
         public static Color GroupHeader => CardBg;
         public static Color NavSelected => Blend(MainBg, Primary, 0.16f);
         public static Color NavHover => Blend(MainBg, Primary, 0.08f);
@@ -206,89 +207,115 @@ namespace LiteMonitor.src.UI.Controls
 
     public class LiteSettingsGroup : Panel
     {
-        private TableLayoutPanel _layout;
-        private Panel _header; // ★★★ 提升为成员变量
-        private int _colTracker = 0;
+        private readonly TableLayoutPanel _layout;
+        private readonly Panel _header;
+        private readonly Button _titleButton;
+        private readonly RoundedGroupBody _body;
+        private bool _collapsible;
+        private bool _collapsed;
+
+        public bool Collapsible
+        {
+            get => _collapsible;
+            set
+            {
+                _collapsible = value;
+                _titleButton.TabStop = value;
+                _titleButton.Cursor = value ? Cursors.Hand : Cursors.Default;
+                _titleButton.Padding = UIUtils.S(new Padding(value ? 26 : 12, 0, 0, 0));
+                if (!value) Collapsed = false;
+                _titleButton.Invalidate();
+            }
+        }
+
+        public bool Collapsed
+        {
+            get => _collapsed;
+            set
+            {
+                bool next = value && Collapsible;
+                if (_collapsed == next) return;
+                _collapsed = next;
+                _body.Visible = !next;
+                _titleButton.AccessibleDescription = next ? "Collapsed" : "Expanded";
+                _titleButton.Invalidate();
+                PerformLayout();
+                Parent?.PerformLayout();
+            }
+        }
 
         public LiteSettingsGroup(string title)
         {
-            this.AutoSize = true;
-            this.Dock = DockStyle.Top;
-            this.Padding = Padding.Empty;
-            this.BackColor = UIColors.CardBg;
-            // ★★★ 修改：Margin 缩放
-            this.Margin = new Padding(0, 0, 0, UIUtils.S(15)); 
-
-            var inner = new Panel { Dock = DockStyle.Fill, BackColor = UIColors.CardBg, AutoSize = true };
-            
-            // ★★★ 修改：Height 缩放
-            _header = new Panel { Dock = DockStyle.Top, Height = UIUtils.S(38), BackColor = UIColors.CardBg, Padding = new Padding(0, 0, UIUtils.S(10), 0) };
-            // ★★★ 修改：Location 缩放
-            var lbl = new Label { 
-                Text = title, Location = new Point(UIUtils.S(15), UIUtils.S(10)), AutoSize = true, 
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = UIColors.Primary
+            AutoSize = true;
+            AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            Dock = DockStyle.Top;
+            BackColor = UIColors.MainBg;
+            Margin = UIUtils.S(new Padding(0, 0, 0, 12));
+            _header = new Panel { Dock = DockStyle.Top, Height = UIUtils.S(30), BackColor = UIColors.MainBg };
+            _titleButton = new Button {
+                Text = title, AccessibleName = title, Dock = DockStyle.Fill,
+                FlatStyle = FlatStyle.Flat, TabStop = false, TextAlign = ContentAlignment.MiddleLeft,
+                Padding = UIUtils.S(new Padding(12, 0, 0, 0)), BackColor = UIColors.MainBg,
+                ForeColor = UIColors.TextSub, Font = new Font("Segoe UI", 9F, FontStyle.Bold)
             };
-            _header.Controls.Add(lbl);
-
-            _layout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, RowCount = 1,
-                // ★★★ 修改：Padding 缩放
-                Padding = UIUtils.S(new Padding(25, 10, 25, 15)), BackColor = UIColors.CardBg
+            _titleButton.FlatAppearance.BorderSize = 0;
+            _titleButton.FlatAppearance.MouseOverBackColor = UIColors.MainBg;
+            _titleButton.FlatAppearance.MouseDownBackColor = UIColors.MainBg;
+            _titleButton.Click += (_, _) => { if (Collapsible) Collapsed = !Collapsed; };
+            _titleButton.Paint += (_, e) => {
+                if (!Collapsible) return;
+                float x = UIUtils.S(14), y = _titleButton.Height / 2f, r = UIUtils.S(3);
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using var pen = new Pen(UIColors.TextSub, Math.Max(1f, UIUtils.ScaleFactor));
+                e.Graphics.DrawLines(pen, Collapsed
+                    ? new[] { new PointF(x-r/2,y-r), new PointF(x+r/2,y), new PointF(x-r/2,y+r) }
+                    : new[] { new PointF(x-r,y-r/2), new PointF(x,y+r/2), new PointF(x+r,y-r/2) });
             };
-            _layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
-            _layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
-
-            inner.Controls.Add(_layout);
-            inner.Controls.Add(_header);
-            this.Controls.Add(inner);
-        }
-
-        protected override void OnSizeChanged(EventArgs e)
-        {
-            base.OnSizeChanged(e);
-            if (Width <= 0 || Height <= 0) return;
-            using var path = UIUtils.RoundRect(ClientRectangle, UIUtils.S(8));
-            Region? oldRegion = Region;
-            Region = new Region(path);
-            oldRegion?.Dispose();
+            _header.Controls.Add(_titleButton);
+            _body = new RoundedGroupBody { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Padding = UIUtils.S(new Padding(14, 6, 14, 6)) };
+            _layout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 1, RowCount = 0, GrowStyle = TableLayoutPanelGrowStyle.AddRows,
+                Margin = Padding.Empty, Padding = Padding.Empty, BackColor = UIColors.CardBg };
+            _layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            _body.Controls.Add(_layout);
+            Controls.Add(_body);
+            Controls.Add(_header);
         }
 
         public void AddHeaderAction(Control action)
         {
-            // 创建一个包装容器来控制垂直位置和边距
-            var wrapper = new Panel 
-            { 
-                Dock = DockStyle.Right, 
-                Width = action.Width + UIUtils.S(10), // 额外间距
-                Padding = new Padding(0)
-            };
-            
-            // 手动垂直居中 (Gap on Left)
-            action.Location = new Point(UIUtils.S(10), (_header.Height - action.Height) / 2);
-            
+            var wrapper = new Panel { Dock = DockStyle.Right, Width = action.Width + UIUtils.S(10), BackColor = UIColors.MainBg };
+            action.Location = new Point(0, Math.Max(0, (_header.Height - action.Height) / 2));
             wrapper.Controls.Add(action);
             _header.Controls.Add(wrapper);
-            
-            wrapper.BringToFront(); // 确保在最右侧
+            _titleButton.BringToFront();
         }
 
         public void AddItem(Control item)
         {
-            _layout.Controls.Add(item);
             item.Dock = DockStyle.Fill;
-            // ★★★ 修改：Margin 缩放
-            if (_colTracker == 0) { item.Margin = UIUtils.S(new Padding(0, 2, 30, 2)); _colTracker = 1; }
-            else { item.Margin = UIUtils.S(new Padding(30, 2, 0, 2)); _colTracker = 0; }
+            item.Margin = Padding.Empty;
+            int row = _layout.Controls.Count;
+            _layout.RowCount = row + 1;
+            _layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            _layout.Controls.Add(item, 0, row);
         }
 
-        public void AddFullItem(Control item)
+        public void AddFullItem(Control item) => AddItem(item);
+
+        private sealed class RoundedGroupBody : Panel
         {
-            _layout.Controls.Add(item);
-            _layout.SetColumnSpan(item, 2);
-            item.Dock = DockStyle.Fill;
-            item.Margin = new Padding(0, 0, 0, 0); 
-            _colTracker = 0; 
+            public RoundedGroupBody() { DoubleBuffered = true; BackColor = UIColors.MainBg; }
+            protected override void OnPaintBackground(PaintEventArgs e)
+            {
+                using var outer = new SolidBrush(UIColors.MainBg);
+                e.Graphics.FillRectangle(outer, ClientRectangle);
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using var path = UIUtils.RoundRect(new Rectangle(0, 0, Math.Max(0, Width-1), Math.Max(0, Height-1)), UIUtils.S(13));
+                using var surface = new SolidBrush(UIColors.CardBg);
+                e.Graphics.FillPath(surface, path);
+            }
         }
     }
 
@@ -298,42 +325,47 @@ namespace LiteMonitor.src.UI.Controls
 
         public LiteSettingsItem(string text, Control ctrl)
         {
-            // ★★★ 修改：Height/Margin 缩放
-            this.Height = UIUtils.S(40);
-            this.Margin = UIUtils.S(new Padding(0, 2, 40, 2)); 
-            Label = new Label { 
-                Text = text, AutoSize = true, 
+            Height = UIUtils.S(40);
+            Margin = Padding.Empty;
+            BackColor = UIColors.CardBg;
+            Label = new Label { Text = text, AutoSize = false, AutoEllipsis = true,
                 Font = new Font("Segoe UI", 9F), ForeColor = UIColors.TextMain,
-                TextAlign = ContentAlignment.MiddleLeft 
+                TextAlign = ContentAlignment.MiddleLeft };
+            if (ctrl is LiteCheck check && !string.IsNullOrWhiteSpace(text))
+            {
+                check.AccessibleName = text;
+                check.Text = "";
+                check.Size = check.GetPreferredSize(Size.Empty);
+            }
+            Controls.Add(Label);
+            Controls.Add(ctrl);
+            int preferredWidth = ctrl.Width;
+            Layout += (_, _) => {
+                int gap = UIUtils.S(14);
+                int maxControl = Math.Max(UIUtils.S(36), Width * 3 / 5);
+                if (!ctrl.AutoSize) ctrl.Width = Math.Min(preferredWidth, maxControl);
+                int rightX = Math.Max(0, Width - ctrl.Width);
+                ctrl.Location = new Point(rightX, Math.Max(0, (Height - ctrl.Height) / 2));
+                Label.Bounds = new Rectangle(0, 0, Math.Max(0, rightX - gap), Math.Max(0, Height - 1));
             };
-            // ★★★ 修改：Height 缩放
-            if (ctrl is LiteCheck) ctrl.Height = UIUtils.S(22); 
-            this.Controls.Add(Label);
-            this.Controls.Add(ctrl);
-            this.Layout += (s, e) => {
-                int mid = this.Height / 2;
-                Label.Location = new Point(0, mid - Label.Height / 2);
-                ctrl.Location = new Point(this.Width - ctrl.Width, mid - ctrl.Height / 2);
-            };
-            this.Paint += (s, e) => {
-                using(var p = new Pen(UIColors.Border))
-                    e.Graphics.DrawLine(p, 0, Height-1, Width, Height-1);
+            Paint += (_, e) => {
+                if (Parent is TableLayoutPanel table && table.GetRow(this) == table.RowCount - 1) return;
+                using var pen = new Pen(UIColors.Blend(UIColors.CardBg, UIColors.TextMain, 0.10f));
+                e.Graphics.DrawLine(pen, 0, Height-1, Width, Height-1);
             };
         }
     }
-
-
     public class LiteCard : Panel
     {
-        public LiteCard() { BackColor = UIColors.CardBg; AutoSize = true; AutoSizeMode = AutoSizeMode.GrowAndShrink; Dock = DockStyle.Top; Padding = new Padding(1); }
-        protected override void OnSizeChanged(EventArgs e)
+        public LiteCard() { DoubleBuffered = true; BackColor = UIColors.CardBg; AutoSize = true; AutoSizeMode = AutoSizeMode.GrowAndShrink; Dock = DockStyle.Top; Padding = UIUtils.S(new Padding(1, 10, 1, 10)); }
+        protected override void OnPaintBackground(PaintEventArgs e)
         {
-            base.OnSizeChanged(e);
-            if (Width <= 0 || Height <= 0) return;
-            using var path = UIUtils.RoundRect(ClientRectangle, UIUtils.S(8));
-            Region? oldRegion = Region;
-            Region = new Region(path);
-            oldRegion?.Dispose();
+            using var outer = new SolidBrush(UIColors.MainBg);
+            e.Graphics.FillRectangle(outer, ClientRectangle);
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var path = UIUtils.RoundRect(new Rectangle(0, 0, Math.Max(0, Width-1), Math.Max(0, Height-1)), UIUtils.S(13));
+            using var inner = new SolidBrush(UIColors.CardBg);
+            e.Graphics.FillPath(inner, path);
         }
     }
 
@@ -367,8 +399,8 @@ namespace LiteMonitor.src.UI.Controls
         {
             // ★★★ 修改：Size/Padding 缩放
             this.Size = new Size(UIUtils.S(width), UIUtils.S(26)); 
-            this.BackColor = Color.Transparent;
-            this.Padding = UIUtils.S(new Padding(0, 2, 0, 3)); 
+            this.BackColor = UIColors.CardBg;
+            this.Padding = UIUtils.S(new Padding(8, 4, 8, 4));
             this.Cursor = Cursors.IBeam;
 
             // 1. 创建并添加输入框 (垫底)
@@ -376,7 +408,7 @@ namespace LiteMonitor.src.UI.Controls
                 Text = text,
                 BorderStyle = BorderStyle.None,
                 Dock = DockStyle.Fill,
-                BackColor = UIColors.CardBg,
+                BackColor = UIColors.FieldBg,
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular),
                 ForeColor = fontColor ?? UIColors.TextSub,
                 TextAlign = align 
@@ -392,8 +424,9 @@ namespace LiteMonitor.src.UI.Controls
                     Dock = DockStyle.Right,
                     Font = new Font("Segoe UI", 8F),
                     ForeColor = UIColors.TextSub,
-                    TextAlign = ContentAlignment.BottomRight, 
-                    Padding = new Padding(0, 0, 0, 4) 
+                    TextAlign = ContentAlignment.MiddleRight,
+                    BackColor = UIColors.FieldBg,
+                    Padding = Padding.Empty
                 };
                 this.Controls.Add(_lblUnit); 
                 _lblUnit.Click += (s, e) => Inner.Focus();
@@ -408,8 +441,9 @@ namespace LiteMonitor.src.UI.Controls
                     Dock = DockStyle.Left,
                     Font = new Font("Segoe UI", 9F),
                     ForeColor = fontColor ?? UIColors.TextSub,
-                    TextAlign = ContentAlignment.BottomLeft, 
-                    Padding = new Padding(0, 0, 4, 3) 
+                    TextAlign = ContentAlignment.MiddleLeft,
+                    BackColor = UIColors.FieldBg,
+                    Padding = UIUtils.S(new Padding(0, 0, 4, 0))
                 };
                 this.Controls.Add(_lblLabel); 
                 _lblLabel.Click += (s, e) => Inner.Focus();
@@ -430,20 +464,18 @@ namespace LiteMonitor.src.UI.Controls
         }
 
         public void SetTextColor(Color c) => Inner.ForeColor = c;
-        public void SetBg(Color c) { Inner.BackColor = c; }
+        public void SetBg(Color c) { BackColor = c; }
         
         protected override void OnPaint(PaintEventArgs e) {
-            var c = Inner.Focused ? UIColors.Primary : UIColors.Border;
-            int h = Inner.Focused ? 2 : 1;
-
-            // 画线逻辑：如果有左侧标签，线条从标签右侧开始画
-            int startX = 0;
-            if (_lblLabel != null) startX = _lblLabel.Width; 
-            int drawWidth = this.Width - startX;
-
-            // 线条画在底部 (Height - h)
-            using (var b = new SolidBrush(c)) 
-                e.Graphics.FillRectangle(b, startX, Height - h, drawWidth, h);
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var path = UIUtils.RoundRect(new Rectangle(0, 0, Width-1, Height-1), UIUtils.S(8));
+            using var fill = new SolidBrush(UIColors.FieldBg);
+            e.Graphics.FillPath(fill, path);
+            if (Inner.Focused)
+            {
+                using var pen = new Pen(UIColors.Primary);
+                e.Graphics.DrawPath(pen, path);
+            }
         }
     }
 
@@ -593,12 +625,18 @@ namespace LiteMonitor.src.UI.Controls
         private void DrawFace(Graphics graphics)
         {
             if (ClientSize.Width < 2 || ClientSize.Height < 2) return;
-            Color background = Enabled && _hovered ? UIColors.NavHover : UIColors.CardBg;
+            using var outer = new SolidBrush(Parent?.BackColor ?? UIColors.CardBg);
+            graphics.FillRectangle(outer, ClientRectangle);
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            Color background = Enabled && _hovered ? UIColors.NavHover : UIColors.FieldBg;
             using var brush = new SolidBrush(background);
-            graphics.FillRectangle(brush, ClientRectangle);
-            Color borderColor = Enabled && (Focused || DroppedDown) ? UIColors.Primary : UIColors.Border;
-            using var border = new Pen(borderColor);
-            graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+            using var face = UIUtils.RoundRect(new Rectangle(0,0,Width-1,Height-1), ScalePixel(10));
+            graphics.FillPath(brush, face);
+            if (Enabled && (Focused || DroppedDown))
+            {
+                using var border = new Pen(UIColors.Primary);
+                graphics.DrawPath(border, face);
+            }
             int arrowWidth = ScalePixel(22);
             bool rtl = RightToLeft == RightToLeft.Yes;
             var textRect = new Rectangle(rtl ? arrowWidth : ScalePixel(7), 0,
@@ -627,9 +665,9 @@ namespace LiteMonitor.src.UI.Controls
         
         public LiteComboBox() 
         { 
-            this.Size = new Size(UIUtils.S(110), UIUtils.S(28)); 
+            this.Size = new Size(UIUtils.S(160), UIUtils.S(28));
             this.BackColor = UIColors.CardBg;
-            this.Padding = new Padding(1); 
+            this.Padding = Padding.Empty;
             
             Inner = new NoScrollComboBox 
             { 
@@ -646,14 +684,9 @@ namespace LiteMonitor.src.UI.Controls
 
             // ★★★ 新增：手动布局以实现垂直居中 ★★★
             this.Layout += (s, e) => {
-                Inner.Width = this.Width - 2; // 减去边框宽度
-                Inner.Location = new Point(1, (this.Height - Inner.Height) / 2);
+                Inner.Width = this.Width;
+                Inner.Location = new Point(0, (this.Height - Inner.Height) / 2);
             };
-
-            this.Paint += (s, e) => { 
-                using (var p = new Pen(UIColors.Border)) 
-                    e.Graphics.DrawRectangle(p, 0, 0, Width - 1, Height - 1); 
-            }; 
         } 
         
         public object SelectedItem { get => Inner.SelectedItem; set => Inner.SelectedItem = value; } 
@@ -743,22 +776,84 @@ namespace LiteMonitor.src.UI.Controls
 
     public class LiteCheck : CheckBox
     {
+        private bool _hovered;
         public LiteCheck(bool val, string text = "")
         {
+            FlatStyle = FlatStyle.Flat;
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Opaque, true);
             Checked = val;
             AutoSize = true;
             Cursor = Cursors.Hand;
             Text = text;
             BackColor = UIColors.CardBg;
-            Padding = UIUtils.S(new Padding(2));
             ForeColor = UIColors.TextSub;
             Font = new Font("Segoe UI", 9F);
+            Size = GetPreferredSize(Size.Empty);
         }
+        private int S(int value) => Math.Max(1, (int)Math.Round(value * DeviceDpi / 96f));
+        public override Size GetPreferredSize(Size proposedSize)
+        {
+            int labelWidth = string.IsNullOrEmpty(Text) ? 0 : TextRenderer.MeasureText(Text, Font).Width + S(7);
+            return new Size(S(38) + labelWidth, Math.Max(S(24), Font.Height));
+        }
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            using var background = new SolidBrush(Parent?.BackColor ?? BackColor);
+            e.Graphics.FillRectangle(background, ClientRectangle);
+        }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            // Paint an opaque local surface. Never ask CheckBox/base to copy a composited parent.
+            var g = e.Graphics;
+            Color backgroundColor = Parent?.BackColor ?? BackColor;
+            using (var background = new SolidBrush(backgroundColor)) g.FillRectangle(background, ClientRectangle);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            int trackWidth = S(36), trackHeight = S(21);
+            bool rtl = RightToLeft == RightToLeft.Yes;
+            var track = new Rectangle(rtl ? Width-trackWidth-S(1) : S(1), (Height-trackHeight)/2, trackWidth, trackHeight);
+            Color trackColor = Checked ? UIColors.Primary : UIColors.Blend(backgroundColor, UIColors.TextMain, _hovered ? 0.25f : 0.18f);
+            if (!Enabled) trackColor = UIColors.Blend(backgroundColor, trackColor, 0.45f);
+            using (var path = UIUtils.RoundRect(track, trackHeight/2))
+            using (var fill = new SolidBrush(trackColor)) g.FillPath(fill, path);
+            int knob = trackHeight-S(4);
+            int knobX = CheckState == CheckState.Indeterminate ? track.Left+(trackWidth-knob)/2
+                : (Checked != rtl ? track.Right-knob-S(2) : track.Left+S(2));
+            using (var thumb = new SolidBrush(Enabled ? Color.White : UIColors.Blend(backgroundColor, Color.White, 0.6f)))
+                g.FillEllipse(thumb, knobX, track.Top+S(2), knob, knob);
+            if (!string.IsNullOrEmpty(Text))
+            {
+                Rectangle label = rtl ? new Rectangle(0, 0, Math.Max(0, track.Left-S(7)), Height)
+                    : new Rectangle(track.Right+S(7), 0, Math.Max(0, Width-track.Right-S(7)), Height);
+                using var brush = new SolidBrush(Enabled ? ForeColor : UIColors.TextSub);
+                using var format = new StringFormat { LineAlignment = StringAlignment.Center,
+                    Alignment = rtl ? StringAlignment.Far : StringAlignment.Near,
+                    Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap,
+                    HotkeyPrefix = ShowKeyboardCues ? System.Drawing.Text.HotkeyPrefix.Show : System.Drawing.Text.HotkeyPrefix.Hide };
+                g.DrawString(Text, Font, brush, label, format);
+            }
+            if (Focused && ShowFocusCues)
+            {
+                using var focus = new Pen(UIColors.Primary) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dot };
+                var bounds = Rectangle.Inflate(track, S(1), S(1));
+                using var path = UIUtils.RoundRect(bounds, bounds.Height/2);
+                g.DrawPath(focus, path);
+            }
+        }
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); _hovered = true; Invalidate(); }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); _hovered = false; Invalidate(); }
+        protected override void OnCheckStateChanged(EventArgs e) { base.OnCheckStateChanged(e); Invalidate(); }
+        protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
+        protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); Invalidate(); }
     }
-    public class LiteButton : Button 
+
+    public class LiteButton : Button
     { 
         private bool _dashed;
         private bool _primary;
+        private bool _hovered;
+        private bool _mousePressed;
+        private bool _keyPressed;
         
         public LiteButton(string t, bool p = false, bool dashed = false) 
         { 
@@ -767,6 +862,8 @@ namespace LiteMonitor.src.UI.Controls
             _primary = p;
             Size = new Size(UIUtils.S(80), UIUtils.S(32)); 
             FlatStyle = FlatStyle.Flat; 
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Opaque, true);
             Cursor = Cursors.Hand; 
             Font = new Font("Segoe UI", 9F, p ? FontStyle.Bold : FontStyle.Regular);
             FlatAppearance.BorderSize = 0;
@@ -793,33 +890,70 @@ namespace LiteMonitor.src.UI.Controls
             } 
         } 
 
-        protected override void OnSizeChanged(EventArgs e)
+        private Color ResolveBackground()
         {
-            base.OnSizeChanged(e);
-            if (Width <= 0 || Height <= 0) return;
-            using var path = UIUtils.RoundRect(ClientRectangle, UIUtils.S(6));
-            Region? oldRegion = Region;
-            Region = new Region(path);
-            oldRegion?.Dispose();
+            for (Control? ancestor = Parent; ancestor != null; ancestor = ancestor.Parent)
+                if (ancestor.BackColor.A == 255) return ancestor.BackColor;
+            return UIColors.MainBg;
+        }
+
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            using var background = new SolidBrush(ResolveBackground());
+            e.Graphics.FillRectangle(background, ClientRectangle);
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            base.OnPaint(e);
+            Color outside = ResolveBackground();
+            using (var background = new SolidBrush(outside)) e.Graphics.FillRectangle(background, ClientRectangle);
+            if (Width < 2 || Height < 2) return;
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            bool pressed = _keyPressed || (_mousePressed && _hovered);
+            Color fill = BackColor.A == 255 ? BackColor : outside;
+            if (Enabled && (pressed || _hovered))
+                fill = pressed ? FlatAppearance.MouseDownBackColor : FlatAppearance.MouseOverBackColor;
+            if (!Enabled) fill = UIColors.Blend(outside, fill, 0.45f);
+            using var shape = UIUtils.RoundRect(new Rectangle(0, 0, Width - 1, Height - 1), UIUtils.S(11));
+            using (var surface = new SolidBrush(fill)) e.Graphics.FillPath(surface, shape);
             if (!_primary)
             {
-                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using var path = UIUtils.RoundRect(new Rectangle(0, 0, Width - 1, Height - 1), UIUtils.S(6));
                 using var pen = new Pen(UIColors.Border) { DashStyle = _dashed ? System.Drawing.Drawing2D.DashStyle.Dash : System.Drawing.Drawing2D.DashStyle.Solid };
-                e.Graphics.DrawPath(pen, path);
+                e.Graphics.DrawPath(pen, shape);
+            }
+            Rectangle textBounds = Rectangle.Inflate(ClientRectangle, -UIUtils.S(6), -UIUtils.S(2));
+            if (pressed) textBounds.Offset(0, 1);
+            using var textBrush = new SolidBrush(Enabled ? ForeColor : UIColors.Blend(fill, ForeColor, 0.5f));
+            using var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center,
+                Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap,
+                HotkeyPrefix = !UseMnemonic ? System.Drawing.Text.HotkeyPrefix.None :
+                    ShowKeyboardCues ? System.Drawing.Text.HotkeyPrefix.Show : System.Drawing.Text.HotkeyPrefix.Hide };
+            if (RightToLeft == RightToLeft.Yes) format.FormatFlags |= StringFormatFlags.DirectionRightToLeft;
+            e.Graphics.DrawString(Text, Font, textBrush, textBounds, format);
+            if (Focused && ShowFocusCues)
+            {
+                using var focusPath = UIUtils.RoundRect(Rectangle.Inflate(ClientRectangle, -UIUtils.S(3), -UIUtils.S(3)), UIUtils.S(8));
+                using var focusPen = new Pen(_primary ? UIColors.OnPrimary : UIColors.Primary) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dot };
+                e.Graphics.DrawPath(focusPen, focusPath);
             }
         }
+
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); _hovered = true; Invalidate(); }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); _hovered = false; Invalidate(); }
+        protected override void OnMouseDown(MouseEventArgs e) { base.OnMouseDown(e); if (e.Button == MouseButtons.Left) _mousePressed = true; Invalidate(); }
+        protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); _mousePressed = false; Invalidate(); }
+        protected override void OnMouseCaptureChanged(EventArgs e) { base.OnMouseCaptureChanged(e); if (!Capture) _mousePressed = false; Invalidate(); }
+        protected override void OnKeyDown(KeyEventArgs e) { base.OnKeyDown(e); if (e.KeyCode == Keys.Space) _keyPressed = true; Invalidate(); }
+        protected override void OnKeyUp(KeyEventArgs e) { base.OnKeyUp(e); if (e.KeyCode == Keys.Space) _keyPressed = false; Invalidate(); }
+        protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
+        protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); _keyPressed = false; Invalidate(); }
+        protected override void OnEnabledChanged(EventArgs e) { base.OnEnabledChanged(e); _keyPressed = _mousePressed = false; Invalidate(); }
     }
     public class LiteNavBtn : Button
     {
         private bool _isActive;
-        private readonly Font _regularFont = new Font("Segoe UI", 10F);
-        private readonly Font _activeFont = new Font("Segoe UI", 10F, FontStyle.Bold);
+        private readonly Font _regularFont = new Font("Segoe UI", 9F);
+        private readonly Font _activeFont = new Font("Segoe UI", 9F, FontStyle.Bold);
 
         public bool IsActive
         {
@@ -848,12 +982,27 @@ namespace LiteMonitor.src.UI.Controls
             using var background = new SolidBrush(UIColors.SidebarBg);
             e.Graphics.FillRectangle(background, ClientRectangle);
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            using var path = UIUtils.RoundRect(Rectangle.Inflate(ClientRectangle, -2, -2), UIUtils.S(8));
+            using var path = UIUtils.RoundRect(Rectangle.Inflate(ClientRectangle, -2, -2), UIUtils.S(10));
             using var brush = new SolidBrush(bg);
             e.Graphics.FillPath(brush, path);
-            var textRect = new Rectangle(UIUtils.S(14), 0, Math.Max(0, Width - UIUtils.S(26)), Height);
-            TextRenderer.DrawText(e.Graphics, Text, _isActive ? _activeFont : _regularFont,
-                textRect, Enabled ? UIColors.TextMain : UIColors.TextSub, UIRenderer.TextFlags);
+            string icon = string.IsNullOrEmpty(Text) ? "" : System.Globalization.StringInfo.GetNextTextElement(Text);
+            bool hasIcon = icon.Any(char.IsSurrogate) || icon.StartsWith("⚙") || icon.StartsWith("➖");
+            string caption = hasIcon ? Text.Substring(icon.Length).TrimStart() : Text;
+            if (hasIcon)
+            {
+                var iconRect = new Rectangle(UIUtils.S(10), (Height-UIUtils.S(24))/2, UIUtils.S(24), UIUtils.S(24));
+                using var iconPath = UIUtils.RoundRect(iconRect, UIUtils.S(7));
+                using var iconBrush = new SolidBrush(UIColors.Blend(UIColors.CardBg, UIColors.Primary, _isActive ? .24f : .12f));
+                e.Graphics.FillPath(iconBrush, iconPath);
+                TextRenderer.DrawText(e.Graphics, icon, _regularFont, iconRect, UIColors.TextMain,
+                    UIRenderer.TextFlags | TextFormatFlags.HorizontalCenter | TextFormatFlags.PreserveGraphicsClipping | TextFormatFlags.PreserveGraphicsTranslateTransform);
+            }
+            int left = UIUtils.S(hasIcon ? 43 : 10);
+            var textRect = new Rectangle(left, 0, Math.Max(0, Width-left-UIUtils.S(10)), Height);
+            TextRenderer.DrawText(e.Graphics, caption, _isActive ? _activeFont : _regularFont,
+                textRect, Enabled ? UIColors.TextMain : UIColors.TextSub, UIRenderer.TextFlags |
+                (hasIcon ? TextFormatFlags.Left : TextFormatFlags.HorizontalCenter) |
+                TextFormatFlags.PreserveGraphicsClipping | TextFormatFlags.PreserveGraphicsTranslateTransform);
             if (Focused && ShowFocusCues)
                 ControlPaint.DrawFocusRectangle(e.Graphics, Rectangle.Inflate(ClientRectangle, -3, -3), UIColors.Primary, bg);
         }

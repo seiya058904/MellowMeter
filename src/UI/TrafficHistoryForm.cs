@@ -67,6 +67,7 @@ namespace LiteMonitor
 
         public TrafficHistoryForm(Settings cfg)
         {
+            HandleCreated += (_, _) => LiteMonitor.src.UI.Helpers.WindowTheme.Apply(this);
             _cfg = cfg;
             _visualSkin = cfg.Skin;
             _visualLanguage = LanguageManager.CurrentLang;
@@ -106,6 +107,7 @@ namespace LiteMonitor
         public void RefreshTheme()
         {
             if (IsDisposed || (_visualSkin == _cfg.Skin && _visualLanguage == LanguageManager.CurrentLang)) return;
+            LiteMonitor.src.UI.Helpers.WindowTheme.Apply(this);
             C_Back = UIColors.MainBg;
             C_Panel = C_GridBack = UIColors.CardBg;
             C_GridLine = C_BarBg = UIColors.Border;

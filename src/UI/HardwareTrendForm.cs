@@ -66,6 +66,7 @@ namespace LiteMonitor
 
         public HardwareTrendForm(Settings cfg)
         {
+            HandleCreated += (_, _) => LiteMonitor.src.UI.Helpers.WindowTheme.Apply(this);
             _cfg = cfg;
             _visualSkin = cfg.Skin;
             _visualLanguage = LanguageManager.CurrentLang;
@@ -133,6 +134,7 @@ namespace LiteMonitor
         public void RefreshTheme()
         {
             if (IsDisposed || (_visualSkin == _cfg.Skin && _visualLanguage == LanguageManager.CurrentLang)) return;
+            LiteMonitor.src.UI.Helpers.WindowTheme.Apply(this);
             SuspendLayout();
             try
             {

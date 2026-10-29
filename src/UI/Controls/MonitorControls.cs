@@ -47,6 +47,12 @@ namespace LiteMonitor.src.UI.Controls
         private LiteSortBtn _btnDown;
 
         private bool _isTaskbarMode = false; // 记录当前模式
+        private bool _showEditors;
+        public bool ShowEditors
+        {
+            get => _showEditors;
+            set { _showEditors = value; ApplyModeVisibility(); }
+        }
 
         public event EventHandler MoveUp;
         public event EventHandler MoveDown;
@@ -84,9 +90,8 @@ namespace LiteMonitor.src.UI.Controls
                 Location = new Point(MonitorLayout.X_COL1, UIUtils.S(14)),
                 Size = new Size(UIUtils.S(110), UIUtils.S(20)),
                 AutoEllipsis = true,
-                // [需求2] 字体样式与主界面Tab(_lblId)保持一致
-                ForeColor = UIColors.TextSub, 
-                Font = UIFonts.Regular(8F),
+                ForeColor = UIColors.TextMain,
+                Font = UIFonts.Regular(9F),
                 Visible = false 
             };
 
@@ -129,11 +134,11 @@ namespace LiteMonitor.src.UI.Controls
             _inputUnit.Inner.Font = UIFonts.Regular(8F);
 
             // 6. Checkboxes
-            _chkPanel = new LiteCheck(item.VisibleInPanel, LanguageManager.T("Menu.MainForm")) 
-            { Location = new Point(MonitorLayout.X_COL3, UIUtils.S(10)) };
+            _chkPanel = new LiteCheck(item.VisibleInPanel)
+            { Location = new Point(MonitorLayout.X_COL3, UIUtils.S(10)), AccessibleName = valName + " · " + LanguageManager.T("Menu.MainForm") };
             
-            _chkTaskbar = new LiteCheck(item.VisibleInTaskbar, LanguageManager.T("Menu.Taskbar")) 
-            { Location = new Point(MonitorLayout.X_COL3, UIUtils.S(10)), Visible = false };
+            _chkTaskbar = new LiteCheck(item.VisibleInTaskbar)
+            { Location = new Point(MonitorLayout.X_COL3, UIUtils.S(10)), Visible = false, AccessibleName = valName + " · " + LanguageManager.T("Menu.Taskbar") };
 
             // 7. Sort Buttons
             _btnUp = new LiteSortBtn("▲") { Location = new Point(MonitorLayout.X_COL4, UIUtils.S(10)) };
@@ -156,6 +161,18 @@ namespace LiteMonitor.src.UI.Controls
         // 提取出来的可见性设置方法
         private void ApplyModeVisibility()
         {
+            if (!_showEditors)
+            {
+                _lblId.Visible = false;
+                _lblName.Visible = true;
+                _lblName.Width = UIUtils.S(330);
+                _inputName.Visible = _inputShort.Visible = _inputUnit.Visible = false;
+                _chkPanel.Visible = !_isTaskbarMode;
+                _chkTaskbar.Visible = _isTaskbarMode;
+                return;
+            }
+            _lblName.Width = UIUtils.S(110);
+            _inputUnit.Visible = true;
             if (_isTaskbarMode)
             {
                 _lblId.Visible = false; _lblName.Visible = true; 
@@ -340,6 +357,16 @@ namespace LiteMonitor.src.UI.Controls
         public string GroupKey { get; private set; }
         public LiteUnderlineInput InputAlias { get; private set; }
         private LiteCheck _chkAll; // [需求2] 增加组开关
+        private Label _groupLabel;
+        public bool ShowEditors
+        {
+            set
+            {
+                InputAlias.Visible = value;
+                _groupLabel.Text = value ? GroupKey : InputAlias.Inner.Text;
+                _groupLabel.Width = UIUtils.S(value ? 110 : 330);
+            }
+        }
         public event EventHandler MoveUp;
         public event EventHandler MoveDown;
         public event EventHandler<bool> ToggleGroup; // [需求2] 组开关事件
@@ -354,10 +381,11 @@ namespace LiteMonitor.src.UI.Controls
             var lblId = new Label { 
                 Text = groupKey, 
                 Location = new Point(MonitorLayout.X_COL1, UIUtils.S(12)), 
-                AutoSize = true, 
+                AutoSize = false, AutoEllipsis = true, Size = new Size(UIUtils.S(110), UIUtils.S(22)),
                 Font = UIFonts.Bold(9F), 
                 ForeColor = UIColors.TextSub
             };
+            _groupLabel = lblId;
 
             string defGName = LanguageManager.GetOriginal("Groups." + groupKey);
             if (defGName.StartsWith("Groups.")) defGName = groupKey;
@@ -371,6 +399,7 @@ namespace LiteMonitor.src.UI.Controls
             _chkAll = new LiteCheck(true, "") 
             { 
                 Location = new Point(MonitorLayout.X_COL3, UIUtils.S(12)),
+                AccessibleName = defGName + " · " + LanguageManager.T("Menu.showHide"),
                 // 默认不显示文字，只作为全选/全不选开关
             };
             // 点击事件：触发 ToggleGroup

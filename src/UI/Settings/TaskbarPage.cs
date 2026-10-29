@@ -26,7 +26,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             this.BackColor = UIColors.MainBg;
             this.Dock = DockStyle.Fill;
             this.Padding = new Padding(0);
-            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(20)) };
+            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(18)) };
             this.Controls.Add(_container);
 
             // 1. 启动后台任务 (字体扫描)
@@ -119,6 +119,9 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             group.AddToggle(this, "Menu.TaskbarSingleLine", () => Config?.TaskbarSingleLine ?? false, v => { if(Config!=null) Config.TaskbarSingleLine = v; });
             group.AddToggle(this, "Menu.TaskbarHoverShowAll", () => Config?.TaskbarHoverShowAll ?? false, v => { if (Config != null) Config.TaskbarHoverShowAll = v; });
+            AddGroupToPage(group);
+
+            group = new LiteSettingsGroup(LanguageManager.T("Menu.TaskbarAlign")) { Collapsible = true, Collapsed = true };
             group.AddToggle(this, "Menu.ClickThrough", () => Config?.TaskbarClickThrough ?? false, v => { if(Config!=null) Config.TaskbarClickThrough = v; });
            
             // Monitor Selection
@@ -167,7 +170,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void CreateLayoutGroup()
         {
-            var group = new LiteSettingsGroup(LanguageManager.T("Menu.TaskbarCustomLayout")); 
+            var group = new LiteSettingsGroup(LanguageManager.T("Menu.TaskbarCustomLayout")) { Collapsible = true, Collapsed = true };
             _customLayoutInputs.Clear();
 
             var chk = group.AddToggle(this, "Menu.TaskbarCustomLayout", 
@@ -223,7 +226,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void CreateColorGroup()
         {
-            var group = new LiteSettingsGroup(LanguageManager.T("Menu.TaskbarCustomColors"));
+            var group = new LiteSettingsGroup(LanguageManager.T("Menu.TaskbarCustomColors")) { Collapsible = true, Collapsed = true };
             _customColorInputs.Clear();
 
             var chkColor = group.AddToggle(this, "Menu.TaskbarCustomColors", 
@@ -285,7 +288,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void AddGroupToPage(LiteSettingsGroup group)
         {
-            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 20) };
+            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 12) };
             wrapper.Controls.Add(group);
             _container.Controls.Add(wrapper);
             _container.Controls.SetChildIndex(wrapper, 0);

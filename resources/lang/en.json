@@ -193,6 +193,7 @@
     "Taskbar": "Taskbar",
     "MainForm": "Panel",
     "OnlyShowEnabled": "Enabled Only",
+    "CustomizeLabels": "Customize labels",
     "HorizontalFollowsTaskbar": "Bar follows taskbar order",
     "MonitorItemTip": "Tip: Space in Name/Short hides label. Empty resets. Units support {u}+char.",
 
