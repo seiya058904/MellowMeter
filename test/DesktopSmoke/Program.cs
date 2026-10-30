@@ -1,4 +1,4 @@
-﻿using System.Drawing.Imaging;
+using System.Drawing.Imaging;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -36,6 +36,8 @@ internal static partial class SmokeSuite
 {
     private static readonly List<string> Passed = new();
     private static readonly List<string> Captures = new();
+    private static readonly string[] RenderThemes = { "MellowLight", "MellowDark", "DarkFlat_Classic" };
+    private static readonly float[] RenderScales = { 1f, 1.5f, 2f };
     private static string _artifacts = "";
     private static string _stage = "initialization";
     private static int _exitCode = 1;
@@ -209,9 +211,20 @@ internal static partial class SmokeSuite
                     "settings_light_main", "settings_light_taskbar", "settings_light_metrics", "settings_light_threshold",
                     "settings_light_main_zh" };
                 var capturedNames = Captures.Select(path => Path.GetFileNameWithoutExtension(path)).ToHashSet();
-                Check(Captures.Count(path => Path.GetFileName(path).StartsWith("render_")) == 15 &&
+                Check(RenderThemes.SelectMany(theme => RenderScales.Select(scale => $"render_{theme}_{(int)(scale * 100)}pct")).All(capturedNames.Contains) &&
+                    Captures.Count(path => Path.GetFileName(path).StartsWith("render_")) == RenderThemes.Length * RenderScales.Length &&
                     requiredNativeCaptures.All(capturedNames.Contains) && capturedNames.Count == Captures.Count &&
                     Captures.All(File.Exists), "All DPI, native-form and theme-linkage captures were saved without duplicates");
+                foreach (var window in new Form[] { new HardwareTrendForm(cfg), new TrafficHistoryForm(cfg) }) {
+                    using (window) {
+                        window.Show(main); await Task.Delay(30);
+                        window.Hide();
+                        Check(!Field<System.Windows.Forms.Timer>(window, "_timer").Enabled, window.GetType().Name + ": hiding stops its UI clock");
+                        window.Show(main);
+                        Check(Field<System.Windows.Forms.Timer>(window, "_timer").Enabled, window.GetType().Name + ": showing resumes its UI clock");
+                        window.Close();
+                    }
+                }
                 _stage = "iteration regressions";
                 await TestIteration(main, cfg, ui);
                 await TestRestoreAuditAndMotion(main, cfg, ui);
@@ -681,8 +694,8 @@ internal static partial class SmokeSuite
     {
         // Give the illustrative memory reading a known capacity before native sampling starts.
         Settings.DetectedRamTotalGB = 32;
-        foreach (string skin in new[] { "MellowLight", "MellowDark", "DarkFlat_Classic" })
-        foreach (float scale in new[] { 1f, 1.5f, 2f })
+        foreach (string skin in RenderThemes)
+        foreach (float scale in RenderScales)
         {
             var previous = ThemeManager.Current;
             var theme = ThemeManager.Load(skin);

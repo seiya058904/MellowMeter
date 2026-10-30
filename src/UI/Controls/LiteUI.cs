@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using LiteMonitor.src.Core; // 确保引用了 UIUtils
@@ -779,12 +779,14 @@ namespace LiteMonitor.src.UI.Controls
     public class LiteCheck : CheckBox
     {
         private bool _hovered;
+        private float _position;
         public LiteCheck(bool val, string text = "")
         {
             FlatStyle = FlatStyle.Flat;
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Opaque, true);
             Checked = val;
+            _position = val ? 1 : 0;
             AutoSize = true;
             Cursor = Cursors.Hand;
             Text = text;
@@ -814,13 +816,13 @@ namespace LiteMonitor.src.UI.Controls
             int trackWidth = S(36), trackHeight = S(21);
             bool rtl = RightToLeft == RightToLeft.Yes;
             var track = new Rectangle(rtl ? Width-trackWidth-S(1) : S(1), (Height-trackHeight)/2, trackWidth, trackHeight);
-            Color trackColor = Checked ? UIColors.Primary : UIColors.Blend(backgroundColor, UIColors.TextMain, _hovered ? 0.25f : 0.18f);
+            Color trackColor = UIColors.Blend(UIColors.Blend(backgroundColor, UIColors.TextMain, _hovered ? 0.25f : 0.18f), UIColors.Primary, _position);
             if (!Enabled) trackColor = UIColors.Blend(backgroundColor, trackColor, 0.45f);
             using (var path = UIUtils.RoundRect(track, trackHeight/2))
             using (var fill = new SolidBrush(trackColor)) g.FillPath(fill, path);
             int knob = trackHeight-S(4);
             int knobX = CheckState == CheckState.Indeterminate ? track.Left+(trackWidth-knob)/2
-                : (Checked != rtl ? track.Right-knob-S(2) : track.Left+S(2));
+                : track.Left + S(2) + (int)Math.Round((trackWidth-knob-S(4)) * (rtl ? 1-_position : _position));
             using (var thumb = new SolidBrush(Enabled ? Color.White : UIColors.Blend(backgroundColor, Color.White, 0.6f)))
                 g.FillEllipse(thumb, knobX, track.Top+S(2), knob, knob);
             if (!string.IsNullOrEmpty(Text))
@@ -844,7 +846,10 @@ namespace LiteMonitor.src.UI.Controls
         }
         protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); _hovered = true; Invalidate(); }
         protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); _hovered = false; Invalidate(); }
-        protected override void OnCheckStateChanged(EventArgs e) { base.OnCheckStateChanged(e); Invalidate(); }
+        protected override void OnCheckStateChanged(EventArgs e) {
+            base.OnCheckStateChanged(e);
+            InterfaceMotion.AnimateValue(this, "switch", 160, _position, Checked ? 1 : 0, value => { _position = value; Invalidate(); });
+        }
         protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
         protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); Invalidate(); }
     }
@@ -856,6 +861,7 @@ namespace LiteMonitor.src.UI.Controls
         private bool _hovered;
         private bool _mousePressed;
         private bool _keyPressed;
+        private float _press;
 
         public LiteButton(string t, bool p = false, bool dashed = false)
         {
@@ -913,8 +919,10 @@ namespace LiteMonitor.src.UI.Controls
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             bool pressed = _keyPressed || (_mousePressed && _hovered);
             Color fill = BackColor.A == 255 ? BackColor : outside;
-            if (Enabled && (pressed || _hovered))
-                fill = pressed ? FlatAppearance.MouseDownBackColor : FlatAppearance.MouseOverBackColor;
+            if (Enabled) {
+                if (_hovered) fill = FlatAppearance.MouseOverBackColor;
+                fill = UIColors.Blend(fill, FlatAppearance.MouseDownBackColor, _press);
+            }
             if (!Enabled) fill = UIColors.Blend(outside, fill, 0.45f);
             using var shape = UIUtils.RoundRect(new Rectangle(0, 0, Width - 1, Height - 1), UIUtils.S(11));
             using (var surface = new SolidBrush(fill)) e.Graphics.FillPath(surface, shape);
@@ -940,19 +948,28 @@ namespace LiteMonitor.src.UI.Controls
             }
         }
 
-        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); _hovered = true; Invalidate(); }
-        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); _hovered = false; Invalidate(); }
-        protected override void OnMouseDown(MouseEventArgs e) { base.OnMouseDown(e); if (e.Button == MouseButtons.Left) _mousePressed = true; Invalidate(); }
-        protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); _mousePressed = false; Invalidate(); }
-        protected override void OnMouseCaptureChanged(EventArgs e) { base.OnMouseCaptureChanged(e); if (!Capture) _mousePressed = false; Invalidate(); }
-        protected override void OnKeyDown(KeyEventArgs e) { base.OnKeyDown(e); if (e.KeyCode == Keys.Space) _keyPressed = true; Invalidate(); }
-        protected override void OnKeyUp(KeyEventArgs e) { base.OnKeyUp(e); if (e.KeyCode == Keys.Space) _keyPressed = false; Invalidate(); }
-        protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
-        protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); _keyPressed = false; Invalidate(); }
-        protected override void OnEnabledChanged(EventArgs e) { base.OnEnabledChanged(e); _keyPressed = _mousePressed = false; Invalidate(); }
+        private void UpdatePress()
+        {
+            float target = Enabled && (_keyPressed || (_mousePressed && _hovered)) ? 1 : 0;
+            if (target == 1) { InterfaceMotion.Cancel(this, "press"); _press = 1; Invalidate(); }
+            else InterfaceMotion.AnimateValue(this, "press", 120, _press, 0, value => { _press = value; Invalidate(); });
+        }
+
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); _hovered = true; UpdatePress(); }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); _hovered = false; UpdatePress(); }
+        protected override void OnMouseDown(MouseEventArgs e) { base.OnMouseDown(e); if (e.Button == MouseButtons.Left) _mousePressed = true; UpdatePress(); }
+        protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); _mousePressed = false; UpdatePress(); }
+        protected override void OnMouseCaptureChanged(EventArgs e) { base.OnMouseCaptureChanged(e); if (!Capture) _mousePressed = false; UpdatePress(); }
+        protected override void OnKeyDown(KeyEventArgs e) { base.OnKeyDown(e); if (e.KeyCode == Keys.Space) _keyPressed = true; UpdatePress(); }
+        protected override void OnKeyUp(KeyEventArgs e) { base.OnKeyUp(e); if (e.KeyCode == Keys.Space) _keyPressed = false; UpdatePress(); }
+        protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); UpdatePress(); }
+        protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); _keyPressed = false; UpdatePress(); }
+        protected override void OnEnabledChanged(EventArgs e) { base.OnEnabledChanged(e); _keyPressed = _mousePressed = false; UpdatePress(); }
     }
     public class LiteNavBtn : Button
     {
+        public string? IconKey { get; set; }
+        public bool Segmented { get; set; }
         private bool _isActive;
         private readonly Font _regularFont = new Font("Segoe UI", 9F);
         private readonly Font _activeFont = new Font("Segoe UI", 9F, FontStyle.Bold);
@@ -970,6 +987,7 @@ namespace LiteMonitor.src.UI.Controls
             FlatStyle = FlatStyle.Flat;
             FlatAppearance.BorderSize = 0;
             TextAlign = ContentAlignment.MiddleLeft;
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
             Font = _regularFont;
             Cursor = Cursors.Hand;
             Margin = UIUtils.S(new Padding(5, 2, 5, 2));
@@ -980,24 +998,20 @@ namespace LiteMonitor.src.UI.Controls
         protected override void OnPaint(PaintEventArgs e)
         {
             bool hover = ClientRectangle.Contains(PointToClient(Cursor.Position));
-            Color bg = _isActive ? UIColors.NavSelected : hover ? UIColors.NavHover : UIColors.SidebarBg;
-            using var background = new SolidBrush(UIColors.SidebarBg);
+            Color outside = Segmented ? UIColors.FieldBg : UIColors.SidebarBg;
+            Color bg = _isActive ? (Segmented ? UIColors.CardBg : UIColors.NavSelected) : hover ? UIColors.NavHover : outside;
+            using var background = new SolidBrush(outside);
             e.Graphics.FillRectangle(background, ClientRectangle);
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using var path = UIUtils.RoundRect(Rectangle.Inflate(ClientRectangle, -2, -2), UIUtils.S(10));
             using var brush = new SolidBrush(bg);
             e.Graphics.FillPath(brush, path);
-            string icon = string.IsNullOrEmpty(Text) ? "" : System.Globalization.StringInfo.GetNextTextElement(Text);
-            bool hasIcon = icon.Any(char.IsSurrogate) || icon.StartsWith("⚙") || icon.StartsWith("➖");
-            string caption = hasIcon ? Text.Substring(icon.Length).TrimStart() : Text;
+            bool hasIcon = IconKey != null;
+            string caption = Text;
             if (hasIcon)
             {
-                var iconRect = new Rectangle(UIUtils.S(10), (Height-UIUtils.S(24))/2, UIUtils.S(24), UIUtils.S(24));
-                using var iconPath = UIUtils.RoundRect(iconRect, UIUtils.S(7));
-                using var iconBrush = new SolidBrush(UIColors.Blend(UIColors.CardBg, UIColors.Primary, _isActive ? .24f : .12f));
-                e.Graphics.FillPath(iconBrush, iconPath);
-                TextRenderer.DrawText(e.Graphics, icon, _regularFont, iconRect, UIColors.TextMain,
-                    UIRenderer.TextFlags | TextFormatFlags.HorizontalCenter | TextFormatFlags.PreserveGraphicsClipping | TextFormatFlags.PreserveGraphicsTranslateTransform);
+                var iconRect = new Rectangle(UIUtils.S(12), (Height-UIUtils.S(18))/2, UIUtils.S(18), UIUtils.S(18));
+                NavigationIcon.Draw(e.Graphics, IconKey!, iconRect, _isActive ? UIColors.Primary : UIColors.TextSub);
             }
             int left = UIUtils.S(hasIcon ? 43 : 10);
             var textRect = new Rectangle(left, 0, Math.Max(0, Width-left-UIUtils.S(10)), Height);
@@ -1019,7 +1033,44 @@ namespace LiteMonitor.src.UI.Controls
             base.Dispose(disposing);
         }
     }
-    public class LiteSortBtn : Button { public LiteSortBtn(string txt) { Text = txt; Size = new Size(UIUtils.S(24), UIUtils.S(24)); FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; BackColor = UIColors.GroupHeader; ForeColor = UIColors.TextSub; Cursor = Cursors.Hand; Font = new Font("Segoe UI", 7F, FontStyle.Bold); Margin = new Padding(0); } }
+    public class LiteSortBtn : Button
+    {
+        private bool _hovered, _pressed;
+        public LiteSortBtn(string text) {
+            Text = text;
+            AccessibleName = LanguageManager.T(text == "▲" ? "Menu.MoveUp" : "Menu.MoveDown");
+            Size = UIUtils.S(new Size(24, 24));
+            FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0;
+            BackColor = UIColors.CardBg; ForeColor = UIColors.TextSub;
+            Cursor = Cursors.Hand; Margin = Padding.Empty;
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+        }
+        protected override void OnPaint(PaintEventArgs e) {
+            var g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            Color background = Parent?.BackColor ?? BackColor;
+            using (var fill = new SolidBrush(background)) g.FillRectangle(fill, ClientRectangle);
+            if (Enabled && (_hovered || _pressed)) {
+                using var path = UIUtils.RoundRect(Rectangle.Inflate(ClientRectangle, -1, -1), UIUtils.S(6));
+                using var fill = new SolidBrush(_pressed ? UIColors.NavSelected : UIColors.NavHover);
+                g.FillPath(fill, path);
+            }
+            float x = Width / 2f, y = Height / 2f, r = UIUtils.S(3), direction = Text == "▲" ? -1 : 1;
+            using var pen = new Pen(Enabled ? UIColors.TextSub : UIColors.Blend(background, UIColors.TextMain, .28f), Math.Max(1.4f, UIUtils.ScaleFactor * 1.4f)) {
+                StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round, LineJoin = System.Drawing.Drawing2D.LineJoin.Round
+            };
+            g.DrawLines(pen, new[] { new PointF(x-r,y-direction*r/2), new PointF(x,y+direction*r/2), new PointF(x+r,y-direction*r/2) });
+            if (Focused && ShowFocusCues) ControlPaint.DrawFocusRectangle(g, Rectangle.Inflate(ClientRectangle, -2, -2), UIColors.Primary, background);
+        }
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); _hovered = true; Invalidate(); }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); _hovered = false; Invalidate(); }
+        protected override void OnMouseDown(MouseEventArgs e) { base.OnMouseDown(e); _pressed = e.Button == MouseButtons.Left; Invalidate(); }
+        protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); _pressed = false; Invalidate(); }
+        protected override void OnMouseCaptureChanged(EventArgs e) { base.OnMouseCaptureChanged(e); if (!Capture) _pressed = false; Invalidate(); }
+        protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
+        protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); _pressed = false; Invalidate(); }
+        protected override void OnEnabledChanged(EventArgs e) { base.OnEnabledChanged(e); _pressed = false; Invalidate(); }
+    }
 
     // ★★★ New: Header Button (Variable Width) ★★★
     public class LiteHeaderBtn : Button

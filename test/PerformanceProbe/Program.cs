@@ -15,6 +15,7 @@ internal static partial class Program
         string root = Path.GetFullPath(args[0]);
         Directory.CreateDirectory(root);
         Environment.SetEnvironmentVariable("MELLOWMETER_DATA_DIR", Path.Combine(root, "data"));
+        if (args.Contains("--interaction")) return InteractionProbe(root, args.Contains("--local-buffer"));
         if (args.Contains("--motion") || args.Contains("--interactive")) return MotionPreview(root, args.Contains("--interactive"));
         if (args.Contains("--preview")) return Preview(root, args.Contains("--baseline"));
         return Run(root, args.Length > 1 ? args[1] : "DarkFlat_Classic");

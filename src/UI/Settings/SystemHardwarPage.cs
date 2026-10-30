@@ -16,6 +16,9 @@ namespace LiteMonitor.src.UI.SettingsPage
         private Panel _container;
         private readonly List<Control> _advancedGroups = new();
         private bool _loading;
+        private int _sourceRevision;
+        private bool _requestAdvanced;
+        private bool _refreshPending;
         private long _lastSourceRefresh;
         private bool _lastSourceAdvanced;
 
@@ -56,25 +59,39 @@ namespace LiteMonitor.src.UI.SettingsPage
         // 将 PopulateAsyncData 改为“批量处理”模式
         private async void PopulateAsyncData()
         {
-            if (_loading || IsDisposed || Config == null) return;
+            if (IsDisposed || Disposing || Config == null) return;
+            if (_loading) {
+                if (_requestAdvanced != Config.AdvancedSensorsEnabled) {
+                    _requestAdvanced = Config.AdvancedSensorsEnabled;
+                    _sourceRevision++;
+                    _refreshPending = true;
+                }
+                return;
+            }
             if (_lastSourceRefresh != 0 && _lastSourceAdvanced == Config.AdvancedSensorsEnabled &&
                 Environment.TickCount64 - _lastSourceRefresh < 5000) return;
             _loading = true;
+            int revision = ++_sourceRevision;
+            bool advanced = _requestAdvanced = Config.AdvancedSensorsEnabled;
             _sourceStatus.Text = LanguageManager.T("Menu.SourcesLoading");
             try
             {
                 string strAuto = LanguageManager.T("Menu.Auto");
 
                 // 1. 并行等待所有数据返回 (使用 HardwareScanner)
-                var taskDisks = Config.AdvancedSensorsEnabled ? Task.Run(() => HardwareMonitor.ListAllDisks()) : Task.FromResult(new List<string>());
+                var taskDisks = advanced ? Task.Run(() => HardwareMonitor.ListAllDisks()) : Task.FromResult(new List<string>());
                 var taskNets  = Task.Run(() => HardwareMonitor.ListAllNetworks());
-                var taskGpus  = Config.AdvancedSensorsEnabled ? Task.Run(() => HardwareMonitor.ListAllGpuOptions()) : Task.FromResult(new List<HardwareScanner.GpuOption>());
+                var taskGpus  = advanced ? Task.Run(() => HardwareMonitor.ListAllGpuOptions()) : Task.FromResult(new List<HardwareScanner.GpuOption>());
                 var monitor = HardwareMonitor.Instance;
-                var taskMobo = Config.AdvancedSensorsEnabled && monitor != null ? Task.Run(() => HardwareScanner.ListAllMoboTemps(monitor.ComputerInstance, monitor.SyncLock)) : Task.FromResult(new List<string>());
+                var taskMobo = advanced && monitor != null ? Task.Run(() => HardwareScanner.ListAllMoboTemps(monitor.ComputerInstance, monitor.SyncLock)) : Task.FromResult(new List<string>());
 
-                var taskFans = Config.AdvancedSensorsEnabled ? Task.Run(() => HardwareMonitor.ListAllFans()) : Task.FromResult(new List<string>());
+                var taskFans = advanced ? Task.Run(() => HardwareMonitor.ListAllFans()) : Task.FromResult(new List<string>());
                 await Task.WhenAll(taskDisks, taskNets, taskGpus, taskMobo, taskFans);
                 if (IsDisposed || Disposing) return;
+                if (revision != _sourceRevision || advanced != Config.AdvancedSensorsEnabled) {
+                    _refreshPending = true;
+                    return;
+                }
 
                 // 2. ★★★ 锁定全局布局 (防止每填一个框就重绘一次) ★★★
                 this.SuspendLayout();
@@ -91,7 +108,8 @@ namespace LiteMonitor.src.UI.SettingsPage
 
                     string selection = string.IsNullOrEmpty(currentVal) ? strAuto : currentVal;
                     if (combo.Inner.Items.Cast<object>().Select(x => x.ToString()).SequenceEqual(fullList) && combo.Text == selection) return;
-                    combo.Inner.BeginUpdate(); // 锁定 ComboBox 自身
+                    combo.Inner.BeginUpdate();
+                    try {
                     combo.Inner.Items.Clear();
                     foreach (var item in fullList) combo.Inner.Items.Add(item);
 
@@ -100,7 +118,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                     else
                         combo.Inner.SelectedIndex = 0;
 
-                    combo.Inner.EndUpdate(); // 解锁 ComboBox
+                    } finally { combo.Inner.EndUpdate(); }
                 }
 
                 void FillGpuSync(LiteComboBox combo, List<HardwareScanner.GpuOption> data, string currentVal)
@@ -120,18 +138,25 @@ namespace LiteMonitor.src.UI.SettingsPage
                         return byName.Count == 1 ? byName[0] : null;
                     }
 
+                    var selected = ResolveCurrent();
+                    string selection = selected?.Value ?? currentVal ?? "";
+                    var options = new List<(string Label, string Value)> { (strAuto, "") };
+                    options.AddRange(data.Select(x => (x.Label, x.Value)));
+                    if (selected == null && !string.IsNullOrEmpty(currentVal)) options.Add((currentVal, currentVal));
+                    if (combo.Inner.Items.Cast<object>().OfType<LiteComboItem>().Select(x => (x.Text, x.Value)).SequenceEqual(options) && combo.SelectedValue == selection) return;
                     combo.Inner.BeginUpdate();
+                    try {
                     combo.Inner.Items.Clear();
                     combo.AddItem(strAuto, "");
                     foreach (var item in data) combo.AddItem(item.Label, item.Value);
 
-                    var selected = ResolveCurrent();
                     if (selected == null && !string.IsNullOrEmpty(currentVal)) combo.AddItem(currentVal, currentVal);
                     combo.SelectValue(selected?.Value ?? currentVal ?? "");
-                    combo.Inner.EndUpdate();
+                    } finally { combo.Inner.EndUpdate(); }
                 }
 
                 // 3. 瞬间填入所有数据 (因为布局被挂起，用户看不见中间过程)
+                RefreshBindings(() => {
                 FillSync(_cbDisk, taskDisks.Result, Config.PreferredDisk);
                 FillSync(_cbNet, taskNets.Result, Config.PreferredNetwork);
                 FillGpuSync(_cbGpu, taskGpus.Result, Config.PreferredGpu);
@@ -141,8 +166,9 @@ namespace LiteMonitor.src.UI.SettingsPage
                 FillSync(_cbFanCpu, taskFans.Result, Config.PreferredCpuFan);
                 FillSync(_cbFanPump, taskFans.Result, Config.PreferredCpuPump);
                 FillSync(_cbFanCase, taskFans.Result, Config.PreferredCaseFan);
+                });
                 _lastSourceRefresh = Environment.TickCount64;
-                _lastSourceAdvanced = Config.AdvancedSensorsEnabled;
+                _lastSourceAdvanced = advanced;
             }
             catch (Exception ex)
             {
@@ -154,7 +180,14 @@ namespace LiteMonitor.src.UI.SettingsPage
             {
                 // 4. 恢复布局 (此时所有控件已就绪，一次性渲染)
                 _loading = false;
-                if (!IsDisposed) this.ResumeLayout(true);
+                if (!IsDisposed && !Disposing) {
+                    this.ResumeLayout(true);
+                    if (_refreshPending) {
+                        _refreshPending = false;
+                        _lastSourceRefresh = 0;
+                        PopulateAsyncData();
+                    }
+                }
             }
         }
 

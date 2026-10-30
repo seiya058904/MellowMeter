@@ -99,11 +99,13 @@ namespace LiteMonitor
 
             _timer = new System.Windows.Forms.Timer { Interval = 1000 };
             _timer.Tick += (_, __) => { if (Visible && WindowState != FormWindowState.Minimized) UpdateRealtimeStats(); };
-            Resize += (_, _) => {
-                if (WindowState == FormWindowState.Minimized) _timer.Stop();
+            void RefreshTimer() {
+                if (!Visible || WindowState == FormWindowState.Minimized) _timer.Stop();
                 else if (!_timer.Enabled) { UpdateRealtimeStats(); _timer.Start(); }
-            };
-            _timer.Start();
+            }
+            Resize += (_, _) => RefreshTimer();
+            VisibleChanged += (_, _) => RefreshTimer();
+            RefreshTimer();
         }
 
         private string T(string zh, string en) => (_cfg.Language ?? "").StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? zh : en;

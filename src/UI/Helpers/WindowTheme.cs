@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using Microsoft.Win32;
 using LiteMonitor.src.Core;
@@ -10,36 +10,11 @@ internal static class WindowTheme
 {
     private sealed class State { public bool Backdrop; public bool Hooked; }
     private static readonly ConditionalWeakTable<Form, State> States = new();
-    private static bool _requested = true;
-    private static long _lastPolicyCheck;
-    internal static bool EffectsAllowed { get; private set; } = true;
     internal static bool HasBackdrop(Form window) => States.TryGetValue(window, out var state) && state.Backdrop;
 
     internal static void Configure(Settings settings)
     {
-        _requested = settings.GlassEffectsEnabled;
-        RefreshPolicy(true);
         foreach (var window in Application.OpenForms.Cast<Form>().ToArray()) Apply(window);
-    }
-
-    internal static void RefreshPolicy(bool force = false)
-    {
-        if (!force && Environment.TickCount64 - _lastPolicyCheck < 5000) return;
-        _lastPolicyCheck = Environment.TickCount64;
-        bool transparency = true;
-        try {
-            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            transparency = key?.GetValue("EnableTransparency") is not int value || value != 0;
-        } catch { }
-        bool saver = GetSystemPowerStatus(out var power) && power.SystemStatusFlag != 0;
-        bool allowed = _requested && transparency && !SystemInformation.HighContrast && !saver;
-        if (EffectsAllowed == allowed) return;
-        EffectsAllowed = allowed;
-        GlassSurface.ClearCache();
-        foreach (var window in Application.OpenForms.Cast<Form>().ToArray()) {
-            Apply(window);
-            window.Invalidate(true);
-        }
     }
 
     internal static void Apply(Form window)
@@ -50,7 +25,7 @@ internal static class WindowTheme
             state.Hooked = true;
             UserPreferenceChangedEventHandler handler = (_, _) => {
                 if (!window.IsDisposed && window.IsHandleCreated)
-                    try { window.BeginInvoke(new Action(() => { RefreshPolicy(true); InterfaceMotion.Configure(Settings.Load()); Apply(window); window.Invalidate(true); })); } catch (InvalidOperationException) { }
+                    try { window.BeginInvoke(new Action(() => { InterfaceMotion.RefreshSystemPreference(); Apply(window); window.Invalidate(true); })); } catch (InvalidOperationException) { }
             };
             SystemEvents.UserPreferenceChanged += handler;
             window.Disposed += (_, _) => SystemEvents.UserPreferenceChanged -= handler;
@@ -90,8 +65,6 @@ internal static class WindowTheme
 
     private static int Set(IntPtr handle, int attribute, int value) => DwmSetWindowAttribute(handle, attribute, ref value, sizeof(int));
     [StructLayout(LayoutKind.Sequential)] private struct Margins { public int Left, Right, Top, Bottom; }
-    [StructLayout(LayoutKind.Sequential)] private struct PowerStatus { public byte ACLineStatus, BatteryFlag, BatteryLifePercent, SystemStatusFlag; public int BatteryLifeTime, BatteryFullLifeTime; }
-    [DllImport("kernel32.dll")] private static extern bool GetSystemPowerStatus(out PowerStatus status);
     [DllImport("dwmapi.dll")] private static extern int DwmExtendFrameIntoClientArea(IntPtr handle, ref Margins margins);
     [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr handle, int attribute, ref int value, int size);
 }

@@ -11,10 +11,7 @@
     <ProjectReference Include="../../MellowMeter.csproj" />
   </ItemGroup>
   <ItemGroup Condition="'$(ProbeDirectory)' != ''">
-    <Reference Include="MellowMeter"><HintPath>$(ProbeDirectory)/MellowMeter.dll</HintPath></Reference>
-    <Reference Include="System.Text.Json"><HintPath>$(ProbeDirectory)/System.Text.Json.dll</HintPath></Reference>
-    <Reference Include="System.Text.Encodings.Web"><HintPath>$(ProbeDirectory)/System.Text.Encodings.Web.dll</HintPath></Reference>
-    <Reference Include="System.IO.Pipelines"><HintPath>$(ProbeDirectory)/System.IO.Pipelines.dll</HintPath></Reference>
+    <Reference Include="$(ProbeDirectory)/*.dll" />
     <Content Include="$(ProbeDirectory)/**/*" Link="%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

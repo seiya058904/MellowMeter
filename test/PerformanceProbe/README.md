@@ -1,19 +1,17 @@
 # Performance and desktop capture probe
 
-This Windows-only harness uses isolated data and the application's real forms. Run it only on an interactive desktop where showing test windows is appropriate. It does not control another app's input. `--preview` briefly shows owned bright/dark/patterned background windows, app windows and the app's taskbar strip, captures desktop pixels, then closes them. It never changes Windows transparency or wallpaper itself.
+Current measurement mode:
 
 ```powershell
 . ./scripts/dotnet-path.ps1
-& $DotnetExecutable publish test/PerformanceProbe/PerformanceProbe.csproj -c Release -o artifacts/probe
-& ./artifacts/probe/PerformanceProbe.exe "$PWD/artifacts/probe-results" DarkFlat_Classic
-& ./artifacts/probe/PerformanceProbe.exe "$PWD/artifacts/preview-results" --preview
+& $DotnetExecutable publish test/PerformanceProbe/PerformanceProbe.csproj -c Release -p:ProbeDirectory="<absolute win-x64 Lite publish folder>" -o artifacts/probe
+& ./artifacts/probe/PerformanceProbe.exe "$PWD/artifacts/probe-results" --interaction
 ```
 
-To compare a saved old build or the exact packaged assembly, supply `-p:ProbeDirectory=<absolute published folder>` when publishing into a new output folder. The reference uses that build and its existing JSON dependencies, not updated packages. Add `--baseline` to `--preview` when testing v0.1's classic/light themes.
+The referenced folder must be a Windows x64 publish (`-r win-x64`), with its complete dependencies. The probe uses those assemblies without upgrading packages. `interaction.json` records the actual app assembly hash, DPI, per-action samples, median/P95, managed allocation deltas and process/GDI/USER resource samples. Its isolated profile disables physical advanced sensors, autostart, taskbar and tray; basic sampling continues.
 
-The microbenchmark records 30 settings openings after one warmup, three 1,000-move batches after one warmup, three batches of 50 chart paints and GDI/USER counts. The chart contains 10,000 generated points. `DrawToBitmap` measures chart-renderer cost; it does not measure DWM. GDI counts can rise between natural GC cycles, so first/last counts alone do not prove a leak. No forced GC is used.
+One round warms JIT/framework paths; three measured rounds each open a new settings window. First category visits, first mode/filter/label interactions, warm repeats and changed/unchanged Apply are separate. Action-to-idle includes pending native paint work; it is **not** physical input-to-photon latency. Allocation deltas include background process activity. CPU samples are brief diagnostics, not a long-run power benchmark. No forced GC is used. `--local-buffer` removes composited styles from this probe's settings controls only for the controlled comparison, without changing production settings.
 
-Use `scripts/Measure-Process.ps1` separately for resident sampling. It captures startup, process CPU, private/working-set bytes, handles and GDI/USER objects, plus GPU-engine and raw DWM performance-counter samples. A null/unavailable direct DWM CPU reading must never be interpreted as zero cost. DWM/GPU samples include ambient desktop activity. Results and captures belong in ignored `artifacts` folders, not the user's profile.
+`--interactive` leaves an isolated settings window open for native input verification and closes the host when settings close. Existing `--motion` and `--preview` modes are diagnostic/historical tooling; their old glass-oriented artifact filenames are not evidence of active glass support. Do not use the off/on motion sequence as a controlled speedup comparison because its first pass creates pages and the second reuses them.
 
-
-`dotnet run --project test/PerformanceProbe -c Release -- <artifact-directory> --motion` opens native windows and records only the settings window using an existing `ffmpeg` executable on PATH. It saves light/dark/effects-off screenshots and an off/on UI-loop probe. It changes only its isolated profile; physical sensor access is disabled. The off pass includes first page construction and the on pass reuses pages, so timings are diagnostic rather than a controlled speedup comparison. `--interactive` leaves the isolated settings window available for manual UI checks. Both modes require a free desktop and must not run while the user is working or has paused desktop testing.
+The original mode (artifact directory plus optional theme name) measures 30 settings openings, chart hover and bitmap-renderer cost. `DrawToBitmap` never measures DWM. `scripts/Measure-Process.ps1` offers longer resident sampling; missing DWM/GPU readings must not be interpreted as zero cost. All outputs belong in ignored artifact directories, not the user's profile.

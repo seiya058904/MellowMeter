@@ -122,11 +122,13 @@ namespace LiteMonitor
 
             _timer = new System.Windows.Forms.Timer { Interval = 15000 };
             _timer.Tick += (_, __) => { if (Visible && WindowState != FormWindowState.Minimized) LoadData(); };
-            Resize += (_, _) => {
-                if (WindowState == FormWindowState.Minimized) _timer.Stop();
+            void RefreshTimer() {
+                if (!Visible || WindowState == FormWindowState.Minimized) _timer.Stop();
                 else if (!_timer.Enabled) { LoadData(); _timer.Start(); }
-            };
-            _timer.Start();
+            }
+            Resize += (_, _) => RefreshTimer();
+            VisibleChanged += (_, _) => RefreshTimer();
+            RefreshTimer();
         }
 
         protected override void OnShown(EventArgs e)

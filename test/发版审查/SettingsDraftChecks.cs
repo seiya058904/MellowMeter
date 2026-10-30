@@ -12,6 +12,31 @@ internal static partial class Program
         static string[] Keys(IEnumerable<MonitorItemConfig> items) => items.Select(x => x.Key).ToArray();
         static Settings NewSettings() { var s = new Settings(); s.InitDefaultItems(); return s; }
 
+        await Run("Apply comparison ignores runtime values and equivalent orders", () => {
+            var type = typeof(Settings).Assembly.GetType("LiteMonitor.src.Core.Actions.SettingsChanges")!;
+            object Changes(Settings a, Settings b) => type.GetMethod("Between", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, new object[] { a, b })!;
+            bool Flag(object change, string name) => (bool)type.GetProperty(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(change)!;
+            var live = NewSettings(); var draft = live.DeepClone();
+            draft.Position = new System.Drawing.Point(100, 200); draft.SessionUploadBytes = 123;
+            draft.MonitorItems[0].DynamicLabel = "runtime label";
+            Check(!Flag(Changes(live, draft), "Any"), "Runtime state makes Apply dirty");
+            foreach (var item in draft.MonitorItems) { item.SortIndex += 100; item.TaskbarSortIndex += 100; }
+            Check(!Flag(Changes(live, draft), "Any"), "Equivalent normalized ordering makes Apply dirty");
+            draft.PanelWidth += 10;
+            Check(Flag(Changes(live, draft), "Appearance") && !Flag(Changes(live, draft), "Sources"), "Width rebuilds hardware sources");
+            draft = live.DeepClone(); draft.HistoryEnabled = !live.HistoryEnabled;
+            Check(Flag(Changes(live, draft), "Any") && !Flag(Changes(live, draft), "Appearance"), "History toggle reloads appearance");
+            draft = live.DeepClone(); draft.PreferredNetwork = "test adapter";
+            Check(Flag(Changes(live, draft), "Sources") && !Flag(Changes(live, draft), "Appearance"), "Source selection misses its refresh");
+            draft = live.DeepClone(); draft.MonitorItems[0].TaskbarLabel = "custom";
+            Check(Flag(Changes(live, draft), "Layout") && !Flag(Changes(live, draft), "Sources"), "Monitor labels must rebuild layout without reopening hardware");
+            var cpu = draft.MonitorItems.Single(x => x.Key == "CPU.Load");
+            cpu.VisibleInPanel = false;
+            Check(!Flag(Changes(live, draft), "Sources"), "A metric still shown in taskbar must not reopen hardware");
+            cpu.VisibleInTaskbar = false;
+            Check(Flag(Changes(live, draft), "Sources"), "Disabling a sampled metric must refresh hardware");
+            return Task.CompletedTask;
+        });
         await Run("Cached monitor save preserves edits without rebuilding unchanged context", () => {
             var draft = NewSettings();
             string state = SettingsChanger.CaptureMonitorState(draft);

@@ -67,7 +67,6 @@ namespace LiteMonitor
             var oldTheme = ThemeManager.Current;
 
             // 2. 清理全局画刷缓存 (这不会影响 ThemeManager 的字体了，因为解耦了)
-            GlassSurface.ClearCache();
             UIRenderer.ClearCache();
             UIUtils.ClearBrushCache();
 
@@ -77,6 +76,7 @@ namespace LiteMonitor
             ThemeManager.Load(name);
             var t = ThemeManager.Current;
             WindowTheme.Configure(_cfg);
+            InterfaceMotion.Configure(_cfg);
 
             // 4. 安全释放旧主题的字体
             // 此时 Current 已经是新主题了，Paint 事件只会用新字体，所以释放旧的是安全的
@@ -134,6 +134,8 @@ namespace LiteMonitor
             _form.Invalidate();
             _form.Update();
         }
+
+        internal void RefreshInterval() => _timer.Interval = EffectiveRefreshMs;
 
         public void SetDragging(bool dragging) => _dragging = dragging;
 
@@ -205,7 +207,6 @@ namespace LiteMonitor
         private async void Tick()
         {
             if (_disposed || _busy || _suspended) return;
-            WindowTheme.RefreshPolicy();
             bool visible = !_sessionLocked && (_form.Visible || _cfg.ShowTaskbar);
             _timer.Interval = visible ? EffectiveRefreshMs : 10000;
             if (!visible && !_cfg.HistoryEnabled) return;

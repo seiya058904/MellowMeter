@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -34,6 +34,10 @@ namespace LiteMonitor.src.UI.SettingsPage
         private Label _lblCol4; 
 
         private List<MonitorItemConfig> _workingList = new();
+        private readonly Dictionary<string, MonitorItemRow> _rows = new();
+        private readonly Dictionary<string, GroupBlock> _blocks = new();
+        private readonly Panel _spacer = new() { Dock = DockStyle.Top, Height = UIUtils.S(12) };
+        private Label? _bottomLabel;
 
         public MonitorPage()
         {
@@ -71,10 +75,10 @@ namespace LiteMonitor.src.UI.SettingsPage
             _btnTabMain.Location = new Point(UIUtils.S(20), UIUtils.S(8));
             // [Fix] 动态跟随：防止 HighDPI 下 AutoSize 尚未计算完成导致重叠
             _btnTabMain.SizeChanged += (s, e) => {
-                 _btnTabBar.Location = new Point(_btnTabMain.Right + UIUtils.S(10), UIUtils.S(8));
+                 _btnTabBar.Location = new Point(_btnTabMain.Right, UIUtils.S(8));
             };
             // 初始也设置一次 (虽然此时 Width 可能不准，但有了 SizeChanged 兜底)
-            _btnTabBar.Location = new Point(_btnTabMain.Right + UIUtils.S(10), UIUtils.S(8));
+            _btnTabBar.Location = new Point(_btnTabMain.Right, UIUtils.S(8));
 
             _chkLinkHorizontal = new LiteCheck(false, LanguageManager.T("Menu.HorizontalFollowsTaskbar")) 
             {
@@ -103,7 +107,16 @@ namespace LiteMonitor.src.UI.SettingsPage
             _chkEditLabels.CheckedChanged += (_, _) => {
                 if (!_isLoaded) return;
                 SaveToWorkingList();
-                ReloadList();
+                _container.SuspendLayout();
+                foreach (var block in _blocks.Values) block.RowsPanel.SuspendLayout();
+                try {
+                    foreach (var row in _rows.Values) row.ShowEditors = _chkEditLabels.Checked;
+                    foreach (var block in _blocks.Values) block.Header.ShowEditors = _chkEditLabels.Checked;
+                    UpdateHeaderLayout();
+                } finally {
+                    foreach (var block in _blocks.Values) block.RowsPanel.ResumeLayout(true);
+                    _container.ResumeLayout(true);
+                }
             };
             
             _tabPanel.Resize += (s, e) => {
@@ -134,7 +147,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         private Button CreateTabButton(string text, bool active)
         {
             // [Fix] Scale Padding for High DPI
-            var btn = new LiteNavBtn(text);
+            var btn = new LiteNavBtn(text) { Segmented = true };
             btn.Size = new Size(TextRenderer.MeasureText(text, btn.Font).Width + UIUtils.S(32), UIUtils.S(30));
             UpdateBtnStyle(btn, active);
             return btn;
@@ -188,6 +201,8 @@ namespace LiteMonitor.src.UI.SettingsPage
                 return; 
             }
 
+            ClearEditors();
+
             // 3. 数据变了（例如在插件页添加了新项），执行全量加载
             try
             {
@@ -223,33 +238,18 @@ namespace LiteMonitor.src.UI.SettingsPage
             if (_container == null || _container.IsDisposed || Config == null) return;
             
             _container.SuspendLayout();
-            
+            var scroll = new Point(-_container.AutoScrollPosition.X, -_container.AutoScrollPosition.Y);
+            _container.Visible = false;
+            foreach (var block in _blocks.Values) block.RowsPanel.SuspendLayout();
             try 
             {
                 UpdateLanguageCacheFromWorkingList();
 
-                // 清理旧控件
-                for (int i = _container.Controls.Count - 1; i >= 0; i--)
-                {
-                    var control = _container.Controls[i];
-                    if (control is GroupBlock block)
-                    {
-                        block.Header.MoveUp -= GroupHeader_MoveUp; block.Header.MoveDown -= GroupHeader_MoveDown;
-                        foreach (var row in block.RowsPanel.Controls.OfType<MonitorItemRow>()) { row.MoveUp -= Row_MoveUp; row.MoveDown -= Row_MoveDown; }
-                    }
-                    else if (control is MonitorItemRow row)
-                    {
-                        row.MoveUp -= Row_MoveUp; row.MoveDown -= Row_MoveDown;
-                    }
-                    _container.Controls.RemoveAt(i);
-                    control.Dispose();
-                }
-
+                // Detach reusable editors before arranging the alternate view.
+                foreach (var block in _blocks.Values) block.RowsPanel.Controls.Clear();
+                _container.Controls.Clear();
                 UpdateHeaderLayout();
-
-                var controlsToAdd = new List<Control>();
-                var spacer = new Panel { Dock = DockStyle.Top, Height = UIUtils.S(12), BackColor = Color.Transparent };
-                controlsToAdd.Add(spacer);
+                var controlsToAdd = new List<Control> { _spacer };
 
                 if (_isTaskbarTab)
                 {
@@ -264,8 +264,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
                     for (int i = items.Count - 1; i >= 0; i--)
                     {
-                        var row = new MonitorItemRow(items[i], true) { ShowEditors = _chkEditLabels.Checked };
-                        row.MoveUp += Row_MoveUp; row.MoveDown += Row_MoveDown;
+                        var row = GetRow(items[i], true);
                         controlsToAdd.Add(row);
                     }
                 }
@@ -284,24 +283,24 @@ namespace LiteMonitor.src.UI.SettingsPage
                 _container.Controls.AddRange(controlsToAdd.ToArray());
 
             // 底部提示文案
-            var bottomLabel = new Label 
-            { 
-                Text = LanguageManager.T(Config.AdvancedSensorsEnabled ? "Menu.MonitorItemTip" : "Menu.BasicSensorsTip"),
-                AutoSize = true, 
-                ForeColor = UIColors.TextSub, 
-                Font = new Font("Segoe UI", 8.5F),
-                Dock = DockStyle.Bottom,
-                Padding = UIUtils.S(new Padding(0, 12, 12, 10)),
-                MaximumSize = new Size(_container.ClientSize.Width - UIUtils.S(36), 0)
+            _bottomLabel ??= new Label {
+                AutoSize = true, ForeColor = UIColors.TextSub, Font = UIFonts.Regular(8.5F),
+                Dock = DockStyle.Bottom, Padding = UIUtils.S(new Padding(0, 12, 12, 10))
             };
-            _container.Controls.Add(bottomLabel);
+            _bottomLabel.Text = LanguageManager.T(Config.AdvancedSensorsEnabled ? "Menu.MonitorItemTip" : "Menu.BasicSensorsTip");
+            _bottomLabel.MaximumSize = new Size(Math.Max(1, _container.ClientSize.Width - UIUtils.S(36)), 0);
+            _container.Controls.Add(_bottomLabel);
             }
             finally
             {
-                _container.ResumeLayout();
+                foreach (var block in _blocks.Values) block.RowsPanel.ResumeLayout(true);
+                _container.Visible = true;
+                _container.ResumeLayout(true);
+                _container.AutoScrollPosition = scroll;
             }
 
             _isLoaded = true;
+            UpdateSortButtons(_container);
         }
 
         private void UpdateLanguageCacheFromWorkingList()
@@ -367,29 +366,56 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private GroupBlock CreateGroupBlock(string groupKey, List<MonitorItemConfig> items)
         {
-            string alias = Config?.GroupAliases.TryGetValue(groupKey, out var configuredAlias) == true ? configuredAlias : "";
-            var header = new MonitorGroupHeader(groupKey, alias) { ShowEditors = _chkEditLabels.Checked };
-            var rowsPanel = new Panel { Dock = DockStyle.Top, AutoSize = true, BackColor = UIColors.CardBg };
-            var block = new GroupBlock(header, rowsPanel);
-
-            header.MoveUp += GroupHeader_MoveUp;
-            header.MoveDown += GroupHeader_MoveDown;
-            header.ToggleGroup += (s, checkState) => 
+            if (!_blocks.TryGetValue(groupKey, out var block))
             {
-                foreach(MonitorItemRow row in rowsPanel.Controls) row.SetPanelChecked(checkState);
-            };
-            header.Tag = block;
-
+                string alias = Config?.GroupAliases.TryGetValue(groupKey, out var configuredAlias) == true ? configuredAlias : "";
+                var header = new MonitorGroupHeader(groupKey, alias) { ShowEditors = _chkEditLabels.Checked };
+                var rowsPanel = new BufferedPanel { Dock = DockStyle.Top, AutoSize = true, BackColor = UIColors.CardBg };
+                block = new GroupBlock(header, rowsPanel);
+                header.MoveUp += GroupHeader_MoveUp;
+                header.MoveDown += GroupHeader_MoveDown;
+                header.ToggleGroup += (_, checkState) => {
+                    foreach (var row in rowsPanel.Controls.OfType<MonitorItemRow>()) row.SetPanelChecked(checkState);
+                };
+                header.Tag = block;
+                _blocks.Add(groupKey, block);
+            }
+            block.Header.ShowEditors = _chkEditLabels.Checked;
             var rows = new List<Control>();
             for (int i = items.Count - 1; i >= 0; i--)
             {
-                var row = new MonitorItemRow(items[i], false) { ShowEditors = _chkEditLabels.Checked };
-                row.MoveUp += Row_MoveUp; row.MoveDown += Row_MoveDown;
+                var row = GetRow(items[i], false);
                 rows.Add(row);
             }
-            rowsPanel.Controls.AddRange(rows.ToArray());
+            block.RowsPanel.Controls.AddRange(rows.ToArray());
             
             return block;
+        }
+
+        private MonitorItemRow GetRow(MonitorItemConfig item, bool taskbar)
+        {
+            if (!_rows.TryGetValue(item.Key, out var row)) {
+                row = new MonitorItemRow(item, taskbar);
+                row.MoveUp += Row_MoveUp; row.MoveDown += Row_MoveDown;
+                _rows.Add(item.Key, row);
+            }
+            row.SetMode(taskbar);
+            row.ShowEditors = _chkEditLabels.Checked;
+            return row;
+        }
+
+        private void ClearEditors()
+        {
+            foreach (var row in _rows.Values) row.Dispose();
+            _rows.Clear();
+            foreach (var block in _blocks.Values) block.Dispose();
+            _blocks.Clear();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) { ClearEditors(); _spacer.Dispose(); _bottomLabel?.Dispose(); }
+            base.Dispose(disposing);
         }
 
         private void GroupHeader_MoveUp(object? sender, EventArgs e) { if (sender is MonitorGroupHeader h && h.Tag is GroupBlock b) MoveControl(b, -1); }

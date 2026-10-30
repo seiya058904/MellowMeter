@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -22,6 +22,7 @@ namespace LiteMonitor.src.UI
 
         // 缓存所有页面实例
         private Dictionary<string, SettingsPageBase> _pages = new Dictionary<string, SettingsPageBase>();
+        private readonly Dictionary<string, Func<SettingsPageBase>> _pageFactories = new();
         private string _currentKey = "";
         private string _visualSkin = "";
         private string _visualLanguage = "";
@@ -74,9 +75,10 @@ namespace LiteMonitor.src.UI
             // ★★★ Draft 机制核心：创建深拷贝 ★★★
             _draftCfg = _cfg.DeepClone();
 
+            InterfaceMotion.Configure(_cfg);
             InitializeComponent();
 
-            // ★★★ 关键点 1：构造时就初始化所有页面 ★★★
+            // Build navigation now; construct each page only on its first visit.
             InitPages();
         }
 
@@ -151,81 +153,56 @@ namespace LiteMonitor.src.UI
             WindowTheme.Apply(this);
         }
 
-        private void InitPages()
+        private void InitPages(string selectedPage = "MainPanel")
         {
-            while (_pnlNavContainer.Controls.Count > 0)
-                _pnlNavContainer.Controls[0].Dispose();
-            foreach (var page in _pages.Values) page.Dispose();
-            _pages.Clear();
-            _currentKey = "";
-
-            // 注册所有页面
-            AddNav("MainPanel", "🖥️ " + LanguageManager.T("Menu.MainFormSettings"), new MainPanelPage());
-            AddNav("Taskbar", "➖ " + LanguageManager.T("Menu.TaskbarSettings"), new TaskbarPage());
-            AddNav("Monitor", "📊 " + LanguageManager.T("Menu.MonitorItemDisplay"), new MonitorPage());
-            AddNav("Threshold", "🔔 " + LanguageManager.T("Menu.Thresholds"), new ThresholdPage());
-            AddNav("System", "⚙️ " + LanguageManager.T("Menu.SystemHardwar"), new SystemHardwarPage());
-
-            _pnlNavContainer.PerformLayout();
-            SwitchPage("MainPanel");
+            _pageFactories.Clear();
+            AddNav("MainPanel", LanguageManager.T("Menu.MainFormSettings"), () => new MainPanelPage());
+            AddNav("Taskbar", LanguageManager.T("Menu.TaskbarSettings"), () => new TaskbarPage());
+            AddNav("Monitor", LanguageManager.T("Menu.MonitorItemDisplay"), () => new MonitorPage());
+            AddNav("Threshold", LanguageManager.T("Menu.Thresholds"), () => new ThresholdPage());
+            AddNav("System", LanguageManager.T("Menu.SystemHardwar"), () => new SystemHardwarPage());
+            SwitchPage(selectedPage);
         }
 
-        private void AddNav(string key, string text, SettingsPageBase page)
+        private void AddNav(string key, string text, Func<SettingsPageBase> factory)
         {
-            // ★★★ 关键点 2：将 Draft 传递给页面，而不是 Live Settings ★★★
-            page.SetContext(_draftCfg, _mainForm, _ui);
-            _pages[key] = page;
-            var btn = new LiteNavBtn(text) { Tag = key, Width = UIUtils.S(144), Margin = UIUtils.S(new Padding(0, 3, 0, 3)) };
-            btn.Click += (s, e) => SwitchPage(key);
+            _pageFactories[key] = factory;
+            var btn = new LiteNavBtn(text) { IconKey = key, Tag = key, Width = UIUtils.S(144), Margin = UIUtils.S(new Padding(0, 3, 0, 3)) };
+            btn.Click += (_, _) => SwitchPage(key);
             _pnlNavContainer.Controls.Add(btn);
         }
 
         public void SwitchPage(string key)
         {
-            if (_currentKey == key || !_pages.ContainsKey(key)) return;
-            if (_pages.TryGetValue(_currentKey, out var previousPage)) previousPage.Save();
-            _currentKey = key;
-
-            // 更新导航按钮状态
-            _pnlNavContainer.SuspendLayout();
-            foreach (Control c in _pnlNavContainer.Controls)
-                if (c is LiteNavBtn b) b.IsActive = (b.Tag as string == key);
-            _pnlNavContainer.ResumeLayout();
-            _pnlNavContainer.Refresh();
-
-            if (_pages.ContainsKey(key))
+            if (_currentKey == key || !_pageFactories.TryGetValue(key, out var factory)) return;
+            _pages.TryGetValue(_currentKey, out var previous);
+            previous?.Save();
+            _pnlContent.SuspendLayout();
+            try
             {
-                // ★★★ 核心修复开始 ★★★
-
-                // 1. 挂起父容器布局：告诉系统“在我操作完之前，千万不要重绘”
-                _pnlContent.SuspendLayout();
-
-                try
+                if (!_pages.TryGetValue(key, out var target))
                 {
-                    _pnlContent.Controls.Clear();
-                    var targetPage = _pages[key];
-
-                    // 2. 关键技：手动预设尺寸
-                    // 在 Dock 生效前，先强制把它设为和父容器一样大。
-                    // 这样即使 Layout 有微小延迟，肉眼看到的也是填满的状态。
-                    targetPage.Size = _pnlContent.ClientSize;
-                    targetPage.Dock = DockStyle.Fill; // 双保险
-
-                    _pnlContent.Controls.Add(targetPage);
-                    targetPage.OnShow();
+                    target = factory();
+                    target.Visible = false;
+                    target.SetContext(_draftCfg, _mainForm, _ui);
+                    target.Size = _pnlContent.ClientSize;
+                    target.Dock = DockStyle.Fill;
+                    _pnlContent.Controls.Add(target);
+                    _pages.Add(key, target);
                 }
-                finally
-                {
-                    // 3. 恢复布局：此时控件大小已正确，系统一次性绘制最终画面
-                    _pnlContent.ResumeLayout();
-                }
-                // ★★★ 核心修复结束 ★★★
+                target.OnShow();
+                target.Visible = true;
+                target.BringToFront();
+                if (previous != null) previous.Visible = false;
+                _currentKey = key;
+                foreach (var button in _pnlNavContainer.Controls.OfType<LiteNavBtn>())
+                    button.IsActive = Equals(button.Tag, key);
             }
+            finally { _pnlContent.ResumeLayout(true); }
         }
 
         private void ApplySettings()
         {
-            bool oldAutoStart = _cfg.AutoStart;
             bool oldAdvancedSensors = _cfg.AdvancedSensorsEnabled;
             SaveDraftPages();
 
@@ -244,15 +221,16 @@ namespace LiteMonitor.src.UI
             }
 
             // 2. 合并变更到 Live Settings
+            var changes = SettingsChanges.Between(_cfg, _draftCfg);
+            if (!changes.Any) return;
             SettingsChanger.Merge(_cfg, _draftCfg);
-            bool autoStartChanged = oldAutoStart != _cfg.AutoStart;
 
             // 3. 持久化保存
             _cfg.Save();
 
             // 4. 应用副作用 (刷新界面)
             _applyingSettings = true;
-            try { AppActions.ApplyAllSettings(_cfg, _mainForm, _ui, autoStartChanged); }
+            try { AppActions.ApplySettingsChanges(_cfg, _mainForm, _ui, changes); }
             finally { _applyingSettings = false; }
 
             // 5. [Fix] Rebase Draft to match Live
@@ -286,8 +264,9 @@ namespace LiteMonitor.src.UI
         private void RefreshAppearance()
         {
             string selectedPage = _currentKey;
+            var views = _pages.ToDictionary(pair => pair.Key, pair => pair.Value.CaptureView());
             Rectangle previousBounds = Bounds;
-            Font previousFont = Font;
+            var previousFonts = ControlResources.CaptureFonts(this);
             SuspendLayout();
             try
             {
@@ -300,14 +279,18 @@ namespace LiteMonitor.src.UI
                 while (Controls.Count > 0) Controls[0].Dispose();
 
                 InitializeComponent();
-                InitPages();
+                InitPages(selectedPage);
+                foreach (var view in views)
+                {
+                    SwitchPage(view.Key);
+                    _pages[view.Key].RestoreView(view.Value);
+                }
                 SwitchPage(selectedPage);
                 Bounds = previousBounds;
             }
             finally
             {
-                if (!ReferenceEquals(previousFont, Font) && !previousFont.IsSystemFont)
-                    previousFont.Dispose();
+                foreach (var font in previousFonts) font.Dispose();
                 ResumeLayout(true);
                 Invalidate(true);
             }
@@ -315,6 +298,7 @@ namespace LiteMonitor.src.UI
 
         protected override void Dispose(bool disposing)
         {
+            var fonts = disposing ? ControlResources.CaptureFonts(this) : null;
             if (disposing)
             {
                 // Detached pages are not in the form's Controls collection.
@@ -323,6 +307,7 @@ namespace LiteMonitor.src.UI
                 _cfg.SyncToLanguage();
             }
             base.Dispose(disposing);
+            if (fonts != null) foreach (var font in fonts) font.Dispose();
         }
     }
 }

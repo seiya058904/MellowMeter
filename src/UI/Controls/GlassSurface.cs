@@ -1,74 +1,8 @@
 using System.Drawing.Drawing2D;
-using LiteMonitor.src.Core;
-using LiteMonitor.src.UI.Helpers;
 
 namespace LiteMonitor.src.UI.Controls;
 
-/// <summary>Small, cached material painting; never captures or blurs the desktop.</summary>
-internal static class GlassSurface
-{
-    private static readonly Dictionary<(Size, int, int, int), Bitmap> Cache = new();
-    private static long _bytes;
-    public static bool Enabled => ThemeManager.Current.Material == "glass" && WindowTheme.EffectsAllowed;
-
-    public static void ClearCache()
-    {
-        foreach (var bitmap in Cache.Values) bitmap.Dispose();
-        Cache.Clear();
-        _bytes = 0;
-    }
-
-    public static void Paint(Graphics graphics, Rectangle bounds, Color color, int radius, bool? glass = null)
-    {
-        if (bounds.Width < 2 || bounds.Height < 2) return;
-        if (!(glass ?? Enabled)) { UIUtils.FillRoundRect(graphics, bounds, radius, color); return; }
-        var key = (bounds.Size, color.ToArgb(), radius, color.GetBrightness() < .5f ? 1 : 0);
-        if (!Cache.TryGetValue(key, out var bitmap))
-        {
-            if (Cache.Count >= 24 || _bytes + (long)bounds.Width * bounds.Height * 4 > 8 * 1024 * 1024) ClearCache();
-            bitmap = new Bitmap(bounds.Width, bounds.Height);
-            using var g = Graphics.FromImage(bitmap);
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            var rect = new Rectangle(0, 0, bitmap.Width - 1, bitmap.Height - 1);
-            using var path = UIUtils.RoundRect(rect, Math.Max(1, radius));
-            Color top = UIColors.Blend(color, Color.White, color.GetBrightness() < .5f ? .035f : .48f);
-            using var fill = new LinearGradientBrush(rect, top, color, LinearGradientMode.Vertical);
-            g.FillPath(fill, path);
-            using var edge = new Pen(UIColors.Blend(color, Color.White, color.GetBrightness() < .5f ? .16f : .75f));
-            g.DrawPath(edge, path);
-            Cache[key] = bitmap;
-            _bytes += (long)bitmap.Width * bitmap.Height * 4;
-        }
-        graphics.DrawImageUnscaled(bitmap, bounds.Location);
-    }
-}
-
-internal sealed class MaterialSidebar : Panel
-{
-    public MaterialSidebar() { DoubleBuffered = true; }
-    protected override void OnPaintBackground(PaintEventArgs e)
-    {
-        if (FindForm() is Form form && WindowTheme.HasBackdrop(form))
-            e.Graphics.Clear(Color.FromArgb(0, 0, 0, 0)); // Preserve zero alpha for DWM composition.
-        else GlassSurface.Paint(e.Graphics, ClientRectangle, UIColors.SidebarBg, 1);
-    }
-}
-
-internal sealed class MaterialSidebarTitle : Control
-{
-    public MaterialSidebarTitle() { DoubleBuffered = true; }
-    protected override void OnPaintBackground(PaintEventArgs e)
-    {
-        e.Graphics.Clear(FindForm() is Form form && WindowTheme.HasBackdrop(form) ? Color.FromArgb(0, 0, 0, 0) : UIColors.SidebarBg);
-    }
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-        using var brush = new SolidBrush(UIColors.TextMain);
-        e.Graphics.DrawString(Text, Font, brush, new PointF(Padding.Left, Padding.Top));
-    }
-}
-
+// Reused vector navigation icons. The retired material surfaces are no longer compiled.
 internal static class NavigationIcon
 {
     public static void Draw(Graphics g, string key, Rectangle bounds, Color color)

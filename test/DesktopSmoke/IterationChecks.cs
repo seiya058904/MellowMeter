@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Text.Json;
 using LiteMonitor;
 using LiteMonitor.src.Core;
@@ -43,20 +43,23 @@ internal static partial class SmokeSuite
             settings.Show(main);
             await Task.Delay(60);
             var pages = Field<Dictionary<string, SettingsPageBase>>(settings, "_pages");
-            Check(pages.Count == 5, "v0.1 settings constructs its five categories");
+            Check(pages.Count == 1 && pages.ContainsKey("MainPanel"), "Opening settings constructs only the first page");
             var draft = Field<Settings>(settings, "_draftCfg");
             settings.SwitchPage("System");
             var group = Descendants(pages["System"]).OfType<LiteSettingsGroup>().First(c => c.Collapsible);
             group.Collapsed = false;
+            var parent = pages["System"].Parent;
             settings.SwitchPage("MainPanel"); settings.SwitchPage("System");
+            Check(parent != null && ReferenceEquals(parent, pages["System"].Parent) && pages.Values.All(p => ReferenceEquals(p.Parent, parent)), "Visited pages stay attached to one content host");
             Check(!group.Collapsed, "Switching categories preserves the page's disclosure state");
             draft.PanelWidth = cfg.PanelWidth + 20;
             cfg.Skin = "MellowDark";
             AppActions.ApplyThemeAndLayout(cfg, ui, main);
+            Check(Descendants(Field<Dictionary<string, SettingsPageBase>>(settings, "_pages")["System"]).OfType<LiteSettingsGroup>().First(c => c.Collapsible).Collapsed == false, "Theme reconstruction restores the expanded group");
             Check(Field<Settings>(settings, "_draftCfg").PanelWidth == cfg.PanelWidth + 20 && Field<string>(settings, "_currentKey") == "System", "Theme update retains pending values and the selected category");
             var theme = typeof(Settings).Assembly.GetType("LiteMonitor.src.UI.Helpers.WindowTheme")!;
             bool backdrop = (bool)theme.GetMethod("HasBackdrop", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, new object[] { settings })!;
-            Check(!backdrop, "Rolled-back settings never enable the Acrylic backdrop");
+            Check(!backdrop, "Solid settings never enable the Acrylic backdrop");
             settings.CancelButton!.PerformClick();
         }
 
@@ -65,8 +68,8 @@ internal static partial class SmokeSuite
         Check(ThemeManager.Current.Material == "solid", "Retained theme uses a solid material");
         cfg.GlassEffectsEnabled = false;
         AppActions.ApplyThemeAndLayout(cfg, ui, main);
-        var effects = typeof(Settings).Assembly.GetType("LiteMonitor.src.UI.Controls.GlassSurface")!;
-        Check(!(bool)effects.GetProperty("Enabled", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!, "Explicitly disabling effects selects the solid fallback");
+        Check(typeof(Settings).Assembly.GetType("LiteMonitor.src.UI.Controls.GlassSurface") == null,
+            "Retired glass painting and its bitmap cache are absent from the assembly");
         cfg.GlassEffectsEnabled = true;
         AppActions.ApplyThemeAndLayout(cfg, ui, main);
 

@@ -45,6 +45,48 @@ namespace LiteMonitor.src.Core.Actions
         }
 
         
+        // Settings commits share the menu/taskbar/theme notifications of one UI transaction.
+        private static int _batchDepth;
+        private static MainForm? _pendingMenus;
+        private static bool _pendingTaskbar, _pendingThemes;
+
+        internal static void ApplySettingsChanges(Settings cfg, MainForm form, UIController ui, SettingsChanges changes)
+        {
+            if (!changes.Any) return;
+            _batchDepth++;
+            try {
+                bool wasHorizontal = ui.IsLayoutHorizontal;
+                if (changes.Has("Language")) ApplyLanguage(cfg, null, form);
+                else cfg.SyncToLanguage();
+                if (changes.Has("AutoStart")) ApplyAutoStart(cfg);
+                if (changes.Has("TopMost", "Opacity", "ClickThrough", "AutoHide", "ClampToScreen")) ApplyWindowAttributes(cfg, form);
+                if (changes.Sources) HardwareMonitor.Instance?.RefreshHardwareConfig();
+                if (changes.Appearance) ApplyThemeAndLayout(cfg, ui, form, wasHorizontal);
+                else if (changes.Layout) ui.RebuildLayout();
+                if (changes.Taskbar && !changes.Appearance) TaskbarRenderer.ReloadStyle(cfg);
+                if (changes.Taskbar || changes.Layout || changes.Appearance) ReloadTaskbarWindows();
+                if (changes.Has("InterfaceAnimationsEnabled")) LiteMonitor.src.UI.Controls.InterfaceMotion.Configure(cfg);
+                if (changes.Has("RefreshMs")) ui.RefreshInterval();
+                if (changes.Has("ShowTaskbar", "HideMainForm", "HideTrayIcon")) ApplyVisibility(cfg, form);
+                RebuildMenus(form);
+            }
+            finally {
+                if (--_batchDepth == 0) {
+                    var menus = _pendingMenus; bool taskbar = _pendingTaskbar, themes = _pendingThemes;
+                    _pendingMenus = null; _pendingTaskbar = _pendingThemes = false;
+                    menus?.RebuildMenus();
+                    if (taskbar) ReloadTaskbarWindows();
+                    if (themes) RefreshThemedWindows();
+                }
+            }
+        }
+
+        private static void RebuildMenus(MainForm form)
+        {
+            if (_batchDepth > 0) _pendingMenus = form;
+            else form.RebuildMenus();
+        }
+
         // =============================================================
         // 1. 核心系统动作 (语言、开机自启)
         // =============================================================
@@ -61,7 +103,7 @@ namespace LiteMonitor.src.Core.Actions
             ui?.ApplyTheme(cfg.Skin);
             
             // 4. 重建右键菜单（更新文字）
-            form.RebuildMenus();
+            RebuildMenus(form);
             
             // 5. 刷新任务栏窗口（如果有）
             ReloadTaskbarWindows();
@@ -97,7 +139,7 @@ namespace LiteMonitor.src.Core.Actions
                 form.Opacity = Math.Clamp(cfg.Opacity, 0.1, 1.0);
 
             // 5. 刷新菜单 (确保透明度、置顶等勾选状态同步更新)
-            form.RebuildMenus();
+            RebuildMenus(form);
         }
 
         // =============================================================
@@ -131,7 +173,7 @@ namespace LiteMonitor.src.Core.Actions
             
             // 4. 刷新菜单
             // 因为可见性改变可能影响菜单项的勾选状态（尤其是防呆逻辑修正后），也可能影响“任务栏显示”等选项的状态
-            form.RebuildMenus(); 
+            RebuildMenus(form);
         }
 
         // =============================================================
@@ -158,7 +200,7 @@ namespace LiteMonitor.src.Core.Actions
             //ui?.RebuildLayout();
             
             // 如果切换了横竖屏模式，菜单结构会变，需要重建
-            form.RebuildMenus();
+            RebuildMenus(form);
             ReloadTaskbarWindows();
             RefreshThemedWindows();
 
@@ -188,7 +230,7 @@ namespace LiteMonitor.src.Core.Actions
             // 优化：在右键菜单直接操作时，无需重建菜单，避免冗余
             if (rebuildMenus)
             {
-                form.RebuildMenus();
+                RebuildMenus(form);
             }
             
             // 任务栏窗口的内容也取决于监控项配置，必须刷新
@@ -215,6 +257,7 @@ namespace LiteMonitor.src.Core.Actions
         // --- 内部辅助 ---
         private static void RefreshThemedWindows()
         {
+            if (_batchDepth > 0) { _pendingThemes = true; return; }
             // Snapshot the collection: rebuilding a page can dispose owned controls.
             foreach (var window in Application.OpenForms.Cast<Form>().ToArray())
             {
@@ -229,6 +272,7 @@ namespace LiteMonitor.src.Core.Actions
 
         private static void ReloadTaskbarWindows()
         {
+            if (_batchDepth > 0) { _pendingTaskbar = true; return; }
             // [Fix] 使用 ToList() 创建副本，防止 ReloadLayout -> TooltipHelper -> Dispose 修改 OpenForms 集合导致枚举异常
             var targets = Application.OpenForms.OfType<TaskbarForm>().ToList();
             foreach (var tf in targets)

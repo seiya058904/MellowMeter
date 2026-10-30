@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using LiteMonitor.src.Core;
@@ -51,7 +51,13 @@ namespace LiteMonitor.src.UI.Controls
         public bool ShowEditors
         {
             get => _showEditors;
-            set { _showEditors = value; _lblName.Text = _inputName.Inner.Text; ApplyModeVisibility(); }
+            set {
+                _lblName.Text = _inputName.Inner.Text;
+                if (_showEditors == value) return;
+                _showEditors = value;
+                SuspendLayout();
+                try { ApplyModeVisibility(); } finally { ResumeLayout(false); }
+            }
         }
 
         public event EventHandler? MoveUp;
@@ -131,7 +137,7 @@ namespace LiteMonitor.src.UI.Controls
             // 4. 初始化输入框 (Placeholder 设为 defUnit)
             _inputUnit = new LiteUnderlineInput(displayUnit, "", "", 50, UIColors.TextSub)
             { Location = new Point(MonitorLayout.X_COL_UNIT, UIUtils.S(8)) };
-            _inputUnit.Inner.Font = UIFonts.Regular(8F);
+            ControlResources.ReplaceFont(_inputUnit.Inner, UIFonts.Regular(8F));
 
             // 6. Checkboxes
             _chkPanel = new LiteCheck(item.VisibleInPanel)
@@ -198,6 +204,8 @@ namespace LiteMonitor.src.UI.Controls
             // 如果模式没变，直接返回
             if (_isTaskbarMode == isTaskbarMode) return;
             
+            SuspendLayout();
+            try {
             _isTaskbarMode = isTaskbarMode;
 
             // 重新获取默认值和配置
@@ -211,8 +219,15 @@ namespace LiteMonitor.src.UI.Controls
             // null -> 默认, "" -> 空格
             string display = (userConfig == null) ? defUnit : (userConfig == "" ? " " : userConfig);
             _inputUnit.Inner.Text = display;
-            
             ApplyModeVisibility();
+            } finally { ResumeLayout(false); }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            var fonts = disposing ? ControlResources.CaptureFonts(this) : null;
+            base.Dispose(disposing);
+            if (fonts != null) foreach (var font in fonts) font.Dispose();
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -393,7 +408,7 @@ namespace LiteMonitor.src.UI.Controls
             InputAlias = new LiteUnderlineInput(string.IsNullOrEmpty(alias) ? defGName : alias, "", "", 100) 
             { Location = new Point(MonitorLayout.X_COL2, UIUtils.S(8)) };
             InputAlias.SetBg(UIColors.GroupHeader); 
-            InputAlias.Inner.Font = UIFonts.Bold(9F);
+            ControlResources.ReplaceFont(InputAlias.Inner, UIFonts.Bold(9F));
 
             // [需求2] 组开关复选框
             _chkAll = new LiteCheck(true, "") 
@@ -412,6 +427,13 @@ namespace LiteMonitor.src.UI.Controls
             btnDown.Click += (s, e) => MoveDown?.Invoke(this, EventArgs.Empty);
 
             this.Controls.AddRange(new Control[] { lblId, InputAlias, _chkAll, btnUp, btnDown });
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            var fonts = disposing ? ControlResources.CaptureFonts(this) : null;
+            base.Dispose(disposing);
+            if (fonts != null) foreach (var font in fonts) font.Dispose();
         }
 
         protected override void OnPaint(PaintEventArgs e)

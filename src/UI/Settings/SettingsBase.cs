@@ -41,11 +41,16 @@ namespace LiteMonitor.src.UI.SettingsPage
             // This prevents controls from defaulting to false/0 and overwriting the config on Save()
             if (Config != null)
             {
-                foreach (var action in _refreshActions)
-                {
-                    action.Invoke();
-                }
+                RefreshBindings(() => { foreach (var action in _refreshActions) action(); });
             }
+        }
+
+        internal bool IsRefreshing { get; private set; }
+        internal void RefreshBindings(Action action)
+        {
+            bool previous = IsRefreshing;
+            IsRefreshing = true;
+            try { action(); } finally { IsRefreshing = previous; }
         }
 
         public void RegisterRefresh(Action action)
@@ -60,10 +65,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             // Execute refresh actions to ensure UI reflects the latest Config
             if (Config != null)
             {
-                foreach (var action in _refreshActions)
-                {
-                    action.Invoke();
-                }
+                RefreshBindings(() => { foreach (var action in _refreshActions) action(); });
             }
         }
 
@@ -112,6 +114,13 @@ namespace LiteMonitor.src.UI.SettingsPage
                 controls.RemoveAt(0);
                 c.Dispose();
             }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            var fonts = disposing ? ControlResources.CaptureFonts(this) : null;
+            base.Dispose(disposing);
+            if (fonts != null) foreach (var font in fonts) font.Dispose();
         }
 
         protected void EnsureSafeVisibility(LiteCheck? chkHideMain, LiteCheck? chkHideTray, LiteCheck? chkShowTaskbar)

@@ -25,6 +25,11 @@ internal static class InterfaceMotion
     internal static void Configure(Settings settings)
     {
         _requested = settings.InterfaceAnimationsEnabled;
+        RefreshSystemPreference();
+    }
+
+    internal static void RefreshSystemPreference()
+    {
         _systemEnabled = !SystemParametersInfo(0x1042, 0, out int enabled, 0) || enabled != 0; // SPI_GETCLIENTAREAANIMATION
         if (!Enabled)
         {

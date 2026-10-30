@@ -123,7 +123,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             // Refreshing an asynchronously populated list must not replace its saved value.
             bool refreshing = false;
-            cmb.Inner.SelectedIndexChanged += (s, e) => { if (!refreshing && cmb.SelectedIndex >= 0) set(cmb.Text); };
+            cmb.Inner.SelectedIndexChanged += (s, e) => { if (!refreshing && !page.IsRefreshing && cmb.SelectedIndex >= 0) set(cmb.Text); };
             page.RegisterRefresh(() => 
             {
                 refreshing = true;
@@ -158,7 +158,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             cmb.Inner.SelectedIndexChanged += (s, e) => 
             {
                 int selectedIndex = cmb.SelectedIndex;
-                if (selectedIndex >= 0 && selectedIndex < cmb.Items.Count)
+                if (!page.IsRefreshing && selectedIndex >= 0 && selectedIndex < cmb.Items.Count)
                     set(selectedIndex);
             };
             page.RegisterRefresh(() => 
@@ -196,7 +196,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             cmb.SelectValue(get());
             bool refreshing = false;
-            cmb.Inner.SelectedIndexChanged += (s, e) => { if (!refreshing && cmb.SelectedIndex >= 0) set(cmb.SelectedValue); };
+            cmb.Inner.SelectedIndexChanged += (s, e) => { if (!refreshing && !page.IsRefreshing && cmb.SelectedIndex >= 0) set(cmb.SelectedValue); };
             page.RegisterRefresh(() => {
                 refreshing = true;
                 try { cmb.SelectValue(get()); }

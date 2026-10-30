@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Linq;
@@ -109,6 +109,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                 () => (Config.UIScale * 100) + "%",
                 s => Config.UIScale = MetricUtils.ParseDouble(s) / 100.0);
 
+            group.AddToggle(this, "Menu.InterfaceAnimations", () => Config.InterfaceAnimationsEnabled, v => Config.InterfaceAnimationsEnabled = v);
             AddGroupToPage(group);
 
         }

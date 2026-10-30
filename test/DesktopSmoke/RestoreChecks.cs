@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Text.Json;
 using LiteMonitor;
 using LiteMonitor.src.Core;
@@ -15,6 +15,7 @@ internal static partial class SmokeSuite
     {
         _stage = "restored defaults and audit regressions";
         TestPerformanceDraftSafety(main, cfg, ui);
+        await TestSelectiveApplyAndSources(main, cfg, ui);
         var compact = cfg.DeepClone();
         compact.SettingsSchemaVersion = 2;
         compact.AdvancedSensorsEnabled = false;
@@ -110,7 +111,7 @@ internal static partial class SmokeSuite
                 Check(ContrastRatio(UIColors.SwatchText(color), color) >= 4.5, name + " changed-color contrast " + color.Name);
         }
 
-        _stage = "static v0.1 controls";
+        _stage = "lightweight interaction feedback";
         cfg.InterfaceAnimationsEnabled = true; AppActions.ApplyThemeAndLayout(cfg, ui, main);
         var motion = typeof(Settings).Assembly.GetType("LiteMonitor.src.UI.Controls.InterfaceMotion")!;
         int Active() => (int)motion.GetProperty("ActiveCount", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
@@ -126,7 +127,7 @@ internal static partial class SmokeSuite
             await Task.Delay(35);
             toggle.Checked = !toggle.Checked;
             await Task.Delay(250);
-            Check(changes == 2 && Active() == 0, "Static switch fires exactly one change per toggle without animation");
+            Check(changes == 2 && Active() == 0, "Interrupted switch changes binding once per action and settles without an idle timer");
             settings.SwitchPage("System"); await Task.Delay(260);
             var page = Field<Dictionary<string, SettingsPageBase>>(settings, "_pages")["System"];
             var group = Descendants(page).OfType<LiteSettingsGroup>().First(x => x.Collapsible);
@@ -140,6 +141,50 @@ internal static partial class SmokeSuite
         Check(Active() == 0 && !(bool)motion.GetProperty("ClockRunning", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!, "Closing settings releases all motion tracks and stops the timer");
         cfg.Save();
     }
+    private static async Task TestSelectiveApplyAndSources(MainForm main, Settings cfg, UIController ui)
+    {
+        using var settings = new SettingsForm(cfg, ui, main);
+        settings.Show(main);
+        settings.Height = UIUtils.S(360);
+        Check(Descendants(settings).OfType<LiteButton>().Where(b => b.Visible).All(b => settings.ClientRectangle.Contains(settings.RectangleToClient(b.RectangleToScreen(b.ClientRectangle)))),
+            "Short settings window keeps bottom actions inside its client area");
+        var theme = ThemeManager.Current;
+        var draft = Field<Settings>(settings, "_draftCfg");
+        Invoke(settings, "ApplySettings");
+        Check(ReferenceEquals(theme, ThemeManager.Current), "Unchanged Apply does not reload theme or fonts");
+        draft.HistoryEnabled = !cfg.HistoryEnabled;
+        Invoke(settings, "ApplySettings");
+        Check(ReferenceEquals(theme, ThemeManager.Current) && SettingsHelper.Load(true).HistoryEnabled == draft.HistoryEnabled,
+            "History-only Apply persists without rebuilding appearance");
+        draft.HistoryEnabled = !draft.HistoryEnabled;
+        Invoke(settings, "ApplySettings");
+        int interval = cfg.RefreshMs;
+        draft.RefreshMs = interval + 200;
+        Invoke(settings, "ApplySettings");
+        Check(Field<System.Windows.Forms.Timer>(ui, "_timer").Interval == ui.EffectiveRefreshMs && ReferenceEquals(theme, ThemeManager.Current),
+            "Refresh interval changes immediately without a theme rebuild");
+        draft.RefreshMs = interval; Invoke(settings, "ApplySettings");
+        draft.PreferredNetwork = "Unavailable test adapter";
+        settings.SwitchPage("System");
+        var page = Field<Dictionary<string, SettingsPageBase>>(settings, "_pages")["System"];
+        for (int i = 0; i < 300 && Field<bool>(page, "_loading"); i++) await Task.Delay(10);
+        Check(!Field<bool>(page, "_loading") && Field<LiteComboBox>(page, "_cbNet").Text == draft.PreferredNetwork,
+            "Async source population preserves an unavailable manual selection");
+        // Exercise the in-flight generation guard without enabling physical sensors.
+        page.GetType().GetField("_loading", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(page, true);
+        int revision = Field<int>(page, "_sourceRevision");
+        draft.AdvancedSensorsEnabled = !draft.AdvancedSensorsEnabled;
+        page.OnShow();
+        Check(Field<int>(page, "_sourceRevision") > revision && Field<bool>(page, "_refreshPending"),
+            "Changed source context invalidates the in-flight generation");
+        settings.CancelButton!.PerformClick();
+        Check(cfg.PreferredNetwork != "Unavailable test adapter", "Source selection stays in the cancelled draft");
+        using var closing = new SettingsForm(cfg, ui, main);
+        closing.Show(main); closing.SwitchPage("System"); closing.Close();
+        await Task.Delay(200);
+        Check(closing.IsDisposed, "Closing during source enumeration completes without touching disposed controls");
+    }
+
     // Native-window coverage for the console-reviewed data paths; compile only when
     // the user prohibits desktop testing. No hidden/offscreen execution is implied.
     private static void TestPerformanceDraftSafety(MainForm main, Settings cfg, UIController ui)
@@ -155,7 +200,7 @@ internal static partial class SmokeSuite
         var draft = Field<Settings>(settings, "_draftCfg");
         var row = Descendants(page).OfType<MonitorItemRow>().Single(x => x.Config.Key == "CPU.Load");
         Field<LiteCheck>(page, "_chkEditLabels").Checked = true;
-        row = Descendants(page).OfType<MonitorItemRow>().Single(x => x.Config.Key == "CPU.Load");
+        Check(ReferenceEquals(row, Descendants(page).OfType<MonitorItemRow>().Single(x => x.Config.Key == "CPU.Load")), "Label editor visibility reuses the same row");
         Field<LiteUnderlineInput>(row, "_inputName").Inner.Text = "pending processor";
         Field<LiteUnderlineInput>(row, "_inputUnit").Inner.Text = "panel-unit";
         settings.SwitchPage("System"); // deliberately before the dirty timer can fire
@@ -163,16 +208,18 @@ internal static partial class SmokeSuite
         Check(edited.UserLabel == "pending processor" && edited.UnitPanel == "panel-unit", "Immediate navigation flushes pending row edits");
         settings.SwitchPage("Monitor");
         Field<Button>(page, "_btnTabBar").PerformClick();
-        row = Descendants(page).OfType<MonitorItemRow>().Single(x => x.Config.Key == "CPU.Load");
+        Check(ReferenceEquals(row, Descendants(page).OfType<MonitorItemRow>().Single(x => x.Config.Key == "CPU.Load")), "Panel and taskbar views reuse the same row");
         Field<LiteUnderlineInput>(row, "_inputShort").Inner.Text = "PENDING";
         Field<LiteUnderlineInput>(row, "_inputUnit").Inner.Text = "taskbar-unit";
         settings.SwitchPage("MainPanel");
         edited = draft.MonitorItems.Single(x => x.Key == "CPU.Load");
         Check(edited.UserLabel == "pending processor" && edited.TaskbarLabel == "PENDING" && edited.UnitPanel == "panel-unit" && edited.UnitTaskbar == "taskbar-unit", "Mode switching preserves separate labels and units");
-        draft.AdvancedSensorsEnabled = false;
+        draft.AdvancedSensorsEnabled = !draft.AdvancedSensorsEnabled;
         typeof(SettingsForm).GetMethod("SaveDraftPages", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(settings, null);
         settings.SwitchPage("Monitor");
-        Check(!Descendants(page).OfType<MonitorItemRow>().Any(x => x.Config.Key == "CPU.Temp"), "Hidden-page save does not suppress changed sensor availability");
+        Check(Field<string>(page, "_lastDataSignature") == SettingsChanger.CaptureMonitorState(draft) &&
+            !ReferenceEquals(row, Descendants(page).OfType<MonitorItemRow>().Single(x => x.Config.Key == "CPU.Load")), "Hidden-page save does not acknowledge an undisplayed context; revisiting rebuilds it");
+        Check(Descendants(page).OfType<MonitorItemRow>().Count() == 32, "All built-in metrics remain selectable in basic and advanced modes");
         Check(draft.MonitorItems.Single(x => x.Key == "CPU.Load").TaskbarLabel == "PENDING", "Context rebuild retains pending edits");
         settings.CancelButton!.PerformClick();
         Check(original.UserLabel == originalName && original.UnitPanel == originalUnit, "Cancel leaves live row values unchanged");

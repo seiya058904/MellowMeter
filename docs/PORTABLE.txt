@@ -10,7 +10,7 @@ Double-click the floating strip to switch its layout.
 Settings, traffic and hardware history are kept in %LOCALAPPDATA%\MellowMeter.
 Startup at sign-in is optional and off by default. Exit from the tray menu before replacing files.
 
-Version 0.2 local iteration: all 32 upstream built-in metrics are available.
+Version 0.2.0: all 32 upstream built-in metrics are available across 12 themes.
 New profiles use the upstream vertical layout and default selections, with DarkFlat Classic.
 Retired Glass Light/Dark selections fall back to Mellow Light/Dark.
 Legacy four-metric selections migrate to upstream defaults; custom themes, labels,
@@ -23,13 +23,12 @@ FPS needs its helper and administrator access. Startup never downloads or instal
 Optional components are stored under %LOCALAPPDATA%\MellowMeter\components.
 Plugins, web monitoring, speed testing and automatic updating remain excluded.
 
-Settings feature animated switches, page transitions, disclosure, buttons and scrolling.
-Interface animations and Glass effects have separate switches in Main Panel settings.
-Animations respect the Windows client-area animation setting and stop when idle.
-Glass effects follow Windows transparency, high contrast and battery saver preferences.
-Windows 11 build 22621+ can use native Acrylic in the settings sidebar. Other systems
-and disabled transparency use the solid fallback. Floating panels and taskbar strips
-retain the upstream display layout and flat data surfaces with the chosen theme.
+Settings use solid grouped surfaces, reusable pages and reusable metric editors.
+The Interface animations switch in Main Panel settings controls light button and
+switch feedback. Motion respects Windows animation and high-contrast preferences;
+its timer stops when idle. Pages switch directly and lists use native scrolling.
+Apply refreshes only changed settings. Glass and Acrylic effects are not used.
+Floating panels and taskbar strips retain their familiar layouts and theme colors.
 
 Source, instructions and issue reports:
 https://github.com/seiya058904/MellowMeter
