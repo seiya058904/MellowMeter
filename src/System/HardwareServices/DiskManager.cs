@@ -110,7 +110,7 @@ namespace LiteMonitor.src.SystemServices
                 string type = parts[2];        // "Used"
                 string root = driveLetter + ":\\";
 
-                DriveInfo di;
+                DriveInfo? di;
                 // ★★★ 优先查缓存 ★★★
                 if (!_driveInfoCache.TryGetValue(root, out di))
                 {

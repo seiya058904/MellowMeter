@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Drawing;
@@ -10,10 +10,11 @@ namespace LiteMonitor
     public class Settings
     {
         // ====== 基础设置 ======
-        public string Skin { get; set; } = "GlassLight";
+        public string Skin { get; set; } = "DarkFlat_Classic";
         public bool GlassEffectsEnabled { get; set; } = true;
         public int SettingsSchemaVersion { get; set; } = 0;
-        public bool AdvancedSensorsEnabled { get; set; } = false;
+        public bool AdvancedSensorsEnabled { get; set; } = true;
+        public bool InterfaceAnimationsEnabled { get; set; } = true;
         public bool HistoryEnabled { get; set; } = true;
         public bool TopMost { get; set; } = true;
         public bool AutoStart { get; set; } = false;
@@ -23,7 +24,7 @@ namespace LiteMonitor
 
         // ====== 界面与行为 ======
         public bool AutoCheckUpdate { get; set; } = false;
-        public bool HorizontalMode { get; set; } = true;
+        public bool HorizontalMode { get; set; } = false;
         public double Opacity { get; set; } = 1.0;
         public string Language { get; set; } = "";
         public bool ClickThrough { get; set; } = false;
@@ -172,7 +173,7 @@ namespace LiteMonitor
         }
 
         // ★★★ 优化 2：全局单例引用 ★★★
-        private static Settings _instance;
+        private static Settings? _instance;
 
         // ★★★ 优化 3：改造 Load 方法为单例模式 ★★★
         public static Settings Load(bool forceReload = false)
@@ -284,8 +285,8 @@ namespace LiteMonitor
 
         // ★★★ [新增] 自定义单位配置 ★★★
         // null/"Auto" = 自动(默认), "" = 不显示, "{u}/s" = 自定义格式
-        public string UnitPanel { get; set; } = null; 
-        public string UnitTaskbar { get; set; } = null;
+        public string? UnitPanel { get; set; }
+        public string? UnitTaskbar { get; set; }
         public bool VisibleInPanel { get; set; } = true;
         public bool VisibleInTaskbar { get; set; } = false;
         

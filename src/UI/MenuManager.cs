@@ -20,7 +20,7 @@ namespace LiteMonitor
         /// <summary>
         /// 构建 LiteMonitor 主菜单（右键菜单 + 托盘菜单）
         /// </summary>
-        public static ContextMenuStrip Build(MainForm form, Settings cfg, UIController? ui, string targetPage = null)
+        public static ContextMenuStrip Build(MainForm form, Settings cfg, UIController? ui, string? targetPage = null)
         {
             var menu = new ContextMenuStrip();
             if (!SystemInformation.HighContrast)
@@ -382,6 +382,7 @@ namespace LiteMonitor
             {
                 try
                 {
+                    if (ui == null) return;
                     // 打开设置窗口
                     using (var f = new LiteMonitor.src.UI.SettingsForm(cfg, ui, form))
                     {
@@ -499,7 +500,7 @@ namespace LiteMonitor
 
         protected override void OnRenderArrow(ToolStripArrowRenderEventArgs e)
         {
-            e.ArrowColor = e.Item.Enabled ? UIColors.TextSub : UIColors.Border;
+            e.ArrowColor = e.Item?.Enabled == true ? UIColors.TextSub : UIColors.Border;
             base.OnRenderArrow(e);
         }
     }

@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.Security;
@@ -14,7 +14,7 @@ using LiteMonitor.src.Core;
 using LiteMonitor.src.SystemServices;
 using LibreHardwareMonitor.Hardware;
 
-internal static class Program
+internal static partial class Program
 {
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     private static int _passed;
@@ -22,7 +22,10 @@ internal static class Program
 
     private static async Task<int> Main()
     {
-        // 测试只使用内存配置与模拟硬件，不打开驱动或保存用户设置。
+        // This console suite never constructs a Form or opens a hardware driver.
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MELLOWMETER_DATA_DIR")))
+            Environment.SetEnvironmentVariable("MELLOWMETER_DATA_DIR", Path.Combine(Path.GetTempPath(), "MellowMeter-headless-" + Guid.NewGuid().ToString("N")));
+        // 测试只使用隔离配置与模拟硬件，不打开驱动或保存用户设置。
         typeof(Settings).GetField("_instance", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, new Settings());
         SettingsHelper.GlobalBlockSave = true;
         await Run("自动模式优先保留主显卡风扇", () => GpuTest("", checkFan: true));
@@ -55,6 +58,9 @@ internal static class Program
             });
         }
         await Run("内存和显存的数值与自定义单位一致", MemoryTest);
+
+        await WarningRegressionChecks();
+        await SettingsDraftChecks();
 
         Console.WriteLine($"发版审查：通过 {_passed} 项，失败 {_failed} 项。");
         return _failed == 0 ? 0 : 1;

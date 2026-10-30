@@ -19,7 +19,7 @@ namespace LiteMonitor.src.UI.Controls
         private Font _boldFont;
 
         // ★★★ 新增：用于手动追踪悬停节点，解决“触角效果没生效”的问题 ★★★
-        private TreeNode _hoverNode;
+        private TreeNode? _hoverNode;
 
         // 布局参数
         public int ColValueWidth { get; set; } = 70;  
@@ -150,6 +150,7 @@ namespace LiteMonitor.src.UI.Controls
                 g.DrawLine(_linePen, 0, fullRow.Bottom - 1, w, fullRow.Bottom - 1);
 
             // 3. 计算关键坐标
+            if (e.Node == null) return;
             int baseIndent = e.Node.Level * UIUtils.S(20);
             Rectangle chevronRect = new Rectangle(baseIndent + UIUtils.S(5), fullRow.Y, UIUtils.S(IconWidth), fullRow.Height);
 

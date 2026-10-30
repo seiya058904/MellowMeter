@@ -19,11 +19,11 @@ namespace LiteMonitor
         public string Description { get; set; } = "";
         public string[] Urls { get; set; } = Array.Empty<string>();
         public string SavePath { get; set; } = "";
-        
+
         // UI 配置
         public string VersionLabel { get; set; } = "";
         public string ActionButtonText { get; set; } = "Install";
-        public bool AutoExitOnSuccess { get; set; } = false; // 更新模式下为 true
+
     }
 
     public partial class UpdateDialog : Form
@@ -31,9 +31,9 @@ namespace LiteMonitor
         private readonly List<string> _sortedUrls;
         private readonly DownloadContext _context;
         private readonly Settings _settings;
-        
+
         private CancellationTokenSource? _cts;
-        private Stopwatch _speedWatch;
+        private readonly Stopwatch _speedWatch = new();
         private bool IsChinese => _settings?.Language?.ToLower() == "zh";
 
         public UpdateDialog(DownloadContext context, Settings settings)
@@ -41,15 +41,16 @@ namespace LiteMonitor
             InitializeComponent();
             this.StartPosition = FormStartPosition.CenterScreen;
             this.TopMost = true;
-            
+
             _context = context;
+            Shown += (_, _) => LiteMonitor.src.UI.Helpers.WindowTheme.StyleAuxiliary(this);
             _settings = settings;
             _sortedUrls = new List<string>(_context.Urls);
 
             // 初始化 UI
-            this.Text = IsChinese ? $"⚡️LiteMonitor - {_context.Title}" : $"⚡️LiteMonitor - {_context.Title}";
+            this.Text = $"MellowMeter · {_context.Title}";
             lblVersion.Text = _context.VersionLabel;
-            
+
             // 富文本设置 (必须在设置文本之前/之间正确处理)
             rtbChangelog.Text = _context.Description;
             rtbChangelog.SelectAll();
@@ -57,21 +58,21 @@ namespace LiteMonitor
             rtbChangelog.SelectionRightIndent = 5; // 减小右缩进 (原为10)
             rtbChangelog.DeselectAll();
             rtbChangelog.SelectionStart = 0;
-            
+
             rtbChangelog.DetectUrls = true;
             rtbChangelog.LinkClicked += RtbChangelog_LinkClicked;
             // 强制显示垂直滚动条
-            rtbChangelog.ScrollBars = RichTextBoxScrollBars.Vertical; 
-            
+            rtbChangelog.ScrollBars = RichTextBoxScrollBars.Vertical;
+
             // 移除动态居中逻辑，恢复 Designer 中预设的"靠右"布局
-            // rtbChangelog.Width = ... 
+            // rtbChangelog.Width = ...
             // rtbChangelog.Left = ...
-            
+
             // 设置按钮文本
-            btnUpdate.Text = IsChinese ? 
-                (_context.ActionButtonText == "Update" ? "立即更新" : "立即安装") : 
+            btnUpdate.Text = IsChinese ?
+                (_context.ActionButtonText == "Update" ? "立即更新" : "立即安装") :
                 _context.ActionButtonText;
-                
+
             label1.Text = _context.Title; // 修复: 直接使用 Context 中的标题，避免英文环境下被错误覆盖
             btnCancel.Text = IsChinese ? "取消" : "Cancel";
             lblStatus.Text = IsChinese ? "准备就绪" : "Ready";
@@ -98,7 +99,7 @@ namespace LiteMonitor
             {
                 string title = IsChinese ? "错误" : "Error";
                 string msg = IsChinese ? $"无法打开链接：{e.LinkText}\n错误：{ex.Message}" : $"Cannot open link: {e.LinkText}\nError: {ex.Message}";
-                
+
                 MessageBox.Show(msg, title, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -123,7 +124,7 @@ namespace LiteMonitor
             {
                 string msg = IsChinese ? "正在下载更新，确定要取消吗？" : "Download in progress. Are you sure you want to cancel?";
                 string title = IsChinese ? "提示" : "Confirmation";
-                
+
                 if (MessageBox.Show(msg, title, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.No)
                 {
                     e.Cancel = true;
@@ -157,7 +158,7 @@ namespace LiteMonitor
                 });
 
                 var results = await Task.WhenAll(tasks);
-                
+
                 var sorted = results
                     .Where(x => x.Item2 != long.MaxValue)
                     .OrderBy(x => x.Item2)
@@ -185,10 +186,10 @@ namespace LiteMonitor
         {
             btnUpdate.Enabled = false;
             btnCancel.Enabled = true; // 允许取消
-            
+
             _cts = new CancellationTokenSource();
-            _speedWatch = Stopwatch.StartNew();
-            
+            _speedWatch.Restart();
+
             // 进度条模式切换
             progress.Style = ProgressBarStyle.Continuous;
             progress.Value = 0;
@@ -212,37 +213,37 @@ namespace LiteMonitor
 
                     try
                     {
-                        lblStatus.Text = _settings?.Language?.ToLower() == "zh" 
-                            ? $"正在连接下载服务器..." 
+                        lblStatus.Text = _settings?.Language?.ToLower() == "zh"
+                            ? $"正在连接下载服务器..."
                             : $"Connecting to server...";
 
                         // 安装包下载使用系统默认证书校验，证书异常时由现有逻辑尝试其他镜像。
                         var handler = new SocketsHttpHandler();
 
                         using var http = new HttpClient(handler)
-                        { 
-                            Timeout = TimeSpan.FromMinutes(10) 
+                        {
+                            Timeout = TimeSpan.FromMinutes(10)
                         };
                         http.DefaultRequestHeaders.UserAgent.ParseAdd("LiteMonitor-Updater/1.0");
 
                         // 5. 发起请求
                         using var resp = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, _cts.Token);
-                        
+
                         if (!resp.IsSuccessStatusCode)
                         {
                             throw new HttpRequestException($"HTTP Error: {resp.StatusCode}");
                         }
 
                         long totalBytes = resp.Content.Headers.ContentLength ?? -1;
-                        
+
                         // 6. 流式下载
                         using (var fs = new FileStream(_context.SavePath, FileMode.Create, FileAccess.Write, FileShare.Read))
                         using (var stream = await resp.Content.ReadAsStreamAsync(_cts.Token))
                         {
-                            byte[] buffer = new byte[81920]; 
+                            byte[] buffer = new byte[81920];
                             long totalRead = 0;
                             int bytesRead;
-                            
+
                             long lastSpeedCheckBytes = 0;
                             long lastSpeedCheckTime = 0;
 
@@ -259,7 +260,7 @@ namespace LiteMonitor
                                 }
                                 else
                                 {
-                                    if (progress.Style != ProgressBarStyle.Marquee) 
+                                    if (progress.Style != ProgressBarStyle.Marquee)
                                         progress.Style = ProgressBarStyle.Marquee;
                                 }
 
@@ -278,17 +279,17 @@ namespace LiteMonitor
                                 }
                             }
                         }
-                        
+
                         // 下载成功
                         downloadSuccess = true;
-                        break; 
+                        break;
                     }
                     catch (Exception ex)
                     {
                         lastError = ex;
                         if (ex is OperationCanceledException) throw;
                         lblStatus.Text = _settings?.Language?.ToLower() == "zh" ? "切换下载源..." : "Switching mirror...";
-                        continue; 
+                        continue;
                     }
                 }
 
@@ -300,19 +301,12 @@ namespace LiteMonitor
                 // 7. 下载完成
                 // ★★★ Fix: Explicitly clear CTS so OnFormClosing doesn't prompt user ★★★
                 var ctsToDispose = _cts;
-                _cts = null; 
+                _cts = null;
                 ctsToDispose?.Dispose();
 
-                if (_context.AutoExitOnSuccess)
-                {
-                    StartUpdater();
-                }
-                else
-                {
-                    // 组件下载模式：直接返回成功，由调用方负责后续安装逻辑
-                    this.DialogResult = DialogResult.OK;
-                    this.Close();
-                }
+                // This dialog only installs optional monitoring components.
+                this.DialogResult = DialogResult.OK;
+                this.Close();
             }
             catch (OperationCanceledException)
             {
@@ -321,8 +315,8 @@ namespace LiteMonitor
                 bool isZh = _settings?.Language?.ToLower() == "zh";
                 lblStatus.Text = isZh ? "已取消下载" : "Download Canceled";
                 btnUpdate.Enabled = true;
-                btnUpdate.Text = IsChinese ? 
-                    (_context.ActionButtonText == "Update" ? "立即更新" : "立即安装") : 
+                btnUpdate.Text = IsChinese ?
+                    (_context.ActionButtonText == "Update" ? "立即更新" : "立即安装") :
                     _context.ActionButtonText;
                 btnCancel.Enabled = true; // 确保取消按钮可用
                 btnCancel.Text = isZh ? "关闭" : "Close";
@@ -335,9 +329,9 @@ namespace LiteMonitor
                 bool isZh = _settings?.Language?.ToLower() == "zh";
                 string errTitle = isZh ? "错误" : "Error";
                 string errMsg = isZh ? $"下载失败：\n{ex.Message}" : $"Download failed:\n{ex.Message}";
-                
+
                 MessageBox.Show(errMsg, errTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                
+
                 // 重置 UI
                 btnUpdate.Enabled = true;
                 btnUpdate.Text = isZh ? "重试" : "Retry";
@@ -352,91 +346,6 @@ namespace LiteMonitor
             }
         }
 
-        private void StartUpdater()
-        {
-            string resourcesDir = Path.Combine(AppContext.BaseDirectory, "resources");
-            string updater = "";
-
-            // ★★★ 1. 主程序抢先更新 Updater.exe ★★★
-            // 防止 Updater 运行时无法自我覆盖
-            // 返回解压后的 Updater 路径 (优先取 ZIP 里的新版)
-            string? preparedPath = UpdateChecker.PreUpdateUpdater(_context.SavePath);
-
-            // ★★★ 2. 决策使用哪个 Updater ★★★
-            if (!string.IsNullOrEmpty(preparedPath) && File.Exists(preparedPath))
-            {
-                // A. 预更新成功，直接使用刚解压出来的最新版
-                updater = preparedPath;
-            }
-            else
-            {
-                // B. 预更新失败 (ZIP异常?)，尝试回退到现有文件
-                string newUpdater = Path.Combine(resourcesDir, "LiteMonitor.Updater.exe");
-                string oldUpdater = Path.Combine(resourcesDir, "Updater.exe");
-
-                if (File.Exists(newUpdater)) updater = newUpdater;
-                else if (File.Exists(oldUpdater)) updater = oldUpdater;
-            }
-
-            // ★★★ 3. 最终检查 ★★★
-            if (string.IsNullOrEmpty(updater) || !File.Exists(updater))
-            {
-                bool isZh = _settings?.Language?.ToLower() == "zh";
-                string msg = isZh ? $"找不到更新程序，请尝试重新安装。\nSearch Path: {resourcesDir}" : $"Updater not found, please reinstall.\nSearch Path: {resourcesDir}";
-                string title = isZh ? "文件丢失" : "File Missing";
-                
-                MessageBox.Show(msg, title, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            var psi = new ProcessStartInfo
-            {
-                FileName = updater,
-                Arguments = $"\"{_context.SavePath}\"", // 传递 ZIP 路径
-                WorkingDirectory = AppContext.BaseDirectory // 显式指定工作目录
-            };
-
-            // ★★★ 智能提权逻辑 ★★★
-            if (IsRunningAsAdmin())
-            {
-                // 已经是管理员，直接继承权限，无需再弹窗
-                psi.UseShellExecute = false; 
-            }
-            else
-            {
-                // 普通用户，申请提权
-                psi.UseShellExecute = true;
-                psi.Verb = "runas"; 
-            }
-
-            try
-            {
-                Process.Start(psi);
-                Application.Exit(); // 启动成功，退出主程序
-            }
-            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
-            {
-                // ★★★ 捕获 Error 1223: 操作已被用户取消 ★★★
-                // 用户在 UAC 弹窗点了“否”，我们要静默处理，不要弹错误窗
-                // 恢复界面状态，允许用户再次点击
-                bool isZh = _settings?.Language?.ToLower() == "zh";
-                btnUpdate.Enabled = true;
-                btnUpdate.Text = isZh ? "立即更新" : "Update";
-            }
-            catch (Exception ex)
-            {
-                bool isZh = _settings?.Language?.ToLower() == "zh";
-                string msg = isZh ? $"启动更新程序失败：\n{ex.Message}" : $"Failed to start updater:\n{ex.Message}";
-                string title = isZh ? "错误" : "Error";
-                
-                MessageBox.Show(msg, title, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                // 恢复按钮状态
-                btnUpdate.Enabled = true;
-                btnUpdate.Text = isZh ? "重试" : "Retry";
-            }
-        }
-
-        // 辅助方法：检查当前是否为管理员
         private bool IsRunningAsAdmin()
         {
             using (var identity = WindowsIdentity.GetCurrent())

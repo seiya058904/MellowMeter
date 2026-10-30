@@ -33,7 +33,7 @@
 
 MellowMeter builds on **[LiteMonitor](https://github.com/Diorser/LiteMonitor)**, retaining its compact floating monitor, taskbar layout, colorful readings, and familiar themes. It adds a calmer default setup, rounded settings, and coordinated light/dark styling — without trying to become a full dashboard.
 
-**Local v0.2 iteration:** Glass Light / Glass Dark bring the theme count to **14**, with an optional Windows 11 Mica sidebar, lazy settings pages, faster history interaction and a runtime-free Lite package. Existing profiles keep their theme. See the [iteration report](docs/iteration-0.2.0.md) for actual desktop captures, measurements and compatibility limits. The public download above remains v0.1.0 until a new release is authorized.
+**Local v0.2 iteration:** All **32 upstream built-in monitoring items** are restored, with original default selections and panel layouts. Settings use the v0.1 static interface. **12 themes** remain; Glass Light and Glass Dark have been removed. Existing Glass selections map to Mellow Light/Dark, and new profiles use DarkFlat Classic. Local builds are available for review; this iteration has not been published.
 
 <a id="features"></a>
 

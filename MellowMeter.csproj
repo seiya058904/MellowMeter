@@ -46,7 +46,7 @@
 <ItemGroup>
   <Compile Remove="test\**" /><Compile Remove=".local\**" /><Compile Remove="artifacts\**" />
   <!-- Retired implementations remain in source history, never in the shipped application. -->
-  <Compile Remove="src/Plugins/**;src/System/WebServer/**;src/UI/Settings/PluginPage.cs;src/UI/SpeedTestForm.cs;src/Core/NetworkSpeedTester.cs;src/System/UpdateChecker.cs;src/UI/UpdateDialog*.cs;src/Core/Actions/WebActions.cs;src/System/HardwareServices/FpsCounter.cs;src/System/HardwareServices/DriverInstaller.cs" />
+  <Compile Remove="src/Plugins/**;src/System/WebServer/**;src/UI/Settings/PluginPage.cs;src/UI/SpeedTestForm.cs;src/Core/NetworkSpeedTester.cs;src/System/UpdateChecker.cs;src/Core/Actions/WebActions.cs" />
   <Compile Remove="LiteMonitor.Updater\**" />
   <Compile Remove="LiteMonitor.Wpf\**" />
   <EmbeddedResource Remove="LiteMonitor.Updater\**" />

@@ -18,8 +18,6 @@ namespace LiteMonitor
             int panelHeight = (int)g.VisibleClipBounds.Height;
 
             g.Clear(ThemeManager.ParseColor(t.Color.Background));
-            GlassSurface.Paint(g, new Rectangle(0, 0, panelWidth, panelHeight),
-                ThemeManager.ParseColor(t.Color.Background), t.Layout.CornerRadius, t.Material == "glass" && LiteMonitor.src.UI.Helpers.WindowTheme.EffectsAllowed);
 
             foreach (var col in cols)
                 DrawColumn(g, col, t);

@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using LiteMonitor.src.Core;
 using System.Reflection;
 using System.Collections.Generic;
@@ -11,10 +11,77 @@ namespace LiteMonitor.src.Core.Actions
     /// </summary>
     public static class SettingsChanger
     {
-        /// <summary>
-        /// 使用反射将草稿设置 (Draft) 合并到实时设置 (Live) 中。
-        /// 保留在黑名单中定义的仅运行时属性。
-        /// </summary>
+        // Saving editors may update their own values, but cannot acknowledge a context
+        // change made elsewhere while the page was hidden. OnShow must still refresh it.
+        public static string SaveMonitorDraft(Settings target, List<MonitorItemConfig> workingList, string displayedState)
+        {
+            bool contextUnchanged = CaptureMonitorState(target) == displayedState;
+            UpdateMonitorList(target, workingList, target.HorizontalFollowsTaskbar);
+            return contextUnchanged ? CaptureMonitorState(target) : displayedState;
+        }
+
+        public static void UpdateTaskbarOrder(List<MonitorItemConfig> workingList, List<MonitorItemConfig> visibleOrder, bool filtered)
+        {
+            if (!filtered)
+            {
+                for (int i = 0; i < visibleOrder.Count; i++) visibleOrder[i].TaskbarSortIndex = i;
+                return;
+            }
+            var fullList = workingList.OrderBy(x => x.TaskbarSortIndex).ThenBy(x => x.SortIndex).ToList();
+            var oldVisibleList = fullList.Where(visibleOrder.Contains).ToList();
+            var anchors = new HashSet<MonitorItemConfig>(GetLCS(oldVisibleList, visibleOrder));
+            var backbone = fullList.Where(item => !visibleOrder.Contains(item) || anchors.Contains(item)).ToList();
+            int cursor = 0;
+            foreach (var item in visibleOrder)
+            {
+                if (anchors.Contains(item)) cursor = backbone.IndexOf(item) + 1;
+                else { backbone.Insert(Math.Min(cursor, backbone.Count), item); cursor++; }
+            }
+            for (int i = 0; i < backbone.Count; i++) backbone[i].TaskbarSortIndex = i;
+        }
+
+        // Serialize structured fields: delimiters in labels and literal "null" units
+        // must not collide, and both independently editable orders affect the page.
+        public static string CaptureMonitorState(Settings settings) =>
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                settings.AdvancedSensorsEnabled,
+                Items = settings.MonitorItems.Select(item => new
+                {
+                    item.Key, item.SortIndex, item.TaskbarSortIndex,
+                    item.DynamicLabel, item.DynamicTaskbarLabel,
+                    item.UserLabel, item.TaskbarLabel, item.UnitPanel, item.UnitTaskbar,
+                    item.VisibleInPanel, item.VisibleInTaskbar
+                }),
+                Aliases = settings.GroupAliases.OrderBy(pair => pair.Key)
+            });
+
+        private static List<MonitorItemConfig> GetLCS(List<MonitorItemConfig> list1, List<MonitorItemConfig> list2)
+        {
+            if (list1.Count == list2.Count && list1.SequenceEqual(list2))
+                return new List<MonitorItemConfig>(list1);
+
+            int n = list1.Count; int m = list2.Count;
+            if (n == 0 || m == 0) return new List<MonitorItemConfig>();
+
+            int[,] dp = new int[n + 1, m + 1];
+            for (int i = 1; i <= n; i++) {
+                for (int j = 1; j <= m; j++) {
+                    if (list1[i - 1] == list2[j - 1]) dp[i, j] = dp[i - 1, j - 1] + 1;
+                    else dp[i, j] = Math.Max(dp[i - 1, j], dp[i, j - 1]);
+                }
+            }
+            var lcs = new List<MonitorItemConfig>();
+            int x = n, y = m;
+            while (x > 0 && y > 0) {
+                if (list1[x - 1] == list2[y - 1]) { lcs.Add(list1[x - 1]); x--; y--; }
+                else if (dp[x - 1, y] > dp[x, y - 1]) x--; else y--;
+            }
+            lcs.Reverse();
+            return lcs;
+        }
+
+        /// <summary>Commit a draft without sharing mutable collections or replacing runtime counters.</summary>
         public static void Merge(Settings live, Settings draft)
         {
             if (live == null || draft == null) return;

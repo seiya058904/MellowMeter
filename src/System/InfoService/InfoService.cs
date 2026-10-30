@@ -17,8 +17,8 @@ namespace LiteMonitor.src.SystemServices.InfoService
     public class InfoService
     {
         #region Singleton
-        private static InfoService _instance;
-        public static InfoService Instance => _instance ??= new InfoService();
+        private static readonly Lazy<InfoService> Shared = new(() => new InfoService());
+        public static InfoService Instance => Shared.Value;
         private InfoService() { Initialize(); }
         #endregion
 
@@ -287,7 +287,7 @@ namespace LiteMonitor.src.SystemServices.InfoService
             try
             {
                 // Delegate to HardwareMonitor's NetworkManager (handles caching & multi-interface logic)
-                string ip = HardwareMonitor.Instance?.GetNetworkIP();
+                string? ip = HardwareMonitor.Instance?.GetNetworkIP();
 
                 // Validate IP
                 if (!string.IsNullOrEmpty(ip) && ip != DEFAULT_IP)

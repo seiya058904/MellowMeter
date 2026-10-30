@@ -17,7 +17,7 @@ namespace LiteMonitor.ThemeEditor
     public class ThemeEditorForm : Form
     {
         // 左栏：主题管理
-        private ListBox? lstThemes;
+        private ListBox lstThemes;
         private Button? btnNew;
         private Button? btnRename;
         private Button? btnCopy;
@@ -25,12 +25,12 @@ namespace LiteMonitor.ThemeEditor
 
         // 中间：TabControl + 编辑页
         private TabControl? tab;
-        private Panel? pageLayout;
-        private Panel? pageFont;
-        private Panel? pageColors;
+        private Panel pageLayout;
+        private Panel pageFont;
+        private Panel pageColors;
 
         // 右栏：预览
-        private ThemePreviewControl? preview;
+        private ThemePreviewControl preview;
 
         private Theme? _theme;
         private string _currentThemeName = "";
@@ -72,9 +72,19 @@ namespace LiteMonitor.ThemeEditor
             LiteMonitor.src.UI.Helpers.WindowTheme.StyleAuxiliary(this);
         }
 
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) {
+                if (!ReferenceEquals(_theme, ThemeManager.Current)) _theme?.DisposeFonts();
+                _fontCollection?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
         // ============================================================
         // 初始化 UI 布局
         // ============================================================
+        [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(lstThemes), nameof(pageLayout), nameof(pageFont), nameof(pageColors), nameof(preview))]
         private void BuildUI()
         {
             // 获取 DPI 缩放比例
@@ -209,6 +219,7 @@ namespace LiteMonitor.ThemeEditor
             if (lstThemes.SelectedItem == null) return;
 
             _currentThemeName = lstThemes.SelectedItem.ToString()!;
+            var previousTheme = _theme;
             try
             {
                 _theme = ThemeFileService.LoadTheme(_currentThemeName);
@@ -224,6 +235,7 @@ namespace LiteMonitor.ThemeEditor
             BuildColorsPage();
 
             preview.SetTheme(_theme);
+            if (!ReferenceEquals(previousTheme, ThemeManager.Current)) previousTheme?.DisposeFonts();
         }
 
 
@@ -421,8 +433,7 @@ namespace LiteMonitor.ThemeEditor
                 Color currentColor = ThemeManager.ParseColor(get());
                 
                 // 简单的对比度计算：根据颜色亮度决定文字颜色
-                var brightness = (currentColor.R * 0.299 + currentColor.G * 0.587 + currentColor.B * 0.114);
-                var textColor = brightness > 127 ? UIColors.TextMain : UIColors.MainBg;
+                var textColor = UIColors.SwatchText(currentColor);
                 
                 var btn = new Button
                 {
@@ -453,8 +464,7 @@ namespace LiteMonitor.ThemeEditor
                         btn.Text = hex;
                         btn.BackColor = cd.Color; // 更新按钮背景色
                         // 更新文字颜色
-                        var newBrightness = (cd.Color.R * 0.299 + cd.Color.G * 0.587 + cd.Color.B * 0.114);
-                        btn.ForeColor = newBrightness > 127 ? UIColors.TextMain : UIColors.MainBg;
+                        btn.ForeColor = UIColors.SwatchText(btn.BackColor);
                         preview.SetTheme(_theme!);
                     }
                 };

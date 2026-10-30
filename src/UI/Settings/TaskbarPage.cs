@@ -44,6 +44,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             InitializeUI();
         }
 
+        [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_styleCombo), nameof(_chkCustomLayout), nameof(_cbFont))]
         private void InitializeUI()
         {
             CreateGeneralGroup(); 
@@ -65,7 +66,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             if (_cbFont == null || _cbFont.Inner.Items.Count > 5) return; 
 
             var fonts = await _taskFonts;
-            if (IsDisposed || Disposing || _cbFont.IsDisposed) return;
+            if (IsDisposed || Disposing || _cbFont.IsDisposed || Config == null) return;
             
             // ★★★ 锁定布局 ★★★
             this.SuspendLayout();
@@ -97,6 +98,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             // Rendering changes are applied only after the draft is committed.
         }
 
+        [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_styleCombo))]
         private void CreateGeneralGroup()
         {
             var group = new LiteSettingsGroup(LanguageManager.T("Menu.TaskbarSettings"));
@@ -168,6 +170,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             AddGroupToPage(group);
         }
 
+        [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_chkCustomLayout), nameof(_cbFont))]
         private void CreateLayoutGroup()
         {
             var group = new LiteSettingsGroup(LanguageManager.T("Menu.TaskbarCustomLayout")) { Collapsible = true, Collapsed = true };
@@ -244,24 +247,33 @@ namespace LiteMonitor.src.UI.SettingsPage
             var btnPick = new LiteSortBtn("🖌"); 
             btnPick.Location = new Point(UIUtils.S(70), UIUtils.S(1));
             btnPick.Click += (s, e) => {
-                using (Form f = new Form { FormBorderStyle = FormBorderStyle.None, WindowState = FormWindowState.Maximized, TopMost = true, Cursor = Cursors.Cross })
+                var screen = Screen.FromControl(this);
+                Rectangle bounds = screen.Bounds;
+                if (bounds.Width <= 0 || bounds.Height <= 0) return;
+                using var bitmap = new Bitmap(bounds.Width, bounds.Height);
+                using (var graphics = Graphics.FromImage(bitmap))
+                    graphics.CopyFromScreen(bounds.Location, Point.Empty, bounds.Size);
+                using var picker = new Form { FormBorderStyle = FormBorderStyle.None,
+                    StartPosition = FormStartPosition.Manual, Bounds = bounds, TopMost = true,
+                    ShowInTaskbar = false, Cursor = Cursors.Cross, KeyPreview = true, BackgroundImage = bitmap };
+                Color? selected = null;
+                picker.KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) picker.Close(); };
+                picker.MouseClick += (_, e) => {
+                    if (e.Button == MouseButtons.Left && e.X >= 0 && e.Y >= 0 && e.X < bitmap.Width && e.Y < bitmap.Height)
+                        selected = bitmap.GetPixel(e.X, e.Y);
+                    picker.Close();
+                };
+                picker.ShowDialog(FindForm());
+                picker.BackgroundImage = null;
+                if (selected is not Color color) return;
+                string hex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+                tbResult.Inner.Text = hex;
+                if (MessageBox.Show(FindForm(), string.Format("{0} {1}?", LanguageManager.T("Menu.ScreenColorPickerTip"), hex),
+                    "MellowMeter", MessageBoxButtons.YesNo) == DialogResult.Yes)
                 {
-                    Bitmap bmp = new Bitmap(Screen.PrimaryScreen.Bounds.Width, Screen.PrimaryScreen.Bounds.Height);
-                    using (Graphics g = Graphics.FromImage(bmp)) g.CopyFromScreen(0, 0, 0, 0, bmp.Size);
-                    f.BackgroundImage = bmp;
-                    f.MouseClick += (ms, me) => {
-                        Color c = bmp.GetPixel(me.X, me.Y);
-                        string hex = $"#{c.R:X2}{c.G:X2}{c.B:X2}";
-                        tbResult.Inner.Text = hex;
-                        f.Close();
-                        if (MessageBox.Show(string.Format("{0} {1}?", LanguageManager.T("Menu.ScreenColorPickerTip"), hex), "LiteMonitor", MessageBoxButtons.YesNo) == DialogResult.Yes)
-                        {
-                            if (Config != null) Config.TaskbarColorBg = hex;
-                            foreach (var control in _customColorInputs)
-                                if (control is LiteColorInput ci && ci.Input.Inner.Tag?.ToString() == "Menu.BackgroundColor") { ci.HexValue = hex; break; }
-                        }
-                    };
-                    f.ShowDialog();
+                    if (Config != null) Config.TaskbarColorBg = hex;
+                    foreach (var control in _customColorInputs)
+                        if (control is LiteColorInput ci && ci.Input.Inner.Tag?.ToString() == "Menu.BackgroundColor") { ci.HexValue = hex; break; }
                 }
             };
             Panel toolCtrl = new Panel { Size = new Size(UIUtils.S(96), UIUtils.S(26)) };

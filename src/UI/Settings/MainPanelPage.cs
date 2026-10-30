@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Linq;
@@ -41,6 +41,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void CreateBehaviorCard()
         {
+            if (Config == null) return;
             var group = new LiteSettingsGroup(LanguageManager.T("Menu.MainFormSettings")) { Collapsible = true, Collapsed = true };
 
             // 1. Hide Main Form (with logic)
@@ -73,15 +74,13 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void CreateAppearanceCard()
         {
+            if (Config == null) return;
             var group = new LiteSettingsGroup(LanguageManager.T("Menu.Appearance"));
 
             // 1. Theme
             group.AddCombo(this, "Menu.Theme", ThemeManager.GetAvailableThemes(), 
                 () => Config.Skin, 
                 v => Config.Skin = v);
-
-            group.AddToggle(this, "Menu.GlassEffects", () => Config.GlassEffectsEnabled,
-                v => Config.GlassEffectsEnabled = v);
 
             // 2. Orientation
             group.AddComboIndex(this, "Menu.DisplayMode", 
@@ -116,6 +115,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void CreateHorizontalModeGroup()
         {
+            if (Config == null) return;
             // --- Group: Horizontal Mode ---
             var groupHorz = new LiteSettingsGroup(LanguageManager.T("Menu.Horizontal")) { Collapsible = true, Collapsed = true };
 

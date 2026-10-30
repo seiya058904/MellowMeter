@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -33,7 +33,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         private Label _lblCol3; 
         private Label _lblCol4; 
 
-        private List<MonitorItemConfig> _workingList;
+        private List<MonitorItemConfig> _workingList = new();
 
         public MonitorPage()
         {
@@ -53,6 +53,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             this.Controls.SetChildIndex(_container, 0); 
         }
 
+        [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_tabPanel), nameof(_headerPanel), nameof(_btnTabMain), nameof(_btnTabBar), nameof(_chkLinkHorizontal), nameof(_chkOnlyVisible), nameof(_chkEditLabels), nameof(_lblCol1), nameof(_lblCol2), nameof(_lblColUnit), nameof(_lblCol3), nameof(_lblCol4))]
         private void InitHeader()
         {
             _tabPanel = new Panel 
@@ -80,6 +81,8 @@ namespace LiteMonitor.src.UI.SettingsPage
                 AutoSize = true, Visible = false, ForeColor = UIColors.TextSub, Font = UIFonts.Bold(9F)
             };
             
+            RegisterRefresh(() => { if (Config != null) _chkLinkHorizontal.Checked = Config.HorizontalFollowsTaskbar; });
+
             // Immediate binding to avoid conflict with MainPanelPage
             _chkLinkHorizontal.CheckedChanged += (s, e) => {
                 if (Config != null) Config.HorizontalFollowsTaskbar = _chkLinkHorizontal.Checked;
@@ -160,7 +163,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             if (_isTaskbarTab && Config != null)
                 _chkLinkHorizontal.Checked = Config.HorizontalFollowsTaskbar;
 
-            _tabPanel.Width++; _tabPanel.Width--; 
+            _tabPanel.PerformLayout();
             
             // 切换 Tab 时必须刷新，因为显示模式变了
             ReloadList();
@@ -173,8 +176,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             if (Config == null) return;
 
             // Sync Checkbox if in taskbar tab (in case it was changed in MainPanelPage)
-            if (_isTaskbarTab)
-                _chkLinkHorizontal.Checked = Config.HorizontalFollowsTaskbar;
+            _chkLinkHorizontal.Checked = Config.HorizontalFollowsTaskbar;
 
             // 1. 计算数据指纹 (Data Signature)
             // 只要 Config.MonitorItems 的内容（Keys的组合）没变，我们就不需要重新加载
@@ -214,46 +216,11 @@ namespace LiteMonitor.src.UI.SettingsPage
             UpdateSortButtons(_container);
         }
 
-        private string GenerateSignature()
-        {
-            if (Config?.MonitorItems == null) return "null";
-            
-            // [Fix] Include DynamicLabel in signature to detect label updates (Plugin Sync)
-            var sb = new System.Text.StringBuilder();
-            sb.Append(Config.MonitorItems.Count);
-            sb.Append(Config.AdvancedSensorsEnabled);
-            
-            foreach (var item in Config.MonitorItems)
-            {
-                sb.Append('|');
-                sb.Append(item.Key);
-                // 动态属性
-                sb.Append(':');
-                sb.Append(item.DynamicLabel ?? ""); 
-                sb.Append(':');
-                sb.Append(item.DynamicTaskbarLabel ?? "");
-                
-                // ★★★ 新增：必须包含用户可编辑的属性，否则修改后切回 Tab 不会刷新 ★★★
-                sb.Append(':');
-                sb.Append(item.UserLabel ?? "");      // 名称
-                sb.Append(':');
-                sb.Append(item.TaskbarLabel ?? "");   // 简称
-                sb.Append(':');
-                sb.Append(item.UnitPanel ?? "null");  // 主面板单位 (null表示默认)
-                sb.Append(':');
-                sb.Append(item.UnitTaskbar ?? "null");// 任务栏单位
-                sb.Append(':');
-                sb.Append(item.VisibleInPanel ? "1" : "0"); // 可见性也建议加上
-                sb.Append(':');
-                sb.Append(item.VisibleInTaskbar ? "1" : "0");
-
-            }
-            return sb.ToString();
-        }
+        private string GenerateSignature() => Config == null ? "null" : SettingsChanger.CaptureMonitorState(Config);
 
         private void ReloadList()
         {
-            if (_container == null || _container.IsDisposed) return;
+            if (_container == null || _container.IsDisposed || Config == null) return;
             
             _container.SuspendLayout();
             
@@ -335,12 +302,11 @@ namespace LiteMonitor.src.UI.SettingsPage
             }
 
             _isLoaded = true;
-            UpdateSortButtons(_container);
         }
 
         private void UpdateLanguageCacheFromWorkingList()
         {
-            if (_workingList == null) return;
+            if (_workingList == null || Config == null) return;
             
             LanguageManager.ClearOverrides();
             if (Config.GroupAliases != null)
@@ -401,7 +367,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private GroupBlock CreateGroupBlock(string groupKey, List<MonitorItemConfig> items)
         {
-            string alias = Config.GroupAliases.ContainsKey(groupKey) ? Config.GroupAliases[groupKey] : "";
+            string alias = Config?.GroupAliases.TryGetValue(groupKey, out var configuredAlias) == true ? configuredAlias : "";
             var header = new MonitorGroupHeader(groupKey, alias) { ShowEditors = _chkEditLabels.Checked };
             var rowsPanel = new Panel { Dock = DockStyle.Top, AutoSize = true, BackColor = UIColors.CardBg };
             var block = new GroupBlock(header, rowsPanel);
@@ -426,10 +392,10 @@ namespace LiteMonitor.src.UI.SettingsPage
             return block;
         }
 
-        private void GroupHeader_MoveUp(object sender, EventArgs e) { if (sender is MonitorGroupHeader h && h.Tag is GroupBlock b) MoveControl(b, -1); }
-        private void GroupHeader_MoveDown(object sender, EventArgs e) { if (sender is MonitorGroupHeader h && h.Tag is GroupBlock b) MoveControl(b, 1); }
-        private void Row_MoveUp(object sender, EventArgs e) { if (sender is Control r) MoveControl(r, -1); }
-        private void Row_MoveDown(object sender, EventArgs e) { if (sender is Control r) MoveControl(r, 1); }
+        private void GroupHeader_MoveUp(object? sender, EventArgs e) { if (sender is MonitorGroupHeader h && h.Tag is GroupBlock b) MoveControl(b, -1); }
+        private void GroupHeader_MoveDown(object? sender, EventArgs e) { if (sender is MonitorGroupHeader h && h.Tag is GroupBlock b) MoveControl(b, 1); }
+        private void Row_MoveUp(object? sender, EventArgs e) { if (sender is Control r) MoveControl(r, -1); }
+        private void Row_MoveDown(object? sender, EventArgs e) { if (sender is Control r) MoveControl(r, 1); }
         
         private void MoveControl(Control c, int dir)
         {
@@ -452,7 +418,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         private void UpdateSortButtons(Control parent)
         {
             foreach (Control child in parent.Controls) {
-                Control? sortable = child is MonitorItemRow ? child : child is MonitorGroupHeader ? child.Parent : null;
+                Control? sortable = child is MonitorItemRow ? child : child is MonitorGroupHeader header ? header.Tag as GroupBlock : null;
                 if (sortable?.Parent != null) {
                     var siblings = sortable.Parent.Controls.Cast<Control>().Where(c => c.GetType() == sortable.GetType()).ToList();
                     int index = siblings.IndexOf(sortable);
@@ -465,7 +431,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void SaveToWorkingList(bool? isFilteredOverride = null)
         {
-            if (_workingList == null) return;
+            if (_workingList == null || Config == null) return;
 
             SyncUIToWorkingList();
 
@@ -473,50 +439,8 @@ namespace LiteMonitor.src.UI.SettingsPage
             {
                 bool isFiltered = (isFilteredOverride ?? _chkOnlyVisible.Checked)
                     || _workingList.Any(x => !MenuMonitorHelper.IsAvailable(x.Key, Config));
-
-                if (isFiltered)
-                {
-                    var uiRows = _container.Controls.Cast<Control>().Reverse().OfType<MonitorItemRow>().ToList();
-                    var newVisibleList = uiRows.Select(r => r.Config).ToList();
-                    
-                    var fullList = _workingList.OrderBy(x => x.TaskbarSortIndex).ToList();
-                    var oldVisibleList = fullList.Where(x => newVisibleList.Contains(x)).ToList();
-
-                    var lcs = GetLCS(oldVisibleList, newVisibleList);
-                    var anchors = new HashSet<MonitorItemConfig>(lcs);
-
-                    var backbone = new List<MonitorItemConfig>();
-                    foreach (var item in fullList)
-                    {
-                        if (!newVisibleList.Contains(item) || anchors.Contains(item))
-                        {
-                            backbone.Add(item);
-                        }
-                    }
-
-                    int insertCursor = 0;
-                    foreach (var item in newVisibleList)
-                    {
-                        if (anchors.Contains(item))
-                        {
-                            int idx = backbone.IndexOf(item);
-                            if (idx >= 0) insertCursor = idx + 1;
-                        }
-                        else
-                        {
-                            if (insertCursor > backbone.Count) insertCursor = backbone.Count;
-                            backbone.Insert(insertCursor, item);
-                            insertCursor++;
-                        }
-                    }
-
-                    for (int i = 0; i < backbone.Count; i++) backbone[i].TaskbarSortIndex = i;
-                }
-                else
-                {
-                    var uiRows = _container.Controls.Cast<Control>().Reverse().OfType<MonitorItemRow>().ToList();
-                    for(int i=0; i<uiRows.Count; i++) uiRows[i].Config.TaskbarSortIndex = i;
-                }
+                var visibleOrder = _container.Controls.Cast<Control>().Reverse().OfType<MonitorItemRow>().Select(r => r.Config).ToList();
+                SettingsChanger.UpdateTaskbarOrder(_workingList, visibleOrder, isFiltered);
             }
             else
             {
@@ -551,7 +475,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             SaveToWorkingList();
             
             // Delegate logic to SettingsOperations
-            SettingsChanger.UpdateMonitorList(Config, _workingList, _chkLinkHorizontal.Checked);
+            _lastDataSignature = SettingsChanger.SaveMonitorDraft(Config, _workingList, _lastDataSignature);
         }
 
         public override ViewState CaptureView() => base.CaptureView() with {
@@ -564,31 +488,6 @@ namespace LiteMonitor.src.UI.SettingsPage
             SwitchTab(state.TaskbarTab);
             _chkOnlyVisible.Checked = state.OnlyVisible;
             base.RestoreView(state);
-        }
-
-        private List<MonitorItemConfig> GetLCS(List<MonitorItemConfig> list1, List<MonitorItemConfig> list2)
-        {
-            if (list1.Count == list2.Count && list1.SequenceEqual(list2))
-                return new List<MonitorItemConfig>(list1);
-
-            int n = list1.Count; int m = list2.Count;
-            if (n == 0 || m == 0) return new List<MonitorItemConfig>();
-
-            int[,] dp = new int[n + 1, m + 1];
-            for (int i = 1; i <= n; i++) {
-                for (int j = 1; j <= m; j++) {
-                    if (list1[i - 1] == list2[j - 1]) dp[i, j] = dp[i - 1, j - 1] + 1;
-                    else dp[i, j] = Math.Max(dp[i - 1, j], dp[i, j - 1]);
-                }
-            }
-            var lcs = new List<MonitorItemConfig>();
-            int x = n, y = m;
-            while (x > 0 && y > 0) {
-                if (list1[x - 1] == list2[y - 1]) { lcs.Add(list1[x - 1]); x--; y--; }
-                else if (dp[x - 1, y] > dp[x, y - 1]) x--; else y--;
-            }
-            lcs.Reverse();
-            return lcs;
         }
 
         private class GroupBlock : Panel

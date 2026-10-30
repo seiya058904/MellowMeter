@@ -151,8 +151,8 @@ namespace LiteMonitor.src.UI.Helpers
 
             // ★★★ 水平任务栏定位 ★★★
 
-            Screen currentScreen = Screen.FromRectangle(_taskbarRect);
-            if (currentScreen == null) currentScreen = Screen.PrimaryScreen;
+            Screen? currentScreen = Screen.FromRectangle(_taskbarRect) ?? Screen.PrimaryScreen;
+            if (currentScreen == null) return;
             
             bool sysCentered = TaskbarWinHelper.IsCenterAligned();
             bool isPrimary = currentScreen.Primary;

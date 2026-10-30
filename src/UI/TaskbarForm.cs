@@ -78,6 +78,7 @@ namespace LiteMonitor
             Tick();
         }
 
+        [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_layout))]
         public void ReloadLayout()
         {
             _lastDisplayRevision = -1;

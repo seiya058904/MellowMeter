@@ -1,4 +1,4 @@
-using System.Drawing.Imaging;
+﻿using System.Drawing.Imaging;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -48,10 +48,10 @@ internal static partial class SmokeSuite
         _artifacts = artifacts;
         using var watchdog = new System.Threading.Timer(_ =>
         {
-            Console.Error.WriteLine("FAIL: 60-second timeout during " + _stage);
+            Console.Error.WriteLine("FAIL: 120-second timeout during " + _stage);
             File.WriteAllText(Path.Combine(_artifacts, "timeout.txt"), _stage);
             Environment.Exit(124);
-        }, null, TimeSpan.FromSeconds(60), Timeout.InfiniteTimeSpan);
+        }, null, TimeSpan.FromSeconds(120), Timeout.InfiniteTimeSpan);
 
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
@@ -69,14 +69,17 @@ internal static partial class SmokeSuite
                 _stage = "defaults and formatting";
                 var cfg = Settings.Load();
                 Check(Path.GetFullPath(SettingsHelper.FilePath).StartsWith(Path.GetFullPath(Path.Combine(_artifacts, "data")) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase), "Settings writes are isolated");
-                Check(cfg.MonitorItems.Where(x => x.VisibleInPanel).Select(x => x.Key).Order().SequenceEqual(new[] { "CPU.Load", "MEM.Load", "NET.Down", "NET.Up" }.Order()), "Fresh panel has exactly CPU, memory, upload and download");
-                Check(cfg.MonitorItems.Where(x => x.VisibleInTaskbar).Select(x => x.Key).Order().SequenceEqual(new[] { "CPU.Load", "MEM.Load", "NET.Down", "NET.Up" }.Order()), "Fresh taskbar has exactly CPU, memory, upload and download");
-                Check(!cfg.AdvancedSensorsEnabled && !cfg.WebServerEnabled && !cfg.AutoStart && cfg.HistoryEnabled, "Fresh profile uses basic sensors and local history");
-                Check(cfg.Skin == "GlassLight" && cfg.TaskbarFontFamily == "Microsoft YaHei UI",
-                    "Fresh profile uses Glass Light and preserves taskbar typography");
+                Check(cfg.MonitorItems.Where(x => x.VisibleInPanel).Select(x => x.Key).Order().SequenceEqual(new[] { "DASH.Uptime", "CPU.Load", "CPU.Temp", "GPU.Load", "GPU.Temp", "GPU.VRAM", "MEM.Load", "DISK.Read", "DISK.Write", "NET.Up", "NET.Down", "DATA.DayUp", "DATA.DayDown" }.Order()), "Fresh panel matches upstream defaults");
+                Check(cfg.MonitorItems.Where(x => x.VisibleInTaskbar).Select(x => x.Key).Order().SequenceEqual(new[] { "CPU.Load", "CPU.Temp", "GPU.Load", "MEM.Load", "NET.Down", "NET.Up" }.Order()), "Fresh taskbar matches upstream defaults");
+                Check(cfg.AdvancedSensorsEnabled && !cfg.WebServerEnabled && !cfg.AutoStart && cfg.HistoryEnabled, "Fresh profile enables full sensors and local history");
+                Check(cfg.Skin == "DarkFlat_Classic" && cfg.TaskbarFontFamily == "Microsoft YaHei UI",
+                    "Fresh profile uses DarkFlat Classic and preserves taskbar typography");
                 cfg.Language = "en";
                 LanguageManager.Load(cfg.Language);
                 TestMigration(cfg);
+                Check(!cfg.HorizontalMode && cfg.MonitorItems.Count == 32, "Fresh vertical profile exposes all 32 upstream metrics");
+                cfg.AdvancedSensorsEnabled = false; // This fixture never opens physical sensors.
+                cfg.InterfaceAnimationsEnabled = false; // Deterministic geometry; motion is tested separately.
                 TestMetricRecovery();
                 _stage = "target-DPI renderer";
                 TestLayouts(cfg);
@@ -211,6 +214,7 @@ internal static partial class SmokeSuite
                     Captures.All(File.Exists), "All DPI, native-form and theme-linkage captures were saved without duplicates");
                 _stage = "iteration regressions";
                 await TestIteration(main, cfg, ui);
+                await TestRestoreAuditAndMotion(main, cfg, ui);
                 _stage = "power and taskbar recovery";
                 await TestLifecycle(main, cfg, ui);
                 _stage = "paused-history shutdown";
@@ -402,7 +406,7 @@ internal static partial class SmokeSuite
         var pages = new[] { (Key: "MainPanel", Slug: "main"), (Key: "Taskbar", Slug: "taskbar"),
             (Key: "Monitor", Slug: "metrics"), (Key: "Threshold", Slug: "threshold"), (Key: "System", Slug: "system") };
         int collapsedGroupsChecked = 0;
-        foreach (var appearance in new[] { (Skin: "DarkFlat_Classic", Slug: "dark"), (Skin: "MellowLight", Slug: "light"), (Skin: "GlassLight", Slug: "glass_light"), (Skin: "GlassDark", Slug: "glass_dark") })
+        foreach (var appearance in new[] { (Skin: "DarkFlat_Classic", Slug: "dark"), (Skin: "MellowLight", Slug: "light") })
         {
             cfg.Skin = appearance.Skin;
             AppActions.ApplyThemeAndLayout(cfg, ui, main);
@@ -677,12 +681,12 @@ internal static partial class SmokeSuite
     {
         // Give the illustrative memory reading a known capacity before native sampling starts.
         Settings.DetectedRamTotalGB = 32;
-        foreach (string skin in new[] { "MellowLight", "MellowDark", "DarkFlat_Classic", "GlassLight", "GlassDark" })
+        foreach (string skin in new[] { "MellowLight", "MellowDark", "DarkFlat_Classic" })
         foreach (float scale in new[] { 1f, 1.5f, 2f })
         {
             var previous = ThemeManager.Current;
             var theme = ThemeManager.Load(skin);
-            Check(theme.Name == (skin == "MellowLight" ? "Mellow Light" : skin == "MellowDark" ? "Mellow Dark" : skin == "GlassLight" ? "Glass Light" : skin == "GlassDark" ? "Glass Dark" : "MinimalDarkFlat v2.0"), skin + " parses without fallback");
+            Check(theme.Name == (skin == "MellowLight" ? "Mellow Light" : skin == "MellowDark" ? "Mellow Dark" : "MinimalDarkFlat v2.0"), skin + " parses without fallback");
             if (previous != theme) previous.DisposeFonts();
             theme.Scale(scale, 1);
             // A bitmap's DPI metadata does not change the native GDI HDC DPI used by

@@ -187,6 +187,7 @@ namespace LiteMonitor
 
         private int S(int pixel) => (int)(pixel * _scale);
 
+        [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_lblSessionUp), nameof(_lblSessionDown), nameof(_lblTodayUp), nameof(_lblTodayDown), nameof(_lblListSummary), nameof(_dashboardPanel), nameof(_toolbarPanel), nameof(_footerPanel), nameof(_dashboardSeparator), nameof(_viewLabel), nameof(_grid))]
         private void InitializeUI()
         {
             // === 1. 顶部仪表盘 ===
@@ -314,7 +315,7 @@ namespace LiteMonitor
         }
 
         // ★★★ 新增：自定义排序方法 ★★★
-        private void Grid_SortCompare(object sender, DataGridViewSortCompareEventArgs e)
+        private void Grid_SortCompare(object? sender, DataGridViewSortCompareEventArgs e)
         {
             // 1. 获取两行的 Tag 数据 (long数组)
             // Tag: [0]=Total, [1]=Max, [2]=Up, [3]=Down
@@ -467,8 +468,9 @@ namespace LiteMonitor
             _lblListSummary.Text = $"{T("当前视图总计", "View total")}:  ↑ {MetricUtils.FormatDataSize(sumUp)}    ↓ {MetricUtils.FormatDataSize(sumDown)}    (Σ {MetricUtils.FormatDataSize(sumUp + sumDown)})";
         }
 
-        private void Grid_CellPainting(object sender, DataGridViewCellPaintingEventArgs e)
+        private void Grid_CellPainting(object? sender, DataGridViewCellPaintingEventArgs e)
         {
+            if (e.Graphics == null) return;
             if (e.ColumnIndex == 4 && e.RowIndex >= 0)
             {
                 e.Paint(e.CellBounds, DataGridViewPaintParts.All & ~DataGridViewPaintParts.ContentForeground);
@@ -527,7 +529,7 @@ namespace LiteMonitor
             _ => d.ToString("yyyy-MM-dd")
         };
 
-        private class DisplayItem { public string DateLabel; public DateTime SortDate; public long Upload; public long Download; public long Total => Upload + Download; }
+        private class DisplayItem { public string DateLabel = ""; public DateTime SortDate; public long Upload; public long Download; public long Total => Upload + Download; }
 
         protected override void Dispose(bool disposing)
         {

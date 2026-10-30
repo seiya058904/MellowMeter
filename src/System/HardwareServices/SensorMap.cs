@@ -39,7 +39,6 @@ namespace LiteMonitor.src.SystemServices
         private readonly object _lock = new object();
         
         // ★★★ [新增] 配置引用 ★★★
-        private Settings _cfg;
 
         // [Fix] 回归 v1.2.9 的简单逻辑
         // 只有在初始化时才需要 build，之后除非手动触发或 10 分钟兜底，否则不需要任何检测。
@@ -109,7 +108,6 @@ namespace LiteMonitor.src.SystemServices
         // =======================================================================
         public void Rebuild(Computer computer, Settings cfg) // ★ 签名修改
         {
-            _cfg = cfg;
             // 1. 准备临时容器 (线程安全)
             var newMap = new Dictionary<string, ISensor>(StringComparer.OrdinalIgnoreCase); // 使用忽略大小写的比较器，减少字符串重复
             var newCpuCache = new List<CpuCoreSensors>();
@@ -296,8 +294,8 @@ namespace LiteMonitor.src.SystemServices
                 if (best != null) newMap["MOBO.Temp"] = best;
             }
 
-            // Only the retained CPU fan metric needs motherboard fan discovery.
-            if (cfg.IsAnyEnabled("CPU.Fan"))
+            // Discover motherboard fans when any of the three restored fan/pump metrics is selected.
+            if ((cfg.IsAnyEnabled("CPU.Fan") || cfg.IsAnyEnabled("CPU.Pump") || cfg.IsAnyEnabled("CASE.Fan")))
             {
                 _fanMapper.ScanAndMapFans(computer, cfg, newMap);
             }

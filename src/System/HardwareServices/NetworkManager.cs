@@ -10,7 +10,7 @@ using Debug = System.Diagnostics.Debug;
 
 namespace LiteMonitor.src.SystemServices
 {
-    public class NetworkManager
+    public class NetworkManager : IDisposable
     {
         // ★★★ [修复] 状态隔离：每个硬件拥有独立的网络状态，不再全局共享 ★★★
         private class NetworkState
@@ -36,18 +36,33 @@ namespace LiteMonitor.src.SystemServices
 
         // ★★★ 依赖注入：性能计数器 (用于获取 SMB 流量) ★★★
         private readonly PerformanceCounterManager _perfManager;
+        private readonly bool _ownsPerfManager;
+        private bool _disposed;
 
-        public NetworkManager(PerformanceCounterManager perfManager = null)
+        public NetworkManager(PerformanceCounterManager? perfManager = null)
         {
             // 允许为空 (为了兼容性)，如果为空则内部功能自动禁用
+            _ownsPerfManager = perfManager == null;
             _perfManager = perfManager ?? new PerformanceCounterManager(); 
             
             // [Fix #287] 监听网络地址变更事件，强制刷新 IP 和 网卡缓存
             // 当用户切换 WIFI 或插拔网线时，IP地址和网卡实例都会失效，必须重置
-            NetworkChange.NetworkAddressChanged += (s, e) => {
-                _staticIPCache = null; 
-                _shouldResetAdapters = true;
-            };
+            NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
+        }
+
+        private void OnNetworkAddressChanged(object? sender, EventArgs e)
+        {
+            _staticIPCache = "";
+            _shouldResetAdapters = true;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
+            if (_ownsPerfManager) _perfManager.Dispose();
+            ClearCache();
         }
 
         public void ClearCache()
@@ -111,7 +126,7 @@ namespace LiteMonitor.src.SystemServices
                 return _staticIPCache;
             }
 
-            string foundIP = null;
+            string? foundIP = null;
 
             // 2. 策略A：直接从当前锁定的硬件中获取 (这是最直接的方式)
             try 
@@ -133,7 +148,7 @@ namespace LiteMonitor.src.SystemServices
                     {
                         if (kv.Value.NativeAdapter != null)
                         {
-                            string ip = GetIPv4FromAdapter(kv.Value.NativeAdapter);
+                            string? ip = GetIPv4FromAdapter(kv.Value.NativeAdapter);
                             if (!string.IsNullOrEmpty(ip))
                             {
                                 foundIP = ip;
@@ -174,12 +189,12 @@ namespace LiteMonitor.src.SystemServices
             return _staticIPCache; 
         }
 
-        private string GetIPv4FromAdapter(NetworkInterface nic)
+        private string? GetIPv4FromAdapter(NetworkInterface nic)
         {
             try
             {
                 var props = nic.GetIPProperties();
-                string bestIP = null;
+                string? bestIP = null;
 
                 foreach (var ip in props.UnicastAddresses)
                 {

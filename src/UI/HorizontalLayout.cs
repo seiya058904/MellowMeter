@@ -158,7 +158,7 @@ namespace LiteMonitor
             return padV * 2 + ((isTaskbarSingle || isHorizontalSingle) ? _rowH : _rowH * 2);
         }
 
-        private int MeasureMetricItem(Graphics g, MetricItem item, Settings.TBStyle s)
+        private int MeasureMetricItem(Graphics g, MetricItem? item, Settings.TBStyle s)
         {
             if (item == null) return 0;
 
@@ -279,7 +279,7 @@ namespace LiteMonitor
             }
 
             // 2. 处理显示单位 (叠加用户配置)
-            string userFmt = item.BoundConfig?.UnitTaskbar;
+            string? userFmt = item.BoundConfig?.UnitTaskbar;
             string unit = MetricUtils.GetDisplayUnit(item.Key, rawUnit, userFmt);
 
             // Reserve a stable numeric footprint before values arrive.

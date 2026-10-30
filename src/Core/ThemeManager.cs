@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -147,59 +147,60 @@ namespace LiteMonitor.src.Core
         public ColorConfig Color { get; set; } = new();
 
         // 运行期字体（Json 忽略）
-        [JsonIgnore] public Font FontTitle = SystemFonts.CaptionFont;
-        [JsonIgnore] public Font FontGroup = SystemFonts.CaptionFont;
-        [JsonIgnore] public Font FontItem = SystemFonts.CaptionFont;
-        [JsonIgnore] public Font FontValue = SystemFonts.CaptionFont;
-        [JsonIgnore] public Font FontTaskbar = SystemFonts.CaptionFont;
+        [JsonIgnore] public Font FontTitle = SystemFonts.DefaultFont;
+        [JsonIgnore] public Font FontGroup = SystemFonts.DefaultFont;
+        [JsonIgnore] public Font FontItem = SystemFonts.DefaultFont;
+        [JsonIgnore] public Font FontValue = SystemFonts.DefaultFont;
+        [JsonIgnore] public Font FontTaskbar = SystemFonts.DefaultFont;
 
         // ===== 任务栏字体(写死硬编码，用来被调用) =====
         
         /// <summary>
         /// 构建 4 类字体。bold 对四类统一生效；scale 做软限制（0.5~3.0）。
         /// </summary>
-        public void BuildFonts()
-        {
-            try
-            {
-                var style = Font.Bold ? FontStyle.Bold : FontStyle.Regular;
-                FontTitle = new Font(Font.Family, (float)Font.Title, style);
-                FontGroup = new Font(Font.Family, (float)Font.Group, style);
-                FontItem = new Font(Font.Family, (float)Font.Item, style);
-                
-                var valueFamily = string.IsNullOrWhiteSpace(Font.ValueFamily) ? Font.Family : Font.ValueFamily;
-                FontValue = new Font(valueFamily, (float)Font.Value, style);
-            }
-            catch
-            {
-                FontTitle = FontGroup = FontItem = FontValue = SystemFonts.CaptionFont;
-            }
-        }
+        public void BuildFonts() => ReplaceFonts(1);
+
         public void Scale(float dpiScale, float userScale)
         {
             Layout.LayoutScale = dpiScale * userScale;
             Layout.Scale(Layout.LayoutScale);
-
-            var style = Font.Bold ? FontStyle.Bold : FontStyle.Regular;
-            var valueFamily = string.IsNullOrWhiteSpace(Font.ValueFamily) ? Font.Family : Font.ValueFamily;
-            float f = userScale <= 0 ? 1.0f : userScale;
-
-            // ★★★ 关键：先销毁旧的缩放字体，防止句柄泄露 ★★★
-            DisposeFonts(); 
-
-            // 创建新比例的字体
-            FontTitle = new Font(Font.Family, (float)Font.Title * f, style);
-            FontGroup = new Font(Font.Family, (float)Font.Group * f, style);
-            FontItem = new Font(Font.Family, (float)Font.Item * f, style);
-            FontValue = new Font(valueFamily, (float)Font.Value * f, style);
+            ReplaceFonts(float.IsFinite(userScale) && userScale > 0 ? userScale : 1);
         }
+
+        private void ReplaceFonts(float scale)
+        {
+            var created = new List<System.Drawing.Font>(4);
+            try
+            {
+                var style = Font.Bold ? FontStyle.Bold : FontStyle.Regular;
+                var valueFamily = string.IsNullOrWhiteSpace(Font.ValueFamily) ? Font.Family : Font.ValueFamily;
+                void Add(string family, double size) {
+                    double scaled = size * scale;
+                    float safeSize = double.IsFinite(scaled) && scaled > 0 ? (float)Math.Clamp(scaled, 1, 256) : 9;
+                    created.Add(new System.Drawing.Font(family, safeSize, style));
+                }
+                Add(Font.Family, Font.Title);
+                Add(Font.Family, Font.Group);
+                Add(Font.Family, Font.Item);
+                Add(valueFamily, Font.Value);
+            }
+            catch
+            {
+                foreach (var font in created) font.Dispose();
+                created.Clear();
+                for (int i = 0; i < 4; i++) created.Add(SystemFonts.DefaultFont);
+            }
+            // Construct a complete replacement before releasing fonts used by the preview.
+            DisposeFonts();
+            FontTitle = created[0]; FontGroup = created[1];
+            FontItem = created[2]; FontValue = created[3];
+        }
+
         public void DisposeFonts()
         {
-            // 只有非系统字体才需要 Dispose
-            if (FontTitle != null && !FontTitle.IsSystemFont) FontTitle.Dispose();
-            if (FontGroup != null && !FontGroup.IsSystemFont) FontGroup.Dispose();
-            if (FontItem != null && !FontItem.IsSystemFont) FontItem.Dispose();
-            if (FontValue != null && !FontValue.IsSystemFont) FontValue.Dispose();
+            foreach (var font in new[] { FontTitle, FontGroup, FontItem, FontValue }.Distinct())
+                if (!font.IsSystemFont) font.Dispose();
+            FontTitle = FontGroup = FontItem = FontValue = SystemFonts.DefaultFont;
         }
 
     }
@@ -231,12 +232,20 @@ namespace LiteMonitor.src.Core
         /// <summary>
         /// 列出可用主题文件名（不含扩展名）
         /// </summary>
+        public static string ResolveThemeName(string name)
+        {
+            if (string.Equals(name, "GlassLight", StringComparison.OrdinalIgnoreCase)) return "MellowLight";
+            if (string.Equals(name, "GlassDark", StringComparison.OrdinalIgnoreCase)) return "MellowDark";
+            return name;
+        }
+
         public static IEnumerable<string> GetAvailableThemes()
         {
             try
             {
                 return Directory.EnumerateFiles(ThemeDir, "*.json")
-                                .Select(Path.GetFileNameWithoutExtension)
+                                .Select(path => Path.GetFileNameWithoutExtension(path) ?? "")
+                                .Where(name => ResolveThemeName(name) == name)
                                 .OrderBy(n => n)
                                 .ToArray();
             }
@@ -251,6 +260,7 @@ namespace LiteMonitor.src.Core
         /// </summary>
         public static Theme Load(string name)
         {
+            name = ResolveThemeName(name);
             try
             {
                 var path = Path.Combine(ThemeDir, $"{name}.json");

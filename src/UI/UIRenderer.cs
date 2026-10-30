@@ -102,7 +102,7 @@ namespace LiteMonitor
             int gp = t.Layout.GroupPadding;
             
             // 绘制圆角背景
-            GlassSurface.Paint(g, gr.Bounds, ThemeManager.ParseColor(t.Color.GroupBackground), t.Layout.GroupRadius, t.Material == "glass" && LiteMonitor.src.UI.Helpers.WindowTheme.EffectsAllowed);
+            UIUtils.FillRoundRect(g, gr.Bounds, t.Layout.GroupRadius, ThemeManager.ParseColor(t.Color.GroupBackground));
 
             // 绘制组标题 (CPU, GPU...)
             // ★★★ 优化：直接使用缓存的 gr.Label，不再每帧调用 LanguageManager.T ★★★

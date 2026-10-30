@@ -10,14 +10,26 @@ Double-click the floating strip to switch its layout.
 Settings, traffic and hardware history are kept in %LOCALAPPDATA%\MellowMeter.
 Startup at sign-in is optional and off by default. Exit from the tray menu before replacing files.
 
-Version 0.2: 14 themes, including Glass Light and Glass Dark. Existing profiles keep their theme.
+Version 0.2 local iteration: all 32 upstream built-in metrics are available.
+New profiles use the upstream vertical layout and default selections, with DarkFlat Classic.
+Retired Glass Light/Dark selections fall back to Mellow Light/Dark.
+Legacy four-metric selections migrate to upstream defaults; custom themes, labels,
+placement and other custom selections are retained. The migration keeps a dedicated
+settings.pre-monitor-restore.json backup without replacing earlier backups.
+Hardware monitoring is enabled by default. Unavailable sensors display a dash.
+CPU/GPU/pump/case fans, FPS and manual source/calibration controls are available.
+Optional sensor drivers and FPS helpers install only through Settings > Hardware & System.
+FPS needs its helper and administrator access. Startup never downloads or installs them.
+Optional components are stored under %LOCALAPPDATA%\MellowMeter\components.
+Plugins, web monitoring, speed testing and automatic updating remain excluded.
+
+Settings feature animated switches, page transitions, disclosure, buttons and scrolling.
+Interface animations and Glass effects have separate switches in Main Panel settings.
+Animations respect the Windows client-area animation setting and stop when idle.
 Glass effects follow Windows transparency, high contrast and battery saver preferences.
-Windows 11 build 22621+ can use Mica in the settings sidebar. Floating/taskbar windows
-use a lightweight drawn material to preserve their transparency and click-through behavior.
-Turn off Glass effects in Settings > Main Panel for solid surfaces.
-The first settings migration saves settings.pre-v0.2.json in the data directory.
-Pump/case fan metrics, manual fan selection/calibration and dormant plugin/web/FPS/update
-modules are retired. CPU/GPU fans and automatic ranges remain available.
+Windows 11 build 22621+ can use native Acrylic in the settings sidebar. Other systems
+and disabled transparency use the solid fallback. Floating panels and taskbar strips
+retain the upstream display layout and flat data surfaces with the chosen theme.
 
 Source, instructions and issue reports:
 https://github.com/seiya058904/MellowMeter

@@ -15,9 +15,9 @@ namespace LiteMonitor.src.UI.SettingsPage
 
     public class SettingsPageBase : UserControl, ISettingsPage
     {
-        protected Settings Config;
-        protected MainForm MainForm;
-        protected UIController UI;
+        protected Settings? Config;
+        protected MainForm? MainForm;
+        protected UIController? UI;
         
         // ★★★ Refresh Mechanism for Deferred Load ★★★
         protected List<Action> _refreshActions = new List<Action>();
@@ -31,7 +31,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             this.DoubleBuffered = true;
         }
 
-        public void SetContext(Settings cfg, MainForm form, UIController ui)
+        public void SetContext(Settings cfg, MainForm? form, UIController? ui)
         {
             Config = cfg;
             MainForm = form;
@@ -114,8 +114,9 @@ namespace LiteMonitor.src.UI.SettingsPage
             }
         }
 
-        protected void EnsureSafeVisibility(LiteCheck chkHideMain, LiteCheck chkHideTray, LiteCheck chkShowTaskbar)
+        protected void EnsureSafeVisibility(LiteCheck? chkHideMain, LiteCheck? chkHideTray, LiteCheck? chkShowTaskbar)
         {
+            if (Config == null) return;
             bool hideMain = chkHideMain != null ? chkHideMain.Checked : Config.HideMainForm;
             bool hideTray = chkHideTray != null ? chkHideTray.Checked : Config.HideTrayIcon;
             bool showBar  = chkShowTaskbar != null ? chkShowTaskbar.Checked : Config.ShowTaskbar;

@@ -134,7 +134,6 @@ namespace LiteMonitor.src.Core
             }
 
             // 4. 标准模式 (Panel)
-            if (type == MetricType.Percent || type == MetricType.Temperature) return v.ToString("0.0");
             if (type == MetricType.FPS || type == MetricType.RPM) return $"{v:0}";
             if (type == MetricType.Frequency) return $"{v/1000f:F1}"; // 频率保持 F1，通常 GHz 需要一位小数
             

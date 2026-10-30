@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 using LiteMonitor.src.Core; // 确保引用了 UIUtils
@@ -13,7 +13,7 @@ namespace LiteMonitor.src.UI.Controls
         private static Color _accent;
         public static bool IsDark => ThemeManager.ParseColor(ThemeManager.Current.Color.Background).GetBrightness() < 0.5f;
         public static Color MainBg => ThemeManager.ParseColor(ThemeManager.Current.Color.Background);
-        public static Color SidebarBg => ThemeManager.Current.Material == "glass" ? Blend(MainBg, CardBg, .48f) : MainBg;
+        public static Color SidebarBg => MainBg;
         public static Color CardBg => ThemeManager.ParseColor(ThemeManager.Current.Color.GroupBackground);
         public static Color Border => Blend(CardBg, TextSub, 0.22f);
         public static Color Primary
@@ -21,17 +21,18 @@ namespace LiteMonitor.src.UI.Controls
             get
             {
                 var colors = ThemeManager.Current.Color;
-                if (_accentSource != (string.IsNullOrEmpty(colors.Accent) ? colors.BarLow : colors.Accent) || _accentBackground != colors.GroupBackground)
+                if (_accentSource != colors.BarLow || _accentBackground != colors.GroupBackground)
                 {
-                    _accentSource = string.IsNullOrEmpty(colors.Accent) ? colors.BarLow : colors.Accent;
+                    _accentSource = colors.BarLow;
                     _accentBackground = colors.GroupBackground;
-                    Color source = ThemeManager.ParseColor(_accentSource);
+                    Color source = ThemeManager.ParseColor(colors.BarLow);
                     Color background = CardBg;
                     _accent = EnsureContrast(source, background);
                 }
                 return _accent;
             }
         }
+        public static Color SwatchText(Color background) => Contrast(Color.Black, background) >= Contrast(Color.White, background) ? Color.Black : Color.White;
         public static Color OnPrimary => Contrast(Primary, Color.Black) >= Contrast(Primary, Color.White) ? Color.Black : Color.White;
         public static Color TextMain => ThemeManager.ParseColor(ThemeManager.Current.Color.TextPrimary);
         public static Color TextSub => EnsureContrast(Blend(CardBg, TextMain, 0.66f), CardBg);
@@ -84,23 +85,23 @@ namespace LiteMonitor.src.UI.Controls
             this.Margin = new Padding(0); // Full width item
             this.Padding = new Padding(0);
 
-            Label = new Label { 
-                Text = title, 
-                AutoSize = true, 
+            Label = new Label {
+                Text = title,
+                AutoSize = true,
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = UIColors.TextSub, // Slightly gray for descriptions/tips
-                TextAlign = ContentAlignment.MiddleLeft 
+                TextAlign = ContentAlignment.MiddleLeft
             };
 
             RightControl = rightControl;
-            
+
             this.Controls.Add(RightControl);
             this.Controls.Add(Label);
 
             this.Layout += (s, e) => {
                 int mid = this.Height / 2;
                 Label.Location = new Point(UIUtils.S(0), mid - Label.Height / 2); // Indent slightly
-                
+
                 // Position RightControl on the right
                 if (RightControl.Dock != DockStyle.Fill && RightControl.Dock != DockStyle.Top && RightControl.Dock != DockStyle.Bottom)
                 {
@@ -120,7 +121,7 @@ namespace LiteMonitor.src.UI.Controls
 
             // Title
             var lblTitle = new Label {
-                Text = title, AutoSize = true, 
+                Text = title, AutoSize = true,
                 Font = new Font("Segoe UI", 9F), ForeColor = UIColors.TextMain,
                 TextAlign = ContentAlignment.MiddleLeft
             };
@@ -129,16 +130,16 @@ namespace LiteMonitor.src.UI.Controls
             // Right Container
             var rightBox = new FlowLayoutPanel {
                 AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                FlowDirection = FlowDirection.LeftToRight, WrapContents = false, 
+                FlowDirection = FlowDirection.LeftToRight, WrapContents = false,
                 BackColor = Color.Transparent, Padding = new Padding(0)
             };
 
             // Inputs
             var inputWarn = new LiteNumberInput(range.Warn.ToString(), unit, LanguageManager.T("Menu.ValueWarnColor"), 140, UIColors.TextWarn);
             inputWarn.Padding = UIUtils.S(new Padding(0, 5, 0, 1));
-            
+
             var arrow = new Label { Text = "➜", AutoSize = true, ForeColor = UIColors.Border, Font = new Font("Segoe UI", 9F), Margin = UIUtils.S(new Padding(5, 4, 5, 0)) };
-            
+
             var inputCrit = new LiteNumberInput(range.Crit.ToString(), unit, LanguageManager.T("Menu.ValueCritColor"), 140, UIColors.TextCrit);
             inputCrit.Padding = UIUtils.S(new Padding(0, 5, 0, 1));
 
@@ -161,7 +162,7 @@ namespace LiteMonitor.src.UI.Controls
                 lblTitle.Location = new Point(UIUtils.S(5), (this.Height - lblTitle.Height) / 2);
                 rightBox.Location = new Point(this.Width - rightBox.Width - UIUtils.S(5), (this.Height - rightBox.Height) / 2);
             };
-            
+
             // Separator Line
             this.Paint += (s, e) => {
                 using(var p = new Pen(UIColors.Border)) e.Graphics.DrawLine(p, 0, Height-1, Width, Height-1);
@@ -178,16 +179,16 @@ namespace LiteMonitor.src.UI.Controls
             this.Padding = UIUtils.S(new Padding(indent, 5, 5, 5));
             this.AutoSize = true;
 
-            var lbl = new Label { 
-                Text = text, 
-                AutoSize = true, 
+            var lbl = new Label {
+                Text = text,
+                AutoSize = true,
                 MaximumSize = new Size(UIUtils.S(500), 0), // Limit width to trigger wrap? Actual width set in Layout
                 Font = new Font("Segoe UI", 8F),
                 ForeColor = UIColors.TextSub,
                 Dock = DockStyle.Fill
             };
             this.Controls.Add(lbl);
-            
+
             // Dynamic Height based on text
             this.Resize += (s, e) => {
                 lbl.MaximumSize = new Size(this.Width - this.Padding.Horizontal, 0);
@@ -195,7 +196,7 @@ namespace LiteMonitor.src.UI.Controls
         }
     }
 
-    public static class UIFonts 
+    public static class UIFonts
     {
         public static Font Regular(float size) => new Font("Segoe UI", size, FontStyle.Regular);
         public static Font Bold(float size) => new Font("Segoe UI", size, FontStyle.Bold);
@@ -313,7 +314,8 @@ namespace LiteMonitor.src.UI.Controls
                 e.Graphics.FillRectangle(outer, ClientRectangle);
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 using var path = UIUtils.RoundRect(new Rectangle(0, 0, Math.Max(0, Width-1), Math.Max(0, Height-1)), UIUtils.S(13));
-                GlassSurface.Paint(e.Graphics, new Rectangle(0, 0, Width, Height), UIColors.CardBg, UIUtils.S(13));
+                using var surface = new SolidBrush(UIColors.CardBg);
+                e.Graphics.FillPath(surface, path);
             }
         }
     }
@@ -363,7 +365,8 @@ namespace LiteMonitor.src.UI.Controls
             e.Graphics.FillRectangle(outer, ClientRectangle);
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using var path = UIUtils.RoundRect(new Rectangle(0, 0, Math.Max(0, Width-1), Math.Max(0, Height-1)), UIUtils.S(13));
-            GlassSurface.Paint(e.Graphics, ClientRectangle, UIColors.CardBg, UIUtils.S(13));
+            using var inner = new SolidBrush(UIColors.CardBg);
+            e.Graphics.FillPath(inner, path);
         }
     }
 
@@ -375,8 +378,8 @@ namespace LiteMonitor.src.UI.Controls
     public class LiteUnderlineInput : Panel
     {
         public TextBox Inner;
-        private Label _lblUnit;   // 单位 (右侧)
-        private Label _lblLabel;  // 标签 (左侧)
+        private Label? _lblUnit;   // 单位 (右侧)
+        private Label? _lblLabel;  // 标签 (左侧)
 
         private const int EM_SETCUEBANNER = 0x1501;
         [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
@@ -393,10 +396,10 @@ namespace LiteMonitor.src.UI.Controls
             }
         }
 
-        public LiteUnderlineInput(string text, string unit = "", string labelPrefix = "", int width = 160, Color? fontColor = null, HorizontalAlignment align = HorizontalAlignment.Left) 
+        public LiteUnderlineInput(string text, string unit = "", string labelPrefix = "", int width = 160, Color? fontColor = null, HorizontalAlignment align = HorizontalAlignment.Left)
         {
             // ★★★ 修改：Size/Padding 缩放
-            this.Size = new Size(UIUtils.S(width), UIUtils.S(26)); 
+            this.Size = new Size(UIUtils.S(width), UIUtils.S(26));
             this.BackColor = UIColors.CardBg;
             this.Padding = UIUtils.S(new Padding(8, 4, 8, 4));
             this.Cursor = Cursors.IBeam;
@@ -409,7 +412,7 @@ namespace LiteMonitor.src.UI.Controls
                 BackColor = UIColors.FieldBg,
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular),
                 ForeColor = fontColor ?? UIColors.TextSub,
-                TextAlign = align 
+                TextAlign = align
             };
             // this.Controls.Add(Inner); // Moved to end to ensure correct Dock order (Inner should be last Docked => Front of Z-Order)
 
@@ -418,7 +421,7 @@ namespace LiteMonitor.src.UI.Controls
             {
                 _lblUnit = new Label {
                     Text = unit,
-                    AutoSize = true, 
+                    AutoSize = true,
                     Dock = DockStyle.Right,
                     Font = new Font("Segoe UI", 8F),
                     ForeColor = UIColors.TextSub,
@@ -426,7 +429,7 @@ namespace LiteMonitor.src.UI.Controls
                     BackColor = UIColors.FieldBg,
                     Padding = Padding.Empty
                 };
-                this.Controls.Add(_lblUnit); 
+                this.Controls.Add(_lblUnit);
                 _lblUnit.Click += (s, e) => Inner.Focus();
             }
 
@@ -434,8 +437,8 @@ namespace LiteMonitor.src.UI.Controls
             if (!string.IsNullOrEmpty(labelPrefix))
             {
                 _lblLabel = new Label {
-                    Text = labelPrefix, 
-                    AutoSize = true, 
+                    Text = labelPrefix,
+                    AutoSize = true,
                     Dock = DockStyle.Left,
                     Font = new Font("Segoe UI", 9F),
                     ForeColor = fontColor ?? UIColors.TextSub,
@@ -443,7 +446,7 @@ namespace LiteMonitor.src.UI.Controls
                     BackColor = UIColors.FieldBg,
                     Padding = UIUtils.S(new Padding(0, 0, 4, 0))
                 };
-                this.Controls.Add(_lblLabel); 
+                this.Controls.Add(_lblLabel);
                 _lblLabel.Click += (s, e) => Inner.Focus();
             }
 
@@ -458,12 +461,12 @@ namespace LiteMonitor.src.UI.Controls
 
             // ★★★ Fix: Ensure Inner is at the top of Z-Order so it docks LAST (filling remaining space)
             // ensuring it respects the space taken by previously docked controls (Unit/Label)
-            Inner.BringToFront(); 
+            Inner.BringToFront();
         }
 
         public void SetTextColor(Color c) => Inner.ForeColor = c;
         public void SetBg(Color c) { BackColor = c; }
-        
+
         protected override void OnPaint(PaintEventArgs e) {
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using var path = UIUtils.RoundRect(new Rectangle(0, 0, Width-1, Height-1), UIUtils.S(8));
@@ -483,13 +486,13 @@ namespace LiteMonitor.src.UI.Controls
     public class LiteNumberInput : LiteUnderlineInput
     {
         public LiteNumberInput(
-            string text, 
-            string unit = "", 
-            string label = "",      
-            int width = 160, 
-            Color? color = null,    
-            int maxLength = 10) 
-            : base(text, unit, label, width, color, HorizontalAlignment.Center) 
+            string text,
+            string unit = "",
+            string label = "",
+            int width = 160,
+            Color? color = null,
+            int maxLength = 10)
+            : base(text, unit, label, width, color, HorizontalAlignment.Center)
         {
             this.Inner.MaxLength = maxLength;
 
@@ -509,7 +512,7 @@ namespace LiteMonitor.src.UI.Controls
                 }
             };
         }
-        
+
         public int ValueInt => int.TryParse(Inner.Text, out int v) ? v : 0;
         public double ValueDouble => double.TryParse(Inner.Text, out double v) ? v : 0.0;
     }
@@ -523,12 +526,12 @@ namespace LiteMonitor.src.UI.Controls
         public LiteColorInput(string initialHex)
         {
             // ★★★ 修改：Size/Location 缩放
-            this.Size = new Size(UIUtils.S(95), UIUtils.S(26)); 
+            this.Size = new Size(UIUtils.S(95), UIUtils.S(26));
             Picker = new LiteColorPicker(initialHex) { Size = new Size(UIUtils.S(26), UIUtils.S(22)), Location = new Point(this.Width - UIUtils.S(26), UIUtils.S(3)) };
-            
+
             // 适配新构造函数
             Input = new LiteUnderlineInput(initialHex, "", "", 60) { Location = new Point(0, 0) };
-            
+
             Picker.ColorChanged += (s, e) => Input.Inner.Text = $"#{Picker.Value.R:X2}{Picker.Value.G:X2}{Picker.Value.B:X2}";
             Input.Inner.TextChanged += (s, e) => Picker.SetHex(Input.Inner.Text);
             this.Controls.Add(Input);
@@ -550,10 +553,10 @@ namespace LiteMonitor.src.UI.Controls
 
     // 其他原有组件
     public class LiteNote : Panel { public LiteNote(string text, int indent = 0) { this.Dock = DockStyle.Top; this.Height = UIUtils.S(32); this.Margin = new Padding(0); var lbl = new Label { Text = text, AutoSize = true, Font = new Font("Segoe UI", 8F), ForeColor = UIColors.TextSub, Location = new Point(UIUtils.S(indent), UIUtils.S(10)) }; this.Controls.Add(lbl); } }
-    public class LiteComboItem 
-    { 
-        public string Text { get; set; } 
-        public string Value { get; set; } 
+    public class LiteComboItem
+    {
+        public string Text { get; set; } = "";
+        public string Value { get; set; } = "";
         public override string ToString() => Text;
     }
 
@@ -591,7 +594,7 @@ namespace LiteMonitor.src.UI.Controls
                 : Enabled ? UIColors.TextMain : UIColors.TextSub;
             using var brush = new SolidBrush(background);
             e.Graphics.FillRectangle(brush, e.Bounds);
-            string text = e.Index >= 0 && e.Index < Items.Count ? GetItemText(Items[e.Index]) : Text;
+            string text = (e.Index >= 0 && e.Index < Items.Count ? GetItemText(Items[e.Index]) : Text) ?? "";
             var bounds = Rectangle.Inflate(e.Bounds, -ScalePixel(6), 0);
             TextRenderer.DrawText(e.Graphics, text, Font, bounds, foreground,
                 UIRenderer.TextFlags | (RightToLeft == RightToLeft.Yes ? TextFormatFlags.RightToLeft | TextFormatFlags.Right : TextFormatFlags.Left));
@@ -657,40 +660,41 @@ namespace LiteMonitor.src.UI.Controls
         }
     }
 
-    public class LiteComboBox : Panel 
-    { 
-        public ComboBox Inner; 
-        
-        public LiteComboBox() 
-        { 
+    public class LiteComboBox : Panel
+    {
+        public ComboBox Inner;
+
+        public LiteComboBox()
+        {
             this.Size = new Size(UIUtils.S(160), UIUtils.S(28));
             this.BackColor = UIColors.CardBg;
             this.Padding = Padding.Empty;
-            
-            Inner = new NoScrollComboBox 
-            { 
-                DropDownStyle = ComboBoxStyle.DropDownList, 
-                FlatStyle = FlatStyle.Flat, 
-                ForeColor = UIColors.TextSub, 
+
+            Inner = new NoScrollComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = UIColors.TextSub,
                 Font = new Font("Segoe UI", 9F),
                 // ★★★ 核心修复：移除 Dock.Fill，改为 None，以便我们可以手动居中它
-                Dock = DockStyle.None, 
+                Dock = DockStyle.None,
                 BackColor = UIColors.CardBg,
-                Margin = new Padding(0) 
-            }; 
-            this.Controls.Add(Inner); 
+                Margin = new Padding(0)
+            };
+            this.Controls.Add(Inner);
 
             // ★★★ 新增：手动布局以实现垂直居中 ★★★
             this.Layout += (s, e) => {
                 Inner.Width = this.Width;
                 Inner.Location = new Point(0, (this.Height - Inner.Height) / 2);
             };
-        } 
-        
-        public object SelectedItem { get => Inner.SelectedItem; set => Inner.SelectedItem = value; } 
-        public int SelectedIndex { get => Inner.SelectedIndex; set => Inner.SelectedIndex = value; } 
-        public ComboBox.ObjectCollection Items => Inner.Items; 
-        public override string Text { get => Inner.Text; set => Inner.Text = value; } 
+        }
+
+        public object? SelectedItem { get => Inner.SelectedItem; set => Inner.SelectedItem = value; }
+        public int SelectedIndex { get => Inner.SelectedIndex; set => Inner.SelectedIndex = value; }
+        public ComboBox.ObjectCollection Items => Inner.Items;
+        [System.Diagnostics.CodeAnalysis.AllowNull]
+        public override string Text { get => Inner.Text; set => Inner.Text = value ?? ""; }
 
         // Helper methods for Key-Value pairs
         public void AddItem(string text, string value)
@@ -699,7 +703,7 @@ namespace LiteMonitor.src.UI.Controls
              Inner.DisplayMember = "Text";
              Inner.ValueMember = "Value";
         }
-        
+
         public bool SelectValue(string value)
         {
              for(int i=0; i<Inner.Items.Count; i++)
@@ -723,7 +727,7 @@ namespace LiteMonitor.src.UI.Controls
              return false;
         }
 
-        public string SelectedValue 
+        public string SelectedValue
         {
             get => (Inner.SelectedItem as LiteComboItem)?.Value ?? "";
         }
@@ -733,14 +737,14 @@ namespace LiteMonitor.src.UI.Controls
         private Color _normalColor = UIColors.Primary;
         private Color _hoverColor = UIColors.TextMain;
 
-        public LiteLink(string text, Action onClick = null)
+        public LiteLink(string text, Action? onClick = null)
         {
             this.Text = text;
             this.AutoSize = true;
             this.Cursor = Cursors.Hand;
             this.ForeColor = _normalColor;
             this.Font = new Font("Segoe UI", 9F, FontStyle.Underline);
-            
+
             if (onClick != null)
                 this.Click += (s, e) => { if (this.Enabled) onClick(); };
 
@@ -756,14 +760,14 @@ namespace LiteMonitor.src.UI.Controls
         }
 
         public new bool Enabled
-        { 
-            get => base.Enabled; 
-            set 
-            { 
+        {
+            get => base.Enabled;
+            set
+            {
                 base.Enabled = value;
                 this.Cursor = value ? Cursors.Hand : Cursors.Default;
                 this.ForeColor = value ? _normalColor : UIColors.TextSub;
-            } 
+            }
         }
     }
 
@@ -846,47 +850,47 @@ namespace LiteMonitor.src.UI.Controls
     }
 
     public class LiteButton : Button
-    { 
+    {
         private bool _dashed;
         private bool _primary;
         private bool _hovered;
         private bool _mousePressed;
         private bool _keyPressed;
-        
-        public LiteButton(string t, bool p = false, bool dashed = false) 
-        { 
-            Text = t; 
+
+        public LiteButton(string t, bool p = false, bool dashed = false)
+        {
+            Text = t;
             _dashed = dashed;
             _primary = p;
-            Size = new Size(UIUtils.S(80), UIUtils.S(32)); 
-            FlatStyle = FlatStyle.Flat; 
+            Size = new Size(UIUtils.S(80), UIUtils.S(32));
+            FlatStyle = FlatStyle.Flat;
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Opaque, true);
-            Cursor = Cursors.Hand; 
+            Cursor = Cursors.Hand;
             Font = new Font("Segoe UI", 9F, p ? FontStyle.Bold : FontStyle.Regular);
             FlatAppearance.BorderSize = 0;
             FlatAppearance.MouseOverBackColor = p ? UIColors.Blend(UIColors.Primary, UIColors.OnPrimary, 0.08f) : UIColors.NavHover;
             FlatAppearance.MouseDownBackColor = p ? UIColors.Blend(UIColors.Primary, UIColors.OnPrimary, 0.16f) : UIColors.NavSelected;
-            
-            if (p) 
-            { 
-                BackColor = UIColors.Primary; 
+
+            if (p)
+            {
+                BackColor = UIColors.Primary;
                 ForeColor = UIColors.OnPrimary;
-                FlatAppearance.BorderSize = 0; 
-            } 
+                FlatAppearance.BorderSize = 0;
+            }
             else if (dashed)
             {
                 BackColor = Color.Transparent;
                 ForeColor = UIColors.TextSub;
                 FlatAppearance.BorderSize = 0;
             }
-            else 
-            { 
+            else
+            {
                 BackColor = UIColors.CardBg;
-                ForeColor = UIColors.TextMain; 
-                FlatAppearance.BorderColor = UIColors.Border; 
-            } 
-        } 
+                ForeColor = UIColors.TextMain;
+                FlatAppearance.BorderColor = UIColors.Border;
+            }
+        }
 
         private Color ResolveBackground()
         {
@@ -973,22 +977,16 @@ namespace LiteMonitor.src.UI.Controls
             ForeColor = UIColors.TextMain;
         }
 
-        protected override void OnPaintBackground(PaintEventArgs e)
-        {
-            bool sidebar = Parent?.Parent is MaterialSidebar;
-            e.Graphics.Clear(sidebar && FindForm() is Form form && LiteMonitor.src.UI.Helpers.WindowTheme.HasBackdrop(form)
-                ? Color.FromArgb(0, 0, 0, 0) : sidebar ? UIColors.SidebarBg : UIColors.MainBg);
-        }
-
         protected override void OnPaint(PaintEventArgs e)
         {
             bool hover = ClientRectangle.Contains(PointToClient(Cursor.Position));
             Color bg = _isActive ? UIColors.NavSelected : hover ? UIColors.NavHover : UIColors.SidebarBg;
-            OnPaintBackground(e);
+            using var background = new SolidBrush(UIColors.SidebarBg);
+            e.Graphics.FillRectangle(background, ClientRectangle);
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            using var path = UIUtils.RoundRect(Rectangle.Inflate(ClientRectangle, -2, -2), UIUtils.S(18));
+            using var path = UIUtils.RoundRect(Rectangle.Inflate(ClientRectangle, -2, -2), UIUtils.S(10));
             using var brush = new SolidBrush(bg);
-            if (_isActive || hover) e.Graphics.FillPath(brush, path);
+            e.Graphics.FillPath(brush, path);
             string icon = string.IsNullOrEmpty(Text) ? "" : System.Globalization.StringInfo.GetNextTextElement(Text);
             bool hasIcon = icon.Any(char.IsSurrogate) || icon.StartsWith("⚙") || icon.StartsWith("➖");
             string caption = hasIcon ? Text.Substring(icon.Length).TrimStart() : Text;
@@ -998,16 +996,15 @@ namespace LiteMonitor.src.UI.Controls
                 using var iconPath = UIUtils.RoundRect(iconRect, UIUtils.S(7));
                 using var iconBrush = new SolidBrush(UIColors.Blend(UIColors.CardBg, UIColors.Primary, _isActive ? .24f : .12f));
                 e.Graphics.FillPath(iconBrush, iconPath);
-                NavigationIcon.Draw(e.Graphics, Tag as string ?? "System", Rectangle.Inflate(iconRect, -UIUtils.S(3), -UIUtils.S(3)), UIColors.TextMain);
+                TextRenderer.DrawText(e.Graphics, icon, _regularFont, iconRect, UIColors.TextMain,
+                    UIRenderer.TextFlags | TextFormatFlags.HorizontalCenter | TextFormatFlags.PreserveGraphicsClipping | TextFormatFlags.PreserveGraphicsTranslateTransform);
             }
             int left = UIUtils.S(hasIcon ? 43 : 10);
             var textRect = new Rectangle(left, 0, Math.Max(0, Width-left-UIUtils.S(10)), Height);
-            using (var textBrush = new SolidBrush(Enabled ? UIColors.TextMain : UIColors.TextSub))
-            using (var textFormat = new StringFormat { Alignment = hasIcon ? StringAlignment.Near : StringAlignment.Center,
-                LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap, Trimming = StringTrimming.EllipsisCharacter }) {
-                e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-                e.Graphics.DrawString(caption, _isActive ? _activeFont : _regularFont, textBrush, textRect, textFormat);
-            }
+            TextRenderer.DrawText(e.Graphics, caption, _isActive ? _activeFont : _regularFont,
+                textRect, Enabled ? UIColors.TextMain : UIColors.TextSub, UIRenderer.TextFlags |
+                (hasIcon ? TextFormatFlags.Left : TextFormatFlags.HorizontalCenter) |
+                TextFormatFlags.PreserveGraphicsClipping | TextFormatFlags.PreserveGraphicsTranslateTransform);
             if (Focused && ShowFocusCues)
                 ControlPaint.DrawFocusRectangle(e.Graphics, Rectangle.Inflate(ClientRectangle, -3, -3), UIColors.Primary, bg);
         }
@@ -1022,56 +1019,30 @@ namespace LiteMonitor.src.UI.Controls
             base.Dispose(disposing);
         }
     }
-    public class LiteSortBtn : Button
-    {
-        private readonly ToolTip _hint = new();
-        public LiteSortBtn(string text) {
-            Text = text;
-            AccessibleName = LanguageManager.T(text == "▲" ? "Menu.MoveUp" : "Menu.MoveDown");
-            _hint.SetToolTip(this, AccessibleName);
-            Size = UIUtils.S(new Size(24, 24));
-            FlatStyle = FlatStyle.Flat;
-            FlatAppearance.BorderSize = 0;
-            FlatAppearance.MouseOverBackColor = UIColors.NavHover;
-            BackColor = UIColors.GroupHeader; ForeColor = UIColors.TextSub;
-            Cursor = Cursors.Hand; Font = new Font("Segoe UI", 7F, FontStyle.Bold); Margin = Padding.Empty;
-        }
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            e.Graphics.Clear(BackColor);
-            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            float x = Width / 2f, y = Height / 2f, r = UIUtils.S(3);
-            float direction = Text == "▲" ? -1 : 1;
-            using var brush = new SolidBrush(Enabled ? UIColors.TextSub : UIColors.Blend(BackColor, UIColors.TextSub, .28f));
-            e.Graphics.FillPolygon(brush, new[] { new PointF(x, y + direction * r), new PointF(x-r, y-direction*r), new PointF(x+r, y-direction*r) });
-            if (Focused && ShowFocusCues) ControlPaint.DrawFocusRectangle(e.Graphics, Rectangle.Inflate(ClientRectangle, -2, -2), UIColors.Primary, BackColor);
-        }
-        protected override void OnEnabledChanged(EventArgs e) { base.OnEnabledChanged(e); Cursor = Enabled ? Cursors.Hand : Cursors.Default; Invalidate(); }
-        protected override void Dispose(bool disposing) { if (disposing) { _hint.Dispose(); Font.Dispose(); } base.Dispose(disposing); }
-    }
+    public class LiteSortBtn : Button { public LiteSortBtn(string txt) { Text = txt; Size = new Size(UIUtils.S(24), UIUtils.S(24)); FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; BackColor = UIColors.GroupHeader; ForeColor = UIColors.TextSub; Cursor = Cursors.Hand; Font = new Font("Segoe UI", 7F, FontStyle.Bold); Margin = new Padding(0); } }
 
     // ★★★ New: Header Button (Variable Width) ★★★
-    public class LiteHeaderBtn : Button 
-    { 
-        public LiteHeaderBtn(string txt) 
-        { 
-            Text = txt; 
-            FlatStyle = FlatStyle.Flat; 
-            FlatAppearance.BorderSize = 0; 
+    public class LiteHeaderBtn : Button
+    {
+        public LiteHeaderBtn(string txt)
+        {
+            Text = txt;
+            FlatStyle = FlatStyle.Flat;
+            FlatAppearance.BorderSize = 0;
             BackColor = UIColors.GroupHeader;
             ForeColor = UIColors.TextSub;
-            Cursor = Cursors.Hand; 
+            Cursor = Cursors.Hand;
             Font = new Font("Segoe UI", 8F, FontStyle.Bold);
             Margin = new Padding(0);
-            
+
             // Auto Width
             int w = TextRenderer.MeasureText(txt, Font).Width + UIUtils.S(16);
             Size = new Size(w, UIUtils.S(24));
-        } 
+        }
         public void SetColor(Color c) { ForeColor = c; }
     }
 
-    
+
     /// <summary>
     /// 终极防闪烁面板
     /// 1. 开启双缓冲合成
@@ -1083,9 +1054,9 @@ namespace LiteMonitor.src.UI.Controls
         {
             // 开启所有标准的双缓冲标志
             this.DoubleBuffered = true;
-            this.SetStyle(ControlStyles.AllPaintingInWmPaint | 
-                          ControlStyles.UserPaint | 
-                          ControlStyles.OptimizedDoubleBuffer | 
+            this.SetStyle(ControlStyles.AllPaintingInWmPaint |
+                          ControlStyles.UserPaint |
+                          ControlStyles.OptimizedDoubleBuffer |
                           ControlStyles.ResizeRedraw |
                           ControlStyles.ContainerControl, true); // 确保它作为容器被优化
             this.UpdateStyles();

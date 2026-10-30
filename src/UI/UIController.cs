@@ -238,7 +238,7 @@ namespace LiteMonitor
                 // ② 更新横版 / 任务栏 (清理了冗余代码)
                 void UpdateCol(Column col)
                 {
-                    void UpdateItem(MetricItem it) 
+                    void UpdateItem(MetricItem? it)
                     {
                         if (it == null) return;
                         
@@ -477,7 +477,7 @@ namespace LiteMonitor
                  // 避免异步等待导致的 "?"
                  if (dashKey == "IP")
                  {
-                      string cachedIP = HardwareMonitor.Instance?.GetNetworkIP();
+                      string? cachedIP = HardwareMonitor.Instance?.GetNetworkIP();
                       if (!string.IsNullOrEmpty(cachedIP) && cachedIP != "?")
                       {
                            InfoService.Instance.InjectIP(cachedIP);

@@ -1,3 +1,4 @@
+using LiteMonitor.src.Core;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -47,7 +48,7 @@ namespace LiteMonitor.src.SystemServices
         private DateTime _lastDataTime = DateTime.MinValue; // 最后一次收到数据的时间
         
         // ★★★ [新增] 引用 DriverInstaller ★★★
-        private readonly DriverInstaller _driverInstaller;
+
 
         // 秒表计时，用于计算采样周期
         private Stopwatch _cycleTimer = new Stopwatch();
@@ -89,11 +90,9 @@ namespace LiteMonitor.src.SystemServices
         private const int OLYMPIC_SIZE = 6;
 
         // 文件路径常量
-        private static readonly string BaseDir = AppDomain.CurrentDomain.BaseDirectory; // 使用 AppDomain 确保准确
-        // ★★★ [修改] 统一路径到 resources/assets ★★★
-        private static readonly string AssetDir = Path.Combine(BaseDir, "resources");
-        private static readonly string ExePath = Path.Combine(AssetDir, "LiteMonitorFPS.exe");
-        private static readonly string LogPath = Path.Combine(BaseDir, "fps_debug.log");
+        // Optional helper is installed only on request, in the writable user profile.
+        private static readonly string ExePath = AppPaths.DataFile("components/LiteMonitorFPS.exe");
+        private static readonly string LogPath = AppPaths.DataFile("fps_debug.log");
         
         /// <summary>
         /// 内部结构体：一次采样的记录
@@ -110,9 +109,8 @@ namespace LiteMonitor.src.SystemServices
         /// 初始化环境并启动后台任务
         /// </summary>
         /// <param name="installer">注入 DriverInstaller 以复用下载逻辑</param>
-        public FpsCounter(DriverInstaller installer)
+        public FpsCounter()
         {
-            _driverInstaller = installer;
             _hasPermission = IsAdministrator();
 
         }

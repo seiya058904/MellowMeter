@@ -22,7 +22,7 @@ namespace LiteMonitor.src.UI.Helpers
             // --- 内部辅助函数：首次开启时的最大值设定引导 ---
             void CheckAndRemind(string name)
             {
-                if (cfg.MaxLimitTipShown) return;
+                if (cfg.MaxLimitTipShown || ui == null) return;
 
                 string msg = cfg.Language == "zh"
                     ? $"您是首次开启 {name}。\n\n建议设置一下“电脑{name}”实际最大值，让进度条显示更准确。\n\n是否现在去设置？\n\n点“否”将不再提示，程序将在高负载时（如大型游戏时）进行动态学习最大值"
@@ -275,7 +275,9 @@ namespace LiteMonitor.src.UI.Helpers
             {
                 monitorRoot.DropDownItems.Add(new ToolStripSeparator());
                 var advanced = new ToolStripMenuItem(LanguageManager.T("Menu.AdvancedSensors") + "…");
+                advanced.Enabled = ui != null;
                 advanced.Click += (_, __) => {
+                    if (ui == null) return;
                     using var settings = new LiteMonitor.src.UI.SettingsForm(cfg, ui, form);
                     settings.SwitchPage("System");
                     settings.ShowDialog(form);
@@ -287,11 +289,7 @@ namespace LiteMonitor.src.UI.Helpers
 
         public static bool IsAvailable(string key, Settings cfg)
         {
-            if (key is "CPU.Load" or "MEM.Load" or "NET.Up" or "NET.Down" or "DATA.DayUp" or "DATA.DayDown") return true;
-            if (!cfg.AdvancedSensorsEnabled || key == "FPS") return false;
-            return key.StartsWith("CPU.", StringComparison.Ordinal) || key.StartsWith("GPU.", StringComparison.Ordinal)
-                || key.StartsWith("DISK.", StringComparison.Ordinal) || key.StartsWith("BAT.", StringComparison.Ordinal)
-                || key is "MOBO.Temp" or "CASE.Fan" or "DASH.HOST" or "DASH.Time" or "DASH.Uptime" or "DASH.IP";
+            return SettingsHelper.GetStandardKeys().Contains(key);
         }
     }
 }

@@ -16,7 +16,7 @@ namespace LiteMonitor
     public class MetricItem
     {
         // [新增] 绑定原始配置对象，实现动态 Label
-        public MonitorItemConfig BoundConfig { get; set; }
+        public MonitorItemConfig? BoundConfig { get; set; }
 
         private string _key = "";
         
@@ -75,7 +75,7 @@ namespace LiteMonitor
         
         public float? Value { get; set; } = null;
         public float DisplayValue { get; set; } = 0f;
-        public string TextValue { get; set; } = null;
+        public string? TextValue { get; set; }
 
         // =============================
         // 缓存字段

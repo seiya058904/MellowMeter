@@ -79,6 +79,11 @@
     "BAT.Current": "🔋"
   },
   "Menu": {
+    "InstallFpsComponent": "安装 FPS 组件…",
+    "InstallSensorDriver": "安装传感器驱动…",
+    "OptionalComponentsTip": "温度传感器可能需要 PawnIO 驱动；FPS 需要专用组件及管理员权限。启动时不会自动安装。按需安装后请重启 MellowMeter。",
+    "OptionalComponents": "可选组件",
+    "InterfaceAnimations": "界面动效",
     "GlassEffects": "玻璃效果",
     "SourcesLoading": "正在读取设备…",
     "SourcesReady": "可用设备已载入",
@@ -89,10 +94,10 @@
     "MoveDown": "下移",
 
     "AdvancedSensors": "高级传感器",
-    "AdvancedSensorsTip": "增加温度、功耗、频率和风扇指标。应用后重启 MellowMeter；读数取决于硬件支持及可用的兼容驱动。",
+    "AdvancedSensorsTip": "默认启用完整硬件监控，无法读取的传感器显示为横线。修改后重启生效。",
     "HistoryEnabled": "记录本地历史",
     "HistoryTip": "在本机保存负载与流量历史，不会上传数据。",
-    "BasicSensorsTip": "CPU、内存和网络无需硬件驱动。更多指标可在系统设置中启用高级传感器。",
+    "BasicSensorsTip": "已列出全部内置项目，启用硬件监控后可读取高级传感器。",
     "RestartForSensors": "传感器模式已保存，重启 MellowMeter 后生效。",
     "UpstreamProject": "基于 Diorser 的 LiteMonitor 项目",
     "__Comment_Global__": "--- 全局/按钮/右键菜单 ---",

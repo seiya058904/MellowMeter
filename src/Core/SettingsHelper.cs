@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -35,6 +35,16 @@ namespace LiteMonitor
                 loadedSource = primary != null ? FilePath : backup != null ? _backupPath : null;
             }
 
+            s.MonitorItems?.RemoveAll(item => item == null || string.IsNullOrWhiteSpace(item.Key) ||
+                ((item.Key.StartsWith("DASH.", StringComparison.OrdinalIgnoreCase) &&
+                  item.Key is not ("DASH.HOST" or "DASH.Time" or "DASH.Uptime" or "DASH.IP"))));
+
+            // Legacy files had one order only. Initialize the second order in place
+            // before appending missing entries; never rebuild and reset custom positions.
+            if (s.MonitorItems is { Count: > 0 } && s.MonitorItems.Where(x => x != null).All(x => x.TaskbarSortIndex == 0))
+                foreach (var item in s.MonitorItems)
+                    if (item != null) item.TaskbarSortIndex = item.SortIndex;
+
             if (s.SettingsSchemaVersion < 2)
             {
                 // A dedicated, never-overwritten backup survives the normal rotating .bak file.
@@ -43,25 +53,45 @@ namespace LiteMonitor
                     File.Copy(loadedSource, migrationBackup, false);
                 s.SettingsSchemaVersion = 2;
             }
+            if (s.SettingsSchemaVersion < 3)
+            {
+                string backup = AppPaths.DataFile("settings.pre-monitor-restore.json");
+                if (loadedSource != null && !File.Exists(backup)) File.Copy(loadedSource, backup, false);
+                var compact = new HashSet<string> { "CPU.Load", "MEM.Load", "NET.Up", "NET.Down" };
+                var defaults = new Settings();
+                defaults.InitDefaultItems();
+                bool compactPanel = s.MonitorItems != null && compact.SetEquals(s.MonitorItems.Where(x => x != null && x.VisibleInPanel).Select(x => x.Key));
+                bool compactTaskbar = s.MonitorItems != null && compact.SetEquals(s.MonitorItems.Where(x => x != null && x.VisibleInTaskbar).Select(x => x.Key));
+                if (s.MonitorItems != null)
+                    foreach (var item in s.MonitorItems)
+                    {
+                        if (item == null) continue;
+                        var original = defaults.MonitorItems.FirstOrDefault(x => x.Key == item.Key);
+                        if (original == null) continue;
+                        if (compactPanel) item.VisibleInPanel = original.VisibleInPanel;
+                        if (compactTaskbar) item.VisibleInTaskbar = original.VisibleInTaskbar;
+                    }
+                // Complete sparse legacy lists before the generic repair. Only the exact
+                // compact selection opts in to the upstream visible defaults.
+                if (s.MonitorItems is { Count: > 0 }) s.CheckAndAppendMissingItems(compactPanel, compactTaskbar);
+                s.AdvancedSensorsEnabled = true;
+                s.SettingsSchemaVersion = 3;
+            }
+            s.Skin = ThemeManager.ResolveThemeName(s.Skin);
             s.AutoCheckUpdate = false;
             s.WebServerEnabled = false;
             if (s.MainFormDoubleClickAction == 5) s.MainFormDoubleClickAction = 0;
             if (s.TaskbarDoubleClickAction == 5) s.TaskbarDoubleClickAction = 0;
-            s.PreferredCpuFan = s.PreferredCpuPump = s.PreferredCaseFan = "";
             s.PluginInstances?.ForEach(plugin => plugin.Enabled = false);
-            s.MonitorItems?.RemoveAll(item => item == null || string.IsNullOrWhiteSpace(item.Key) ||
-                (item.Key is "CPU.Pump" or "CASE.Fan" or "FPS" ||
-                 (item.Key.StartsWith("DASH.", StringComparison.OrdinalIgnoreCase) &&
-                  item.Key is not ("DASH.HOST" or "DASH.Time" or "DASH.Uptime" or "DASH.IP"))));
 
             if (s.GroupAliases == null) s.GroupAliases = new Dictionary<string, string>();
 
             // 1. Check if new install
             if (s.MonitorItems == null || s.MonitorItems.Count == 0)
             {
-                s.InitDefaultItems();
+                var initialItems = s.InitDefaultItems();
                 // Ensure TaskbarSortIndex has initial value
-                foreach (var item in s.MonitorItems)
+                foreach (var item in initialItems)
                 {
                     if (item.TaskbarSortIndex == 0)
                         item.TaskbarSortIndex = item.SortIndex;
@@ -176,7 +206,7 @@ namespace LiteMonitor
             if (File.Exists(path)) File.Delete(path);
         }
 
-        public static void InitDefaultItems(this Settings settings)
+        public static List<MonitorItemConfig> InitDefaultItems(this Settings settings)
         {
             settings.MonitorItems = new List<MonitorItemConfig>
             {
@@ -184,30 +214,33 @@ namespace LiteMonitor
                 // [Taskbar] DASH items should appear at the END by default (SortIndex > 800)
                 new MonitorItemConfig { Key = "DASH.HOST", SortIndex = 101, TaskbarSortIndex = 1100, VisibleInPanel = false, TaskbarLabel = " " },
                 new MonitorItemConfig { Key = "DASH.Time", SortIndex = 102, TaskbarSortIndex = 1200, VisibleInPanel = false, TaskbarLabel = " " },
-                new MonitorItemConfig { Key = "DASH.Uptime", SortIndex = 103, TaskbarSortIndex = 1300, VisibleInPanel = false, TaskbarLabel = " " },
+                new MonitorItemConfig { Key = "DASH.Uptime", SortIndex = 103, TaskbarSortIndex = 1300, VisibleInPanel = true, TaskbarLabel = " " },
                 new MonitorItemConfig { Key = "DASH.IP",   SortIndex = 104, TaskbarSortIndex = 1400, VisibleInPanel = false, TaskbarLabel = " " },
                
                 // [2xx] CPU
                 new MonitorItemConfig { Key = "CPU.Load",  SortIndex = 201, VisibleInPanel = true, VisibleInTaskbar = true },
-                new MonitorItemConfig { Key = "CPU.Temp",  SortIndex = 202, VisibleInPanel = false, VisibleInTaskbar = false },
+                new MonitorItemConfig { Key = "CPU.Temp",  SortIndex = 202, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "CPU.Clock", SortIndex = 203, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "CPU.Power", SortIndex = 204, VisibleInPanel = false },
                 // [New] CPU Voltage
                 new MonitorItemConfig { Key = "CPU.Voltage", SortIndex = 205, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "CPU.Fan",   SortIndex = 206, VisibleInPanel = false },
+                new MonitorItemConfig { Key = "CPU.Pump",  SortIndex = 207, VisibleInPanel = false },
 
                 // [3xx] GPU
-                new MonitorItemConfig { Key = "GPU.Load",  SortIndex = 301, VisibleInPanel = false, VisibleInTaskbar = false },
-                new MonitorItemConfig { Key = "GPU.Temp",  SortIndex = 302, VisibleInPanel = false },
+                new MonitorItemConfig { Key = "GPU.Load",  SortIndex = 301, VisibleInPanel = true, VisibleInTaskbar = true },
+                new MonitorItemConfig { Key = "GPU.Temp",  SortIndex = 302, VisibleInPanel = true },
                 new MonitorItemConfig { Key = "GPU.Clock", SortIndex = 303, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "GPU.Power", SortIndex = 304, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "GPU.Fan",   SortIndex = 305, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "GPU.VRAM",  SortIndex = 306, VisibleInPanel = false },
+                new MonitorItemConfig { Key = "GPU.VRAM",  SortIndex = 306, VisibleInPanel = true },
 
                 // [4xx] HOST (MEM, FPS, MOBO, DISK Temp, CASE Fan)
                 new MonitorItemConfig { Key = "MEM.Load",  SortIndex = 401, VisibleInPanel = true, VisibleInTaskbar = true },
+                new MonitorItemConfig { Key = "FPS",       SortIndex = 402, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "MOBO.Temp", SortIndex = 403, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "DISK.Temp", SortIndex = 404, VisibleInPanel = false },
+                new MonitorItemConfig { Key = "CASE.Fan",  SortIndex = 405, VisibleInPanel = false },
                 
                 // [5xx] BATTERY (New Group)
                 new MonitorItemConfig { Key = "BAT.Percent", SortIndex = 501, VisibleInPanel = false, VisibleInTaskbar = false },
@@ -216,17 +249,18 @@ namespace LiteMonitor
                 new MonitorItemConfig { Key = "BAT.Current", SortIndex = 504, VisibleInPanel = false },
 
                 // [6xx] DISK IO
-                new MonitorItemConfig { Key = "DISK.Read", SortIndex = 601, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "DISK.Write",SortIndex = 602, VisibleInPanel = false },
+                new MonitorItemConfig { Key = "DISK.Read", SortIndex = 601, VisibleInPanel = true },
+                new MonitorItemConfig { Key = "DISK.Write",SortIndex = 602, VisibleInPanel = true },
 
                 // [7xx] NET
                 new MonitorItemConfig { Key = "NET.Up",    SortIndex = 701, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "NET.Down",  SortIndex = 702, VisibleInPanel = true, VisibleInTaskbar = true },
 
                 // [8xx] DATA
-                new MonitorItemConfig { Key = "DATA.DayUp",  SortIndex = 801, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "DATA.DayDown",SortIndex = 802, VisibleInPanel = false },
+                new MonitorItemConfig { Key = "DATA.DayUp",  SortIndex = 801, VisibleInPanel = true },
+                new MonitorItemConfig { Key = "DATA.DayDown",SortIndex = 802, VisibleInPanel = true },
             };
+            return settings.MonitorItems;
         }
         // [Sync] 同步到语言设置
         // 作用：将配置中的组别名和监控项标签同步到语言管理器
@@ -326,6 +360,8 @@ namespace LiteMonitor
                 var oldItem = settings.MonitorItems.FirstOrDefault(x => x.Key.Equals(newItem.Key, StringComparison.OrdinalIgnoreCase));
                 if (oldItem != null)
                 {
+                    newItem.SortIndex = oldItem.SortIndex;
+                    newItem.TaskbarSortIndex = oldItem.TaskbarSortIndex == 0 ? oldItem.SortIndex : oldItem.TaskbarSortIndex;
                     newItem.VisibleInPanel = oldItem.VisibleInPanel;
                     newItem.VisibleInTaskbar = oldItem.VisibleInTaskbar;
                     newItem.UserLabel = oldItem.UserLabel;
@@ -349,103 +385,23 @@ namespace LiteMonitor
             settings.MonitorItems = migratedList;
         }
 
-        public static void CheckAndAppendMissingItems(this Settings settings)
+        public static void CheckAndAppendMissingItems(this Settings settings, bool panelDefaults = false, bool taskbarDefaults = false)
         {
-            var temp = new Settings();
-            temp.InitDefaultItems();
-            var defaultList = temp.MonitorItems;
-            
-            // 找出缺失项 (保持 DefaultList 的相对顺序)
-            var newItems = defaultList
-                .Where(std => !settings.MonitorItems.Any(usr => usr.Key.Equals(std.Key, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-
-            if (newItems.Count == 0) return;
-
-            bool listChanged = false;
-
-            foreach (var newItem in newItems)
+            var defaults = new Settings();
+            defaults.InitDefaultItems();
+            var keys = new HashSet<string>(settings.MonitorItems.Select(x => x.Key), StringComparer.OrdinalIgnoreCase);
+            int panelOrder = settings.MonitorItems.Count == 0 ? 0 : settings.MonitorItems.Max(x => x.SortIndex);
+            int taskbarOrder = settings.MonitorItems.Count == 0 ? 0 : settings.MonitorItems.Max(x => x.TaskbarSortIndex);
+            foreach (var item in defaults.MonitorItems)
             {
-                // [智能锚点逻辑]
-                // 不使用硬编码的 SortIndex，而是寻找该项在 DefaultList 中的"前一个邻居" (Anchor)
-                // 如果用户把邻居移到了别处，新项会紧随其后。
-                
-                MonitorItemConfig? anchor = null;
-                int myDefIdx = defaultList.FindIndex(x => x.Key == newItem.Key);
-                
-                // 往前回溯寻找最近的有效锚点
-                for (int k = myDefIdx - 1; k >= 0; k--)
-                {
-                    var prevKey = defaultList[k].Key;
-                    var existing = settings.MonitorItems.FirstOrDefault(x => x.Key.Equals(prevKey, StringComparison.OrdinalIgnoreCase));
-                    if (existing != null)
-                    {
-                        anchor = existing;
-                        break;
-                    }
-                }
-
-                // === A. Panel SortIndex ===
-                int targetIndex;
-                if (anchor != null)
-                {
-                    targetIndex = anchor.SortIndex + 1;
-                }
-                else
-                {
-                    // 没锚点 (说明是队首)，插在当前最小值前面
-                    int min = settings.MonitorItems.Count > 0 ? settings.MonitorItems.Min(x => x.SortIndex) : 0;
-                    targetIndex = min - 1;
-                }
-
-                // 挤开后续项
-                foreach (var item in settings.MonitorItems.Where(x => x.SortIndex >= targetIndex))
-                    item.SortIndex++;
-                
-                newItem.SortIndex = targetIndex;
-
-                // === B. Taskbar SortIndex ===
-                int targetTbIndex;
-                if (anchor != null)
-                {
-                    targetTbIndex = anchor.TaskbarSortIndex + 1;
-                }
-                else
-                {
-                    // [Fix] 没锚点 (如 DASH 这种排在队首的) 或锚点未开启任务栏
-                    // 策略：看该项在 Default 中的原始意图。
-                    // 如果 Default 中 TaskbarSortIndex 很大 (>1000)，说明意图是放后面 -> 插在 Max + 1
-                    // 如果 Default 中 TaskbarSortIndex 很小 (<1000)，说明意图是放前面 -> 插在 Min - 1
-                    
-                    var validItems = settings.MonitorItems.Where(x => x.TaskbarSortIndex != 0).ToList();
-                    
-                    if (newItem.TaskbarSortIndex > 1000)
-                    {
-                        // 意图：放后面
-                        int max = validItems.Count > 0 ? validItems.Max(x => x.TaskbarSortIndex) : 0;
-                        targetTbIndex = max + 1;
-                    }
-                    else
-                    {
-                        // 意图：放前面
-                        int min = validItems.Count > 0 ? validItems.Min(x => x.TaskbarSortIndex) : 1;
-                        targetTbIndex = min - 1;
-                        if (targetTbIndex == 0) targetTbIndex = -1; // 避开 0
-                    }
-                }
-
-                foreach (var item in settings.MonitorItems.Where(x => x.TaskbarSortIndex >= targetTbIndex))
-                    item.TaskbarSortIndex++;
-
-                newItem.TaskbarSortIndex = targetTbIndex;
-
-                settings.MonitorItems.Add(newItem);
-                listChanged = true;
-            }
-
-            if (listChanged)
-            {
-                settings.MonitorItems = settings.MonitorItems.OrderBy(x => x.SortIndex).ToList();
+                if (!keys.Add(item.Key)) continue;
+                // Preserve every existing position and selection. New capabilities are
+                // available in settings without silently expanding a custom monitor.
+                item.VisibleInPanel &= panelDefaults;
+                item.VisibleInTaskbar &= taskbarDefaults;
+                item.SortIndex = ++panelOrder;
+                item.TaskbarSortIndex = ++taskbarOrder;
+                settings.MonitorItems.Add(item);
             }
         }
 

@@ -15,6 +15,7 @@ namespace LiteMonitor.src.SystemServices
         private readonly SensorMap _sensorMap;
         private readonly NetworkManager _networkManager;
         private readonly DiskManager _diskManager;
+        private readonly FpsCounter _fpsCounter;
         private readonly object _lock;
         private readonly Dictionary<string, float> _lastValidMap; 
         
@@ -32,18 +33,22 @@ namespace LiteMonitor.src.SystemServices
         private const float ManualMoboTempHardMax = 125f;
 
         // 配置版本追踪，用于自动触发预热
+        private string _lastPrefCpuFan = "";
+        private string _lastPrefCpuPump = "";
+        private string _lastPrefCaseFan = "";
         private string _lastPrefMoboTemp = "";
         private string _lastPrefDisk = "";
         private string _lastPrefNet = "";
         private string _lastPrefGpu = "";
         
-        public HardwareValueProvider(Computer c, Settings s, SensorMap map, NetworkManager net, DiskManager disk, PerformanceCounterManager perfManager, object syncLock, Dictionary<string, float> lastValid)
+        public HardwareValueProvider(Computer c, Settings s, SensorMap map, NetworkManager net, DiskManager disk, FpsCounter fpsCounter, PerformanceCounterManager perfManager, object syncLock, Dictionary<string, float> lastValid)
         {
             _computer = c;
             _cfg = s;
             _sensorMap = map;
             _networkManager = net;
             _diskManager = disk;
+            _fpsCounter = fpsCounter;
             _perfManager = perfManager;
             _lock = syncLock;
             _lastValidMap = lastValid;
@@ -58,16 +63,19 @@ namespace LiteMonitor.src.SystemServices
             var newCache = map.GetInternalMap();
 
             // 记录当前预热的配置版本
+            _lastPrefCpuFan = _cfg.PreferredCpuFan;
+            _lastPrefCpuPump = _cfg.PreferredCpuPump;
+            _lastPrefCaseFan = _cfg.PreferredCaseFan;
             _lastPrefMoboTemp = _cfg.PreferredMoboTemp;
             _lastPrefDisk = _cfg.PreferredDisk;
             _lastPrefNet = _cfg.PreferredNetwork;
             _lastPrefGpu = _cfg.PreferredGpu ?? "";
 
-            // Only motherboard temperature retains a manual sensor selection.
-            string[] preferredKeys = { "MOBO.Temp" };
+            // Keep manual temperature and fan selections in the cache identity.
+            string[] preferredKeys = { "CPU.Fan", "CPU.Pump", "CASE.Fan", "MOBO.Temp" };
             foreach (var key in preferredKeys)
             {
-                string pref = _lastPrefMoboTemp;
+                string pref = key == "CPU.Fan" ? _lastPrefCpuFan : key == "CPU.Pump" ? _lastPrefCpuPump : key == "CASE.Fan" ? _lastPrefCaseFan : _lastPrefMoboTemp;
 
                 SensorType type = (key == "MOBO.Temp") ? SensorType.Temperature : SensorType.Fan;
 
@@ -190,7 +198,7 @@ namespace LiteMonitor.src.SystemServices
                 }
 
                 // 自动检测配置变更：如果用户更改了首选风扇/磁盘/显卡，立即自动预热
-                if (gpuChanged ||
+                if (gpuChanged || _lastPrefCaseFan != _cfg.PreferredCaseFan || _lastPrefCpuPump != _cfg.PreferredCpuPump || _lastPrefCpuFan != _cfg.PreferredCpuFan ||
                     _lastPrefMoboTemp != _cfg.PreferredMoboTemp ||
                     _lastPrefDisk != _cfg.PreferredDisk ||
                     _lastPrefNet != _cfg.PreferredNetwork)
@@ -244,7 +252,6 @@ namespace LiteMonitor.src.SystemServices
 
         public float? GetValue(string key)
         {
-            if (key is "CPU.Pump" or "CASE.Fan" or "FPS") return null;
             // ★★★ [优化] 使用 TryEnter 避免 UI 线程因后台重载而卡死 ★★★
             // 如果 10ms 内拿不到锁（说明正在重载硬件），直接返回 null
             bool lockTaken = false;
@@ -390,6 +397,8 @@ namespace LiteMonitor.src.SystemServices
 
                     // 8. 风扇/泵 (带 Max 记录)
                     case "CPU.Fan":
+                    case "CPU.Pump":
+                    case "CASE.Fan":
                     case "GPU.Fan":
                         if (_manualSensorCache.TryGetValue(key, out var sFan))
                         {
@@ -411,6 +420,10 @@ namespace LiteMonitor.src.SystemServices
                         {
                             result = ReadMoboTemperature(sMobo);
                         }
+                        break;
+
+                    case "FPS":
+                        result = _fpsCounter.GetFps();
                         break;
 
                     // 电池

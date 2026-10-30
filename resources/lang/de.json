@@ -79,11 +79,16 @@
     "DATA.DayDown": "⏬"
   },
   "Menu": {
+    "InstallFpsComponent": "Install FPS component…",
+    "InstallSensorDriver": "Install sensor driver…",
+    "OptionalComponentsTip": "Temperature sensors may need PawnIO. FPS requires its helper and administrator access. Nothing is installed at startup. Install only when needed, then restart MellowMeter.",
+    "OptionalComponents": "Optional components",
+    "InterfaceAnimations": "Interface animations",
     "AdvancedSensors": "Advanced sensors",
-    "AdvancedSensorsTip": "Adds temperature, power, clock and fan metrics. Apply, then restart MellowMeter. Readings depend on supported hardware and an available compatible driver.",
+    "AdvancedSensorsTip": "Full hardware monitoring is enabled by default. Unavailable sensors display a dash. Changes take effect after restarting.",
     "HistoryEnabled": "Record local history",
     "HistoryTip": "Keep load and traffic history on this device. No data is uploaded.",
-    "BasicSensorsTip": "CPU, memory and network work without a hardware driver. Enable advanced sensors in System settings for additional metrics.",
+    "BasicSensorsTip": "All built-in metrics are listed. Enable hardware monitoring to read advanced sensors.",
     "RestartForSensors": "Sensor mode saved. Restart MellowMeter to apply it.",
     "UpstreamProject": "Based on LiteMonitor by Diorser",
     "__Comment_Global__": "--- Global ---",

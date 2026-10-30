@@ -65,13 +65,16 @@ try {
     $requiredFiles = @('MellowMeter.exe', 'MellowMeter.dll',
         'LICENSE', 'THIRD_PARTY_NOTICES.md', 'START-HERE.txt', 'docs/licenses/HidSharp.txt', 'docs/licenses/MPL-2.0.txt',
         'docs/licenses/Mono.txt',
-        'resources/themes/DarkFlat_Classic.json', 'resources/themes/GlassLight.json', 'resources/themes/GlassDark.json', 'resources/lang/en.json')
+        'resources/themes/DarkFlat_Classic.json', 'resources/themes/MellowLight.json', 'resources/themes/MellowDark.json', 'resources/lang/en.json')
     if ($portable) { $requiredFiles += @('coreclr.dll', 'hostfxr.dll', 'System.Windows.Forms.dll', 'docs/licenses/Microsoft.NETCore.App-THIRD-PARTY-NOTICES.txt') }
     foreach ($required in $requiredFiles) {
         if (-not (Test-Path -LiteralPath (Join-Path $bundle $required) -PathType Leaf)) { throw "Release file is missing: $required" }
     }
     $unexpected = Get-ChildItem -LiteralPath $bundle -Recurse -File |
         Where-Object { $_.Extension -in @('.pdb', '.pfx', '.p12') -or $_.Name -match '^(settings\.json|HardwareHistory\.json|TrafficHistory\.json|\.env)|Updater|PawnIO|WinRing|PresentMon' }
+    foreach ($retiredTheme in @('GlassLight.json', 'GlassDark.json')) {
+        if (Test-Path -LiteralPath (Join-Path $bundle "resources/themes/$retiredTheme")) { throw "Retired theme must not be shipped: $retiredTheme" }
+    }
     if (Test-Path -LiteralPath (Join-Path $bundle 'resources/plugins')) { throw 'Retired plugins must not be shipped.' }
     if (-not $portable -and (Test-Path -LiteralPath (Join-Path $bundle 'coreclr.dll'))) { throw 'Lite must not bundle the runtime.' }
     if ($unexpected) { throw "Unexpected release files: $($unexpected.Name -join ', ')" }

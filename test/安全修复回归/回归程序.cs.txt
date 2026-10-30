@@ -95,7 +95,7 @@ internal static class Program
         var map = new SensorMap();
         var sync = new object();
         using var perf = new PerformanceCounterManager();
-        var provider = new HardwareValueProvider(computer, cfg, map, null!, null!, perf, sync, new());
+        var provider = new HardwareValueProvider(computer, cfg, map, null!, null!, new FpsCounter(), perf, sync, new());
         provider.PreCacheAllSensors(map);
         var cache = (Dictionary<string, ISensor>)GetField(provider, "_manualSensorCache");
         cache["GPU.Load"] = null!;

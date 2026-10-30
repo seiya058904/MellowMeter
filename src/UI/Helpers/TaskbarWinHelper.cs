@@ -186,12 +186,13 @@ namespace LiteMonitor.src.UI.Helpers
         // =================================================================
         public (IntPtr hTaskbar, IntPtr hTray) FindHandles(string targetDevice)
         {
-            Screen target = Screen.PrimaryScreen;
+            Screen? target = Screen.PrimaryScreen;
             if (!string.IsNullOrEmpty(targetDevice))
             {
                 target = Screen.AllScreens.FirstOrDefault(s => s.DeviceName == targetDevice) ?? Screen.PrimaryScreen;
             }
 
+            if (target == null) return (IntPtr.Zero, IntPtr.Zero);
             if (target.Primary)
             {
                 IntPtr hTaskbar = FindWindow("Shell_TrayWnd", null);
@@ -236,7 +237,7 @@ namespace LiteMonitor.src.UI.Helpers
             // =========================================================================
             try
             {
-                Screen screen = null;
+                Screen? screen = null;
                 if (!string.IsNullOrEmpty(targetDevice)) 
                     screen = Screen.AllScreens.FirstOrDefault(s => s.DeviceName == targetDevice);
                 if (screen == null) 

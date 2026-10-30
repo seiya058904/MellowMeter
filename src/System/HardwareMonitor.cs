@@ -29,6 +29,7 @@ namespace LiteMonitor.src.SystemServices
         private readonly DiskManager _diskManager;
         private readonly BasicSystemSampler _basicSampler;
         private readonly bool _advancedEnabled;
+        private readonly FpsCounter _fpsCounter = new();
         private volatile bool _disposed;
         private volatile bool _advancedSampleValid;
         private int _samplingGeneration;
@@ -86,7 +87,8 @@ namespace LiteMonitor.src.SystemServices
                 cfg, 
                 _sensorMap, 
                 _networkManager, 
-                _diskManager, 
+                _diskManager,
+                _fpsCounter,
                 _perfCounterManager, 
                 _lock, 
                 _lastValidMap
@@ -106,6 +108,7 @@ namespace LiteMonitor.src.SystemServices
                 return _basicSampler.Get(key);
             if (key == "DATA.DayUp") return TrafficLogger.GetTodayStats().up;
             if (key == "DATA.DayDown") return TrafficLogger.GetTodayStats().down;
+            if (key == "FPS") return _fpsCounter.GetFps();
             if (!_advancedEnabled || _isOpening || _isReloading || !_advancedSampleValid) return null;
             return _valueProvider.GetValue(key);
         }
@@ -120,6 +123,19 @@ namespace LiteMonitor.src.SystemServices
         }
 
         // ★★★ 新增：允许主程序手动触发驱动检查 (用于解决启动弹窗冲突) ★★★
+        public async Task InstallSensorDriverOnRequest()
+        {
+            _isReloading = true;
+            try {
+                var installer = new DriverInstaller(_cfg, null, ReleaseComputerForDriverInstall);
+                await installer.InstallSensorDriverOnRequest();
+            }
+            finally {
+                _isReloading = false;
+                RefreshHardwareConfig();
+            }
+        }
+
         public Task SmartCheckDriver() => Task.CompletedTask; // Never install or prompt from monitoring.
 
         // ★★★ [新增] 动态刷新硬件配置 (热切换) ★★★
@@ -289,7 +305,9 @@ namespace LiteMonitor.src.SystemServices
                 }
             }
 
+            _fpsCounter.Dispose();
             _valueProvider.Dispose();
+            _networkManager.Dispose();
             _perfCounterManager.Dispose(); // ★★★ [新增] 释放计数器资源 ★★★
             _networkManager.ClearCache();
             _diskManager.ClearCache(); // 漏掉的，补上
@@ -327,7 +345,7 @@ namespace LiteMonitor.src.SystemServices
             bool all = false;
             bool fans = ShouldEnableController();
             _computer.IsCpuEnabled = enabled && (all || fans || _cfg.IsAnyEnabled("CPU.Temp") ||
-                _cfg.IsAnyEnabled("CPU.Clock") || _cfg.IsAnyEnabled("CPU.Power"));
+                _cfg.IsAnyEnabled("CPU.Clock") || _cfg.IsAnyEnabled("CPU.Voltage") || _cfg.IsAnyEnabled("CPU.Power"));
             _computer.IsGpuEnabled = enabled && (all || _cfg.IsAnyEnabled("GPU"));
             _computer.IsMemoryEnabled = false;
             _computer.IsNetworkEnabled = false;
@@ -343,7 +361,7 @@ namespace LiteMonitor.src.SystemServices
         {
             // 检查是否开启了任何需要读取外部控制器的监控项。
             // 主板温度走 Motherboard/SuperIO 硬件树，不应该因此打开 Controller 扫描。
-            if (_cfg.IsAnyEnabled("CPU.Fan")) return true;
+            if ((_cfg.IsAnyEnabled("CPU.Fan") || _cfg.IsAnyEnabled("CPU.Pump") || _cfg.IsAnyEnabled("CASE.Fan"))) return true;
             return false;
         }
 
@@ -436,7 +454,7 @@ namespace LiteMonitor.src.SystemServices
             // 判断主板更新需求
             bool needMobo = forceAll ||
                 _cfg.IsAnyEnabled("MOBO") ||
-                _cfg.IsAnyEnabled("CPU.Fan");
+                (_cfg.IsAnyEnabled("CPU.Fan") || _cfg.IsAnyEnabled("CPU.Pump") || _cfg.IsAnyEnabled("CASE.Fan"));
             
             return (forceAll, needCpu, needGpu, needMem, needNet, needDisk, needBat, needMobo, 0);
         }
@@ -463,7 +481,6 @@ namespace LiteMonitor.src.SystemServices
                     UIUtils.ClearStringPool();
 
                     // 3. 关闭旧硬件服务
-                    if (_computer != null)
                     {
                         _computer.Accept(new HardwareVisitor(h => { }));
                         _computer.Close();

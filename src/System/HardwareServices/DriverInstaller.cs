@@ -100,6 +100,17 @@ namespace LiteMonitor.src.SystemServices
         // ================================================================
         // ★★★ 公共入口 1：PawnIO 驱动检查 (启动时调用) ★★★
         // ================================================================
+        public async Task InstallSensorDriverOnRequest()
+        {
+            await _downloadLock.WaitAsync();
+            try {
+                var check = CheckPawnIORequirement();
+                if (check.NeedsInstall) await InstallDriverPackage(false, check, DriverInstallMode.Runtime);
+                else ShowMessageBox(IsChinese ? "传感器驱动已就绪。" : "The sensor driver is ready.", "MellowMeter", MessageBoxIcon.Information);
+            }
+            finally { _downloadLock.Release(); }
+        }
+
         public async Task SmartCheckDriver()
         {
             await EnsureComponents(forceFpsCheck: false);
@@ -119,7 +130,7 @@ namespace LiteMonitor.src.SystemServices
                 }
 
                 var pawnIOCheck = CheckPawnIORequirement();
-                string fpsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "resources", "LiteMonitorFPS.exe");
+                string fpsPath = AppPaths.DataFile("components/LiteMonitorFPS.exe");
                 bool isFpsEnabled = _cfg.IsAnyEnabled("FPS");
                 bool isFpsValid = IsValidExecutable(fpsPath);
                 
@@ -184,7 +195,7 @@ namespace LiteMonitor.src.SystemServices
         // ================================================================
         public async Task<bool> CheckAndDownloadPresentMon(bool silent = false)
         {
-            return await EnsureComponents(forceFpsCheck: true);
+            return await InstallFpsComponent();
         }
 
         // ----------------------------------------------------------------
@@ -196,7 +207,8 @@ namespace LiteMonitor.src.SystemServices
         /// </summary>
         private async Task<bool> InstallFpsComponent()
         {
-            string targetPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "resources", "LiteMonitorFPS.exe");
+            string targetPath = AppPaths.DataFile("components/LiteMonitorFPS.exe");
+            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
             
             var context = new DownloadContext
             {
@@ -230,7 +242,7 @@ namespace LiteMonitor.src.SystemServices
         private async Task<bool> InstallDriverPackage(bool needFPS, PawnIOCheckResult pawnIOCheck, DriverInstallMode mode)
         {
             string tempZip = Path.Combine(Path.GetTempPath(), $"LiteMonitor_Drivers_{Guid.NewGuid()}.zip");
-            string targetDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "resources");
+            string targetDir = AppPaths.DataFile("components");
             
             try 
             {
@@ -273,7 +285,11 @@ namespace LiteMonitor.src.SystemServices
                 {
                     foreach (ZipArchiveEntry entry in archive.Entries)
                     {
-                        string destPath = Path.Combine(targetDir, entry.FullName);
+                        string root = Path.GetFullPath(targetDir) + Path.DirectorySeparatorChar;
+                        string destPath = Path.GetFullPath(Path.Combine(targetDir, entry.FullName));
+                        if (!destPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                            throw new InvalidDataException("Component archive contains an unsafe path.");
+                        if (string.IsNullOrEmpty(entry.Name)) continue;
                         
                         // 智能跳过逻辑：FPS 组件如果存在且有效则不覆盖
                         if (entry.Name.Equals("LiteMonitorFPS.exe", StringComparison.OrdinalIgnoreCase) && IsValidExecutable(destPath))

@@ -72,6 +72,7 @@ namespace LiteMonitor.src.UI
             base.Dispose(disposing);
         }
 
+        [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_lblTitle), nameof(_lblPercent), nameof(_bar), nameof(_fontTitle), nameof(_fontPercent))]
         private void InitializeUI()
         {
             int padding = ScaleDPI(20);

@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using Microsoft.Win32;
 using LiteMonitor.src.Core;
@@ -50,7 +50,7 @@ internal static class WindowTheme
             state.Hooked = true;
             UserPreferenceChangedEventHandler handler = (_, _) => {
                 if (!window.IsDisposed && window.IsHandleCreated)
-                    try { window.BeginInvoke(new Action(() => { RefreshPolicy(true); Apply(window); window.Invalidate(true); })); } catch (InvalidOperationException) { }
+                    try { window.BeginInvoke(new Action(() => { RefreshPolicy(true); InterfaceMotion.Configure(Settings.Load()); Apply(window); window.Invalidate(true); })); } catch (InvalidOperationException) { }
             };
             SystemEvents.UserPreferenceChanged += handler;
             window.Disposed += (_, _) => SystemEvents.UserPreferenceChanged -= handler;
@@ -61,13 +61,11 @@ internal static class WindowTheme
         Set(window.Handle, 35, ColorTranslator.ToWin32(UIColors.MainBg));
         Set(window.Handle, 36, ColorTranslator.ToWin32(UIColors.TextMain));
         if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22621)) return;
-        // Layered/click-through monitor windows keep their existing transparency contract.
-        bool eligible = window is LiteMonitor.src.UI.SettingsForm && window.Opacity == 1 && !SystemInformation.HighContrast;
-        bool glass = eligible && GlassSurface.Enabled;
-        int result = Set(window.Handle, 38, glass ? 2 : 1); // documented MAINWINDOW / NONE
-        var margins = new Margins { Left = glass && result == 0 ? UIUtils.S(156) : 0 };
-        int frame = DwmExtendFrameIntoClientArea(window.Handle, ref margins);
-        state.Backdrop = glass && result == 0 && frame == 0;
+        // Settings use the v0.1 solid native surface again. Explicitly clear any backdrop.
+        Set(window.Handle, 38, 1); // DWMSBT_NONE
+        var margins = new Margins();
+        DwmExtendFrameIntoClientArea(window.Handle, ref margins);
+        state.Backdrop = false;
     }
 
     internal static void StyleAuxiliary(Form window)
