@@ -96,7 +96,7 @@ namespace LiteMonitor.src.SystemServices
                 }
                 ReadCpu();
                 ReadMemory();
-                if (_settings.HistoryEnabled || _settings.WebServerEnabled || _settings.IsAnyEnabled("NET") || _settings.IsAnyEnabled("DATA"))
+                if (_settings.HistoryEnabled || _settings.IsAnyEnabled("NET") || _settings.IsAnyEnabled("DATA"))
                     ReadNetwork(now, elapsed);
                 else
                 {

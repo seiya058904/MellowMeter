@@ -32,7 +32,7 @@ internal static class Program
     }
 }
 
-internal static class SmokeSuite
+internal static partial class SmokeSuite
 {
     private static readonly List<string> Passed = new();
     private static readonly List<string> Captures = new();
@@ -72,10 +72,11 @@ internal static class SmokeSuite
                 Check(cfg.MonitorItems.Where(x => x.VisibleInPanel).Select(x => x.Key).Order().SequenceEqual(new[] { "CPU.Load", "MEM.Load", "NET.Down", "NET.Up" }.Order()), "Fresh panel has exactly CPU, memory, upload and download");
                 Check(cfg.MonitorItems.Where(x => x.VisibleInTaskbar).Select(x => x.Key).Order().SequenceEqual(new[] { "CPU.Load", "MEM.Load", "NET.Down", "NET.Up" }.Order()), "Fresh taskbar has exactly CPU, memory, upload and download");
                 Check(!cfg.AdvancedSensorsEnabled && !cfg.WebServerEnabled && !cfg.AutoStart && cfg.HistoryEnabled, "Fresh profile uses basic sensors and local history");
-                Check(cfg.Skin == "DarkFlat_Classic" && cfg.TaskbarFontFamily == "Microsoft YaHei UI",
-                    "Fresh profile preserves the original panel theme and taskbar typography");
+                Check(cfg.Skin == "GlassLight" && cfg.TaskbarFontFamily == "Microsoft YaHei UI",
+                    "Fresh profile uses Glass Light and preserves taskbar typography");
                 cfg.Language = "en";
                 LanguageManager.Load(cfg.Language);
+                TestMigration(cfg);
                 TestMetricRecovery();
                 _stage = "target-DPI renderer";
                 TestLayouts(cfg);
@@ -205,9 +206,11 @@ internal static class SmokeSuite
                     "settings_light_main", "settings_light_taskbar", "settings_light_metrics", "settings_light_threshold",
                     "settings_light_main_zh" };
                 var capturedNames = Captures.Select(path => Path.GetFileNameWithoutExtension(path)).ToHashSet();
-                Check(Captures.Count(path => Path.GetFileName(path).StartsWith("render_")) == 9 &&
+                Check(Captures.Count(path => Path.GetFileName(path).StartsWith("render_")) == 15 &&
                     requiredNativeCaptures.All(capturedNames.Contains) && capturedNames.Count == Captures.Count &&
                     Captures.All(File.Exists), "All DPI, native-form and theme-linkage captures were saved without duplicates");
+                _stage = "iteration regressions";
+                await TestIteration(main, cfg, ui);
                 _stage = "power and taskbar recovery";
                 await TestLifecycle(main, cfg, ui);
                 _stage = "paused-history shutdown";
@@ -280,6 +283,15 @@ internal static class SmokeSuite
         history.Show(main);
         traffic.Show(main);
         await Task.Delay(120);
+
+        foreach (Form window in new Form[] { history, traffic }) {
+            window.WindowState = FormWindowState.Minimized;
+            await Task.Delay(20);
+            Check(!Field<System.Windows.Forms.Timer>(window, "_timer").Enabled, window.GetType().Name + ": minimizing stops UI refresh");
+            window.WindowState = FormWindowState.Normal;
+            await Task.Delay(20);
+            Check(Field<System.Windows.Forms.Timer>(window, "_timer").Enabled, window.GetType().Name + ": restoring resumes UI refresh");
+        }
 
         int liveWidth = cfg.PanelWidth;
         int pendingWidth = liveWidth + 40;
@@ -390,7 +402,7 @@ internal static class SmokeSuite
         var pages = new[] { (Key: "MainPanel", Slug: "main"), (Key: "Taskbar", Slug: "taskbar"),
             (Key: "Monitor", Slug: "metrics"), (Key: "Threshold", Slug: "threshold"), (Key: "System", Slug: "system") };
         int collapsedGroupsChecked = 0;
-        foreach (var appearance in new[] { (Skin: "DarkFlat_Classic", Slug: "dark"), (Skin: "MellowLight", Slug: "light") })
+        foreach (var appearance in new[] { (Skin: "DarkFlat_Classic", Slug: "dark"), (Skin: "MellowLight", Slug: "light"), (Skin: "GlassLight", Slug: "glass_light"), (Skin: "GlassDark", Slug: "glass_dark") })
         {
             cfg.Skin = appearance.Skin;
             AppActions.ApplyThemeAndLayout(cfg, ui, main);
@@ -665,12 +677,12 @@ internal static class SmokeSuite
     {
         // Give the illustrative memory reading a known capacity before native sampling starts.
         Settings.DetectedRamTotalGB = 32;
-        foreach (string skin in new[] { "MellowLight", "MellowDark", "DarkFlat_Classic" })
+        foreach (string skin in new[] { "MellowLight", "MellowDark", "DarkFlat_Classic", "GlassLight", "GlassDark" })
         foreach (float scale in new[] { 1f, 1.5f, 2f })
         {
             var previous = ThemeManager.Current;
             var theme = ThemeManager.Load(skin);
-            Check(theme.Name == (skin == "MellowLight" ? "Mellow Light" : skin == "MellowDark" ? "Mellow Dark" : "MinimalDarkFlat v2.0"), skin + " parses without fallback");
+            Check(theme.Name == (skin == "MellowLight" ? "Mellow Light" : skin == "MellowDark" ? "Mellow Dark" : skin == "GlassLight" ? "Glass Light" : skin == "GlassDark" ? "Glass Dark" : "MinimalDarkFlat v2.0"), skin + " parses without fallback");
             if (previous != theme) previous.DisposeFonts();
             theme.Scale(scale, 1);
             // A bitmap's DPI metadata does not change the native GDI HDC DPI used by

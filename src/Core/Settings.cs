@@ -4,13 +4,15 @@ using System.Collections.Concurrent;
 using System.Drawing;
 using System.Text.Json.Serialization;
 using LiteMonitor.src.Core;
-using LiteMonitor.src.Plugins;
+
 namespace LiteMonitor
 {
     public class Settings
     {
         // ====== 基础设置 ======
-        public string Skin { get; set; } = "DarkFlat_Classic";
+        public string Skin { get; set; } = "GlassLight";
+        public bool GlassEffectsEnabled { get; set; } = true;
+        public int SettingsSchemaVersion { get; set; } = 0;
         public bool AdvancedSensorsEnabled { get; set; } = false;
         public bool HistoryEnabled { get; set; } = true;
         public bool TopMost { get; set; } = true;
@@ -356,7 +358,5 @@ namespace LiteMonitor
 
         // [Optimization] Runtime key cache to avoid redundant string generation in PluginExecutor
         // Map: TargetIndex_OutputKey -> KeysBundle
-        [JsonIgnore] 
-        public ConcurrentDictionary<string, PluginOutputKeys> KeyCache { get; } = new ConcurrentDictionary<string, PluginOutputKeys>();
     }
 }

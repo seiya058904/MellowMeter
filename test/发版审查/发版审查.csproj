@@ -9,6 +9,5 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../MellowMeter.csproj" />
-    <Content Include="../../resources/plugins/Stock.json" Link="Stock.json" CopyToOutputDirectory="Always" />
   </ItemGroup>
 </Project>

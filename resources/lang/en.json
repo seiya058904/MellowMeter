@@ -79,6 +79,15 @@
     "BAT.Current": "BCUR"
   },
   "Menu": {
+    "GlassEffects": "Glass effects",
+    "SourcesLoading": "Loading devices…",
+    "SourcesReady": "Available devices loaded",
+    "SourcesEmpty": "No devices available. Automatic selection is retained.",
+    "SourcesFailed": "Could not read devices. Reopen this page to retry.",
+    "VisibilitySafety": "The tray icon stays visible so you can reopen the app.",
+    "MoveUp": "Move up",
+    "MoveDown": "Move down",
+
     "AdvancedSensors": "Advanced sensors",
     "AdvancedSensorsTip": "Adds temperature, power, clock and fan metrics. Apply, then restart MellowMeter. Readings depend on supported hardware and an available compatible driver.",
     "HistoryEnabled": "Record local history",

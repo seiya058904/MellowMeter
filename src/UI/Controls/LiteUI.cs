@@ -13,7 +13,7 @@ namespace LiteMonitor.src.UI.Controls
         private static Color _accent;
         public static bool IsDark => ThemeManager.ParseColor(ThemeManager.Current.Color.Background).GetBrightness() < 0.5f;
         public static Color MainBg => ThemeManager.ParseColor(ThemeManager.Current.Color.Background);
-        public static Color SidebarBg => MainBg;
+        public static Color SidebarBg => ThemeManager.Current.Material == "glass" ? Blend(MainBg, CardBg, .48f) : MainBg;
         public static Color CardBg => ThemeManager.ParseColor(ThemeManager.Current.Color.GroupBackground);
         public static Color Border => Blend(CardBg, TextSub, 0.22f);
         public static Color Primary
@@ -21,11 +21,11 @@ namespace LiteMonitor.src.UI.Controls
             get
             {
                 var colors = ThemeManager.Current.Color;
-                if (_accentSource != colors.BarLow || _accentBackground != colors.GroupBackground)
+                if (_accentSource != (string.IsNullOrEmpty(colors.Accent) ? colors.BarLow : colors.Accent) || _accentBackground != colors.GroupBackground)
                 {
-                    _accentSource = colors.BarLow;
+                    _accentSource = string.IsNullOrEmpty(colors.Accent) ? colors.BarLow : colors.Accent;
                     _accentBackground = colors.GroupBackground;
-                    Color source = ThemeManager.ParseColor(colors.BarLow);
+                    Color source = ThemeManager.ParseColor(_accentSource);
                     Color background = CardBg;
                     _accent = EnsureContrast(source, background);
                 }
@@ -313,8 +313,7 @@ namespace LiteMonitor.src.UI.Controls
                 e.Graphics.FillRectangle(outer, ClientRectangle);
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 using var path = UIUtils.RoundRect(new Rectangle(0, 0, Math.Max(0, Width-1), Math.Max(0, Height-1)), UIUtils.S(13));
-                using var surface = new SolidBrush(UIColors.CardBg);
-                e.Graphics.FillPath(surface, path);
+                GlassSurface.Paint(e.Graphics, new Rectangle(0, 0, Width, Height), UIColors.CardBg, UIUtils.S(13));
             }
         }
     }
@@ -364,8 +363,7 @@ namespace LiteMonitor.src.UI.Controls
             e.Graphics.FillRectangle(outer, ClientRectangle);
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using var path = UIUtils.RoundRect(new Rectangle(0, 0, Math.Max(0, Width-1), Math.Max(0, Height-1)), UIUtils.S(13));
-            using var inner = new SolidBrush(UIColors.CardBg);
-            e.Graphics.FillPath(inner, path);
+            GlassSurface.Paint(e.Graphics, ClientRectangle, UIColors.CardBg, UIUtils.S(13));
         }
     }
 
@@ -975,16 +973,22 @@ namespace LiteMonitor.src.UI.Controls
             ForeColor = UIColors.TextMain;
         }
 
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            bool sidebar = Parent?.Parent is MaterialSidebar;
+            e.Graphics.Clear(sidebar && FindForm() is Form form && LiteMonitor.src.UI.Helpers.WindowTheme.HasBackdrop(form)
+                ? Color.FromArgb(0, 0, 0, 0) : sidebar ? UIColors.SidebarBg : UIColors.MainBg);
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             bool hover = ClientRectangle.Contains(PointToClient(Cursor.Position));
             Color bg = _isActive ? UIColors.NavSelected : hover ? UIColors.NavHover : UIColors.SidebarBg;
-            using var background = new SolidBrush(UIColors.SidebarBg);
-            e.Graphics.FillRectangle(background, ClientRectangle);
+            OnPaintBackground(e);
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            using var path = UIUtils.RoundRect(Rectangle.Inflate(ClientRectangle, -2, -2), UIUtils.S(10));
+            using var path = UIUtils.RoundRect(Rectangle.Inflate(ClientRectangle, -2, -2), UIUtils.S(18));
             using var brush = new SolidBrush(bg);
-            e.Graphics.FillPath(brush, path);
+            if (_isActive || hover) e.Graphics.FillPath(brush, path);
             string icon = string.IsNullOrEmpty(Text) ? "" : System.Globalization.StringInfo.GetNextTextElement(Text);
             bool hasIcon = icon.Any(char.IsSurrogate) || icon.StartsWith("⚙") || icon.StartsWith("➖");
             string caption = hasIcon ? Text.Substring(icon.Length).TrimStart() : Text;
@@ -994,15 +998,16 @@ namespace LiteMonitor.src.UI.Controls
                 using var iconPath = UIUtils.RoundRect(iconRect, UIUtils.S(7));
                 using var iconBrush = new SolidBrush(UIColors.Blend(UIColors.CardBg, UIColors.Primary, _isActive ? .24f : .12f));
                 e.Graphics.FillPath(iconBrush, iconPath);
-                TextRenderer.DrawText(e.Graphics, icon, _regularFont, iconRect, UIColors.TextMain,
-                    UIRenderer.TextFlags | TextFormatFlags.HorizontalCenter | TextFormatFlags.PreserveGraphicsClipping | TextFormatFlags.PreserveGraphicsTranslateTransform);
+                NavigationIcon.Draw(e.Graphics, Tag as string ?? "System", Rectangle.Inflate(iconRect, -UIUtils.S(3), -UIUtils.S(3)), UIColors.TextMain);
             }
             int left = UIUtils.S(hasIcon ? 43 : 10);
             var textRect = new Rectangle(left, 0, Math.Max(0, Width-left-UIUtils.S(10)), Height);
-            TextRenderer.DrawText(e.Graphics, caption, _isActive ? _activeFont : _regularFont,
-                textRect, Enabled ? UIColors.TextMain : UIColors.TextSub, UIRenderer.TextFlags |
-                (hasIcon ? TextFormatFlags.Left : TextFormatFlags.HorizontalCenter) |
-                TextFormatFlags.PreserveGraphicsClipping | TextFormatFlags.PreserveGraphicsTranslateTransform);
+            using (var textBrush = new SolidBrush(Enabled ? UIColors.TextMain : UIColors.TextSub))
+            using (var textFormat = new StringFormat { Alignment = hasIcon ? StringAlignment.Near : StringAlignment.Center,
+                LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap, Trimming = StringTrimming.EllipsisCharacter }) {
+                e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+                e.Graphics.DrawString(caption, _isActive ? _activeFont : _regularFont, textBrush, textRect, textFormat);
+            }
             if (Focused && ShowFocusCues)
                 ControlPaint.DrawFocusRectangle(e.Graphics, Rectangle.Inflate(ClientRectangle, -3, -3), UIColors.Primary, bg);
         }
@@ -1017,8 +1022,34 @@ namespace LiteMonitor.src.UI.Controls
             base.Dispose(disposing);
         }
     }
-    public class LiteSortBtn : Button { public LiteSortBtn(string txt) { Text = txt; Size = new Size(UIUtils.S(24), UIUtils.S(24)); FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; BackColor = UIColors.GroupHeader; ForeColor = UIColors.TextSub; Cursor = Cursors.Hand; Font = new Font("Segoe UI", 7F, FontStyle.Bold); Margin = new Padding(0); } }
-    
+    public class LiteSortBtn : Button
+    {
+        private readonly ToolTip _hint = new();
+        public LiteSortBtn(string text) {
+            Text = text;
+            AccessibleName = LanguageManager.T(text == "▲" ? "Menu.MoveUp" : "Menu.MoveDown");
+            _hint.SetToolTip(this, AccessibleName);
+            Size = UIUtils.S(new Size(24, 24));
+            FlatStyle = FlatStyle.Flat;
+            FlatAppearance.BorderSize = 0;
+            FlatAppearance.MouseOverBackColor = UIColors.NavHover;
+            BackColor = UIColors.GroupHeader; ForeColor = UIColors.TextSub;
+            Cursor = Cursors.Hand; Font = new Font("Segoe UI", 7F, FontStyle.Bold); Margin = Padding.Empty;
+        }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.Clear(BackColor);
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            float x = Width / 2f, y = Height / 2f, r = UIUtils.S(3);
+            float direction = Text == "▲" ? -1 : 1;
+            using var brush = new SolidBrush(Enabled ? UIColors.TextSub : UIColors.Blend(BackColor, UIColors.TextSub, .28f));
+            e.Graphics.FillPolygon(brush, new[] { new PointF(x, y + direction * r), new PointF(x-r, y-direction*r), new PointF(x+r, y-direction*r) });
+            if (Focused && ShowFocusCues) ControlPaint.DrawFocusRectangle(e.Graphics, Rectangle.Inflate(ClientRectangle, -2, -2), UIColors.Primary, BackColor);
+        }
+        protected override void OnEnabledChanged(EventArgs e) { base.OnEnabledChanged(e); Cursor = Enabled ? Cursors.Hand : Cursors.Default; Invalidate(); }
+        protected override void Dispose(bool disposing) { if (disposing) { _hint.Dispose(); Font.Dispose(); } base.Dispose(disposing); }
+    }
+
     // ★★★ New: Header Button (Variable Width) ★★★
     public class LiteHeaderBtn : Button 
     { 

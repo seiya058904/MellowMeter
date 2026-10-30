@@ -14,6 +14,5 @@
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
     <PackageReference Include="System.Text.Json" Version="9.0.10" />
     <Content Include="../../resources/lang/*.json" Link="resources/lang/%(Filename)%(Extension)" CopyToOutputDirectory="Always" />
-    <Content Include="../../resources/plugins/Exchange.json" Link="resources/plugins/Exchange.json" CopyToOutputDirectory="Always" />
   </ItemGroup>
 </Project>

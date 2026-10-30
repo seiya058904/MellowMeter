@@ -211,6 +211,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             ReloadList();
             
             _isLoaded = true;
+            UpdateSortButtons(_container);
         }
 
         private string GenerateSignature()
@@ -334,6 +335,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             }
 
             _isLoaded = true;
+            UpdateSortButtons(_container);
         }
 
         private void UpdateLanguageCacheFromWorkingList()
@@ -444,6 +446,21 @@ namespace LiteMonitor.src.UI.SettingsPage
             p.AutoScrollPosition = new Point(Math.Abs(scroll.X), Math.Abs(scroll.Y));
             p.ResumeLayout(false);
             p.PerformLayout();
+            UpdateSortButtons(_container);
+        }
+
+        private void UpdateSortButtons(Control parent)
+        {
+            foreach (Control child in parent.Controls) {
+                Control? sortable = child is MonitorItemRow ? child : child is MonitorGroupHeader ? child.Parent : null;
+                if (sortable?.Parent != null) {
+                    var siblings = sortable.Parent.Controls.Cast<Control>().Where(c => c.GetType() == sortable.GetType()).ToList();
+                    int index = siblings.IndexOf(sortable);
+                    foreach (var button in child.Controls.OfType<LiteSortBtn>())
+                        button.Enabled = button.Text == "▲" ? index < siblings.Count - 1 : index > 0;
+                }
+                UpdateSortButtons(child);
+            }
         }
 
         private void SaveToWorkingList(bool? isFilteredOverride = null)
@@ -535,6 +552,18 @@ namespace LiteMonitor.src.UI.SettingsPage
             
             // Delegate logic to SettingsOperations
             SettingsChanger.UpdateMonitorList(Config, _workingList, _chkLinkHorizontal.Checked);
+        }
+
+        public override ViewState CaptureView() => base.CaptureView() with {
+            TaskbarTab = _isTaskbarTab, OnlyVisible = _chkOnlyVisible.Checked, EditLabels = _chkEditLabels.Checked
+        };
+
+        public override void RestoreView(ViewState state)
+        {
+            _chkEditLabels.Checked = state.EditLabels;
+            SwitchTab(state.TaskbarTab);
+            _chkOnlyVisible.Checked = state.OnlyVisible;
+            base.RestoreView(state);
         }
 
         private List<MonitorItemConfig> GetLCS(List<MonitorItemConfig> list1, List<MonitorItemConfig> list2)

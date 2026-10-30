@@ -27,7 +27,6 @@ namespace LiteMonitor.src.SystemServices
         private readonly SensorMap _sensorMap;
         private readonly NetworkManager _networkManager;
         private readonly DiskManager _diskManager;
-        private readonly Lazy<FpsCounter> _fpsCounter;
         private readonly BasicSystemSampler _basicSampler;
         private readonly bool _advancedEnabled;
         private volatile bool _disposed;
@@ -36,7 +35,6 @@ namespace LiteMonitor.src.SystemServices
         private long _lastSlowScan;
         private long _lastDiskScan;
         private long _lastHistorySave = Stopwatch.GetTimestamp();
-        private readonly DriverInstaller _driverInstaller;
         private readonly HardwareValueProvider _valueProvider;
 
         // 性能计数器管理器
@@ -81,8 +79,6 @@ namespace LiteMonitor.src.SystemServices
             _sensorMap = new SensorMap();
             _networkManager = new NetworkManager(_perfCounterManager);
             _diskManager = new DiskManager();
-            _driverInstaller = new DriverInstaller(cfg, ReloadComputerSafe, ReleaseComputerForDriverInstall);
-            _fpsCounter = new Lazy<FpsCounter>(() => new FpsCounter(_driverInstaller));
 
             // ★★★ [修改] 2. 将 Manager 注入给 ValueProvider ★★★
             _valueProvider = new HardwareValueProvider(
@@ -91,7 +87,6 @@ namespace LiteMonitor.src.SystemServices
                 _sensorMap, 
                 _networkManager, 
                 _diskManager, 
-                _fpsCounter, 
                 _perfCounterManager, 
                 _lock, 
                 _lastValidMap
@@ -296,7 +291,6 @@ namespace LiteMonitor.src.SystemServices
 
             _valueProvider.Dispose();
             _perfCounterManager.Dispose(); // ★★★ [新增] 释放计数器资源 ★★★
-            if (_fpsCounter.IsValueCreated) _fpsCounter.Value.Dispose();
             _networkManager.ClearCache();
             _diskManager.ClearCache(); // 漏掉的，补上
         }
@@ -330,7 +324,7 @@ namespace LiteMonitor.src.SystemServices
         private void ConfigureAdvancedHardware()
         {
             bool enabled = _advancedEnabled;
-            bool all = _cfg.WebServerEnabled;
+            bool all = false;
             bool fans = ShouldEnableController();
             _computer.IsCpuEnabled = enabled && (all || fans || _cfg.IsAnyEnabled("CPU.Temp") ||
                 _cfg.IsAnyEnabled("CPU.Clock") || _cfg.IsAnyEnabled("CPU.Power"));
@@ -350,8 +344,6 @@ namespace LiteMonitor.src.SystemServices
             // 检查是否开启了任何需要读取外部控制器的监控项。
             // 主板温度走 Motherboard/SuperIO 硬件树，不应该因此打开 Controller 扫描。
             if (_cfg.IsAnyEnabled("CPU.Fan")) return true;
-            if (_cfg.IsAnyEnabled("CPU.Pump")) return true;
-            if (_cfg.IsAnyEnabled("CASE.Fan")) return true;
             return false;
         }
 
@@ -417,7 +409,7 @@ namespace LiteMonitor.src.SystemServices
             
             // ★★★ [优化] 全量更新判断 ★★★
             // 如果开启了 WebServer，则需要强制更新所有硬件，因为网页端可能会查看主界面未开启的项目
-            bool forceAll = _cfg.WebServerEnabled;
+            bool forceAll = false;
 
             // 2. CPU: 总是需要 (因为 LHM 要读温度)
             bool needCpu = forceAll || _cfg.IsAnyEnabled("CPU");
@@ -444,9 +436,7 @@ namespace LiteMonitor.src.SystemServices
             // 判断主板更新需求
             bool needMobo = forceAll ||
                 _cfg.IsAnyEnabled("MOBO") ||
-                _cfg.IsAnyEnabled("CPU.Fan") ||
-                _cfg.IsAnyEnabled("CPU.Pump") ||
-                _cfg.IsAnyEnabled("CASE.Fan");
+                _cfg.IsAnyEnabled("CPU.Fan");
             
             return (forceAll, needCpu, needGpu, needMem, needNet, needDisk, needBat, needMobo, 0);
         }

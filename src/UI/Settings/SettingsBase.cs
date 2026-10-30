@@ -74,6 +74,33 @@ namespace LiteMonitor.src.UI.SettingsPage
             // Subclasses (like PluginPage) can override it for post-save logic.
         }
 
+        public sealed record ViewState(Point[] Scroll, bool[] Collapsed)
+        {
+            public bool TaskbarTab { get; init; }
+            public bool OnlyVisible { get; init; }
+            public bool EditLabels { get; init; }
+        }
+        private IEnumerable<Control> Descendants(Control parent)
+        {
+            foreach (Control child in parent.Controls) {
+                yield return child;
+                foreach (var item in Descendants(child)) yield return item;
+            }
+        }
+        public virtual ViewState CaptureView() => new(
+            Descendants(this).OfType<ScrollableControl>().Where(c => c.AutoScroll).Select(c => new Point(-c.AutoScrollPosition.X, -c.AutoScrollPosition.Y)).ToArray(),
+            Descendants(this).OfType<LiteSettingsGroup>().Select(c => c.Collapsed).ToArray());
+        public virtual void RestoreView(ViewState state)
+        {
+            int i = 0;
+            foreach (var group in Descendants(this).OfType<LiteSettingsGroup>())
+                if (i < state.Collapsed.Length) group.Collapsed = state.Collapsed[i++];
+            PerformLayout();
+            i = 0;
+            foreach (var panel in Descendants(this).OfType<ScrollableControl>().Where(c => c.AutoScroll))
+                if (i < state.Scroll.Length) panel.AutoScrollPosition = state.Scroll[i++];
+        }
+
         protected void ClearAndDispose(Control.ControlCollection controls)
         {
             // Clear pending actions whenever we destroy the UI controls
@@ -95,8 +122,8 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             if (hideMain && hideTray && !showBar)
             {
-                MessageBox.Show("为了防止程序无法唤出，不能同时隐藏 [主界面]、[托盘图标] 和 [任务栏]。", 
-                                "安全警告", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(LanguageManager.T("Menu.VisibilitySafety"),
+                                "MellowMeter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 
                 if (chkHideMain != null) chkHideMain.Checked = false;
                 if (chkHideTray != null) chkHideTray.Checked = false;

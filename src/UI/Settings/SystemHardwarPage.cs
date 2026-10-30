@@ -19,7 +19,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         
         // ★★★ 修复：类型更正为 LiteComboBox ★★★
         private LiteComboBox _cbDisk, _cbNet, _cbGpu, _cbMobo;
-        private LiteComboBox _cbFanCpu, _cbFanPump, _cbFanCase;
+        private Label _sourceStatus = null!;
 
         public SystemHardwarPage()
         {
@@ -35,7 +35,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         private void InitializeUI()
         {
             CreateSourceCard();
-            CreateCalibrationCard();
+
             CreateSystemCard();
         }
 
@@ -52,6 +52,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         {
             if (_loading || IsDisposed) return;
             _loading = true;
+            _sourceStatus.Text = LanguageManager.T("Menu.SourcesLoading");
             try 
             {
                 string strAuto = LanguageManager.T("Menu.Auto");
@@ -60,10 +61,9 @@ namespace LiteMonitor.src.UI.SettingsPage
                 var taskDisks = Config.AdvancedSensorsEnabled ? Task.Run(() => HardwareMonitor.ListAllDisks()) : Task.FromResult(new List<string>());
                 var taskNets  = Task.Run(() => HardwareMonitor.ListAllNetworks());
                 var taskGpus  = Config.AdvancedSensorsEnabled ? Task.Run(() => HardwareMonitor.ListAllGpuOptions()) : Task.FromResult(new List<HardwareScanner.GpuOption>());
-                var taskFans  = Config.AdvancedSensorsEnabled ? Task.Run(() => HardwareMonitor.ListAllFans()) : Task.FromResult(new List<string>());
                 var taskMobo  = Config.AdvancedSensorsEnabled ? Task.Run(() => HardwareScanner.ListAllMoboTemps(HardwareMonitor.Instance.ComputerInstance, HardwareMonitor.Instance.SyncLock)) : Task.FromResult(new List<string>());
 
-                await Task.WhenAll(taskDisks, taskNets, taskGpus, taskFans, taskMobo);
+                await Task.WhenAll(taskDisks, taskNets, taskGpus, taskMobo);
                 if (IsDisposed || Disposing) return;
 
                 // 2. ★★★ 锁定全局布局 (防止每填一个框就重绘一次) ★★★
@@ -124,16 +124,15 @@ namespace LiteMonitor.src.UI.SettingsPage
                 FillSync(_cbNet, taskNets.Result, Config.PreferredNetwork);
                 FillGpuSync(_cbGpu, taskGpus.Result, Config.PreferredGpu);
                 FillSync(_cbMobo, taskMobo.Result, Config.PreferredMoboTemp);
+                _sourceStatus.Text = LanguageManager.T(taskNets.Result.Count + taskDisks.Result.Count + taskGpus.Result.Count == 0 ? "Menu.SourcesEmpty" : "Menu.SourcesReady");
                 
                 // Fan 的数据是复用的
-                FillSync(_cbFanCpu, taskFans.Result, Config.PreferredCpuFan);
-                FillSync(_cbFanPump, taskFans.Result, Config.PreferredCpuPump);
-                FillSync(_cbFanCase, taskFans.Result, Config.PreferredCaseFan);
             }
             catch (Exception ex)
             {
                 // 记录日志，或者只是简单地忽略（硬件读取失败不应该影响用户进入设置）
-                Console.WriteLine("硬件列表加载失败: " + ex.Message);
+                System.Diagnostics.Debug.WriteLine("Device enumeration failed: " + ex.Message);
+                if (!IsDisposed) _sourceStatus.Text = LanguageManager.T("Menu.SourcesFailed");
             }
             finally
             {
@@ -164,6 +163,9 @@ namespace LiteMonitor.src.UI.SettingsPage
             _cbNet = group.AddCombo(this, "Menu.NetworkSource", new List<string> { strAuto },
                 () => Config?.PreferredNetwork ?? strAuto,
                 v => { if (Config != null) Config.PreferredNetwork = v == strAuto ? "" : v; });
+            _sourceStatus = new Label { AutoSize = true, MaximumSize = UIUtils.S(new Size(390, 0)),
+                ForeColor = UIColors.TextSub, Padding = UIUtils.S(new Padding(0, 6, 0, 6)), AccessibleRole = AccessibleRole.StaticText };
+            group.AddFullItem(_sourceStatus);
             group.AddToggle(this, "Menu.HistoryEnabled", () => Config?.HistoryEnabled ?? true,
                 v => { if (Config != null) Config.HistoryEnabled = v; });
             AddGroupToPage(group);
@@ -191,45 +193,10 @@ namespace LiteMonitor.src.UI.SettingsPage
             _cbMobo = (LiteComboBox)group.AddCombo(this, "Items.MOBO.Temp", new List<string> { strAuto },
                 () => Config?.PreferredMoboTemp ?? strAuto, v => { if (Config != null) Config.PreferredMoboTemp = (v == strAuto ? "" : v); });
 
-            _cbFanCpu = (LiteComboBox)group.AddCombo(this, "Items.CPU.Fan", new List<string> { strAuto },
-                () => Config?.PreferredCpuFan ?? strAuto, v => { if (Config != null) Config.PreferredCpuFan = (v == strAuto ? "" : v); });
-            
-            _cbFanPump = (LiteComboBox)group.AddCombo(this, "Items.CPU.Pump", new List<string> { strAuto },
-                () => Config?.PreferredCpuPump ?? strAuto, v => { if (Config != null) Config.PreferredCpuPump = (v == strAuto ? "" : v); });
-
-            _cbFanCase = (LiteComboBox)group.AddCombo(this, "Items.CASE.Fan", new List<string> { strAuto },
-                () => Config?.PreferredCaseFan ?? strAuto, v => { if (Config != null) Config.PreferredCaseFan = (v == strAuto ? "" : v); });
-
             AddGroupToPage(group);
         }
 
-        private void CreateCalibrationCard()
-        {
-            var group = new LiteSettingsGroup(LanguageManager.T("Menu.Calibration")) { Collapsible = true, Collapsed = true };
-            _advancedGroups.Add(group);
-            string suffix = " (" + LanguageManager.T("Menu.MaxLimits") + ")";
 
-            void AddCalib(string key, string unit, Func<float> get, Action<float> set)
-            {
-                var input = group.AddDouble(this, "RAW_TITLE_HACK", unit, 
-                    () => (int)(get?.Invoke() ?? 0),        
-                    v => set?.Invoke((float)(int)v)
-                );
-                if(input.Parent.Controls[0] is Label lbl) lbl.Text = LanguageManager.T(key) + suffix; 
-            }
-            
-            group.AddHint(LanguageManager.T("Menu.CalibrationTip"));
-            AddCalib("Items.CPU.Power", "W",   () => Config?.RecordedMaxCpuPower ?? 100, v => { if(Config!=null) Config.RecordedMaxCpuPower = v; });
-            AddCalib("Items.CPU.Clock", "MHz", () => Config?.RecordedMaxCpuClock ?? 5000, v => { if(Config!=null) Config.RecordedMaxCpuClock = v; });
-            AddCalib("Items.GPU.Power", "W",   () => Config?.RecordedMaxGpuPower ?? 300, v => { if(Config!=null) Config.RecordedMaxGpuPower = v; });
-            AddCalib("Items.GPU.Clock", "MHz", () => Config?.RecordedMaxGpuClock ?? 2000, v => { if(Config!=null) Config.RecordedMaxGpuClock = v; });
-            AddCalib("Items.CPU.Fan",   "RPM", () => Config?.RecordedMaxCpuFan ?? 2000, v => { if(Config!=null) Config.RecordedMaxCpuFan = v; });
-            AddCalib("Items.CPU.Pump",  "RPM", () => Config?.RecordedMaxCpuPump ?? 2000, v => { if(Config!=null) Config.RecordedMaxCpuPump = v; });
-            AddCalib("Items.GPU.Fan",   "RPM", () => Config?.RecordedMaxGpuFan ?? 2000, v => { if(Config!=null) Config.RecordedMaxGpuFan = v; });
-            AddCalib("Items.CASE.Fan",  "RPM", () => Config?.RecordedMaxChassisFan ?? 2000, v => { if(Config!=null) Config.RecordedMaxChassisFan = v; });
-
-            AddGroupToPage(group);
-        }
 
         private void CreateSystemCard()
         {

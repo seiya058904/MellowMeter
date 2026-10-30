@@ -98,7 +98,11 @@ namespace LiteMonitor
             UpdateRealtimeStats();
 
             _timer = new System.Windows.Forms.Timer { Interval = 1000 };
-            _timer.Tick += (_, __) => UpdateRealtimeStats();
+            _timer.Tick += (_, __) => { if (Visible && WindowState != FormWindowState.Minimized) UpdateRealtimeStats(); };
+            Resize += (_, _) => {
+                if (WindowState == FormWindowState.Minimized) _timer.Stop();
+                else if (!_timer.Enabled) { UpdateRealtimeStats(); _timer.Start(); }
+            };
             _timer.Start();
         }
 

@@ -33,6 +33,8 @@
 
 MellowMeter builds on **[LiteMonitor](https://github.com/Diorser/LiteMonitor)**, retaining its compact floating monitor, taskbar layout, colorful readings, and familiar themes. It adds a calmer default setup, rounded settings, and coordinated light/dark styling — without trying to become a full dashboard.
 
+**Local v0.2 iteration:** Glass Light / Glass Dark bring the theme count to **14**, with an optional Windows 11 Mica sidebar, lazy settings pages, faster history interaction and a runtime-free Lite package. Existing profiles keep their theme. See the [iteration report](docs/iteration-0.2.0.md) for actual desktop captures, measurements and compatibility limits. The public download above remains v0.1.0 until a new release is authorized.
+
 <a id="features"></a>
 
 ## 🌿 A small space for the essentials
@@ -171,6 +173,9 @@ Development requires Windows 10/11 x64 and the .NET 8 SDK. Close the running app
 
 # Build the portable ZIP and its SHA-256 file (PowerShell 7.4+)
 .\scripts\package.ps1
+
+# Or build both Portable and Lite; Lite requires .NET 8 Desktop Runtime x64
+.\scripts\package.ps1 -Mode Both -OutputDirectory artifacts/release-both
 ```
 
 <details>
@@ -184,7 +189,7 @@ Further reading: [design direction](docs/DESIGN.md) · [verification and limitat
 
 ## 🧪 Tested — with the edges clearly marked
 
-The latest recorded Windows 11 x64 local check passed **371 desktop assertions** and produced **37 renderer captures**. All **six Windows CI regression suites** passed. The extracted portable ZIP was also tested for startup, responsiveness, bundled runtime loading, and clean exit.
+The published v0.1.0 Windows 11 x64 check passed **371 desktop assertions** and produced **37 renderer captures**, with all **six CI suites** passing at that release. The v0.2 source uses four suites after retiring only tests for removed services; current local results and real desktop captures are recorded in the [v0.2 report](docs/iteration-0.2.0.md). No v0.2 remote CI or public release is claimed by local verification.
 
 | Covered | Not established by these checks |
 | :--- | :--- |

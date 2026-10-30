@@ -11,10 +11,7 @@ using System.Text;
 using System.Text.Json;
 using LiteMonitor;
 using LiteMonitor.src.Core;
-using LiteMonitor.src.Plugins;
-using LiteMonitor.src.Plugins.Native;
 using LiteMonitor.src.SystemServices;
-using LiteMonitor.src.WebServer;
 using LibreHardwareMonitor.Hardware;
 
 internal static class Program
@@ -57,37 +54,7 @@ internal static class Program
                 return Task.CompletedTask;
             });
         }
-        await Run("特殊字符密码可正常认证且拒绝重复参数", AuthTest);
-        await Run("未完整发送的请求头不能进入快照处理", PartialHeaderTest);
-        await Run("慢请求头在截止时间后释放连接", HeaderTimeoutTest);
-        await Run("超过上限的请求头不能进入快照处理", HeaderSizeTest);
-        await Run("股票代码清洗兼容指数与普通美股", StockTest);
         await Run("内存和显存的数值与自定义单位一致", MemoryTest);
-        await Run("TLS：插件拒绝不可信服务器证书", async () =>
-        {
-            using var executor = new PluginExecutor();
-            var http = (HttpClient)typeof(PluginExecutor).GetField("_http", Private)!.GetValue(executor)!;
-            await RejectUntrustedCertificate(_ => http);
-        });
-        await Run("TLS：插件代理拒绝不可信服务器证书", async () =>
-        {
-            using var executor = new PluginExecutor();
-            var getClient = typeof(PluginExecutor).GetMethod("GetClient", Private)!;
-            await RejectUntrustedCertificate(port => (HttpClient)getClient.Invoke(executor, new object[] { "http://127.0.0.1:" + port })!, proxy: true);
-        });
-        foreach (var type in new[] { typeof(UpdateChecker), typeof(NetworkSpeedTester) })
-        {
-            await Run("TLS：" + type.Name + " 拒绝不可信服务器证书", async () =>
-            {
-                var http = (HttpClient)type.GetField("http", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
-                await RejectUntrustedCertificate(_ => http);
-            });
-        }
-        await Run("TLS：原生行情客户端拒绝不可信服务器证书", async () =>
-        {
-            using var http = (HttpClient)typeof(CryptoNative).GetMethod("CreateClient", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, null)!;
-            await RejectUntrustedCertificate(_ => http);
-        });
 
         Console.WriteLine($"发版审查：通过 {_passed} 项，失败 {_failed} 项。");
         return _failed == 0 ? 0 : 1;
@@ -142,155 +109,6 @@ internal static class Program
         map.Rebuild(Computer(gpu), cfg);
         Check(Proxy(gpu).Updates == 1 && map.TryGetSensor("GPU.Load", out _), "首次更新产生的传感器没有映射");
         return Task.CompletedTask;
-    }
-
-    private static Task AuthTest()
-    {
-        var manager = new WebSessionManager(_ => { });
-        var auth = typeof(WebSessionManager).GetMethod("CheckAuth", Private)!;
-        bool Accept(string target) => (bool)auth.Invoke(manager, new object[] { $"GET {target} HTTP/1.1\r\nHost: localhost\r\n\r\n" })!;
-        try
-        {
-            foreach (var password in new[] { "中文空 格+&=%", "a+b", "a b", "plain" })
-            {
-                Settings.Load().WebServerPassword = password;
-                string encoded = Uri.EscapeDataString(password);
-                Check(Accept("/api/snapshot?pwd=" + encoded), "编码后的密码认证失败");
-                Check(!Accept("/api/snapshot?pwd=wrong"), "错误密码通过认证");
-                Check(!Accept("/api/snapshot?pwd=" + encoded + "&pwd=wrong"), "重复密码参数应拒绝");
-                Check(!Accept("/api/snapshot?other=pwd=" + encoded), "非独立参数通过认证");
-            }
-        }
-        finally { Settings.Load().WebServerPassword = ""; }
-        return Task.CompletedTask;
-    }
-
-    private static async Task PartialHeaderTest()
-    {
-        await WithConnection(async (client, stream, handler) =>
-        {
-            await stream.WriteAsync(Encoding.ASCII.GetBytes("GET /api/snapshot HTTP/1.1\r\nHost: localhost\r\n"));
-            client.Client.Shutdown(SocketShutdown.Send);
-            byte[] buffer = new byte[1024];
-            int count = await stream.ReadAsync(buffer).AsTask().WaitAsync(TimeSpan.FromSeconds(2));
-            Check(count == 0, "未完整请求头不应得到快照数据");
-            await handler.WaitAsync(TimeSpan.FromSeconds(2));
-        });
-    }
-
-    private static async Task HeaderTimeoutTest()
-    {
-        await WithConnection(async (_, stream, handler) =>
-        {
-            await stream.WriteAsync(Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\n"));
-            await handler.WaitAsync(TimeSpan.FromSeconds(7));
-            byte[] buffer = new byte[1];
-            Check(await stream.ReadAsync(buffer).AsTask().WaitAsync(TimeSpan.FromSeconds(1)) == 0, "截止时间后连接未释放");
-        });
-    }
-
-    private static async Task HeaderSizeTest()
-    {
-        await WithConnection(async (_, stream, handler) =>
-        {
-            await stream.WriteAsync(Encoding.ASCII.GetBytes("GET /api/snapshot HTTP/1.1\r\nPadding: " + new string('a', 8192)));
-            await handler.WaitAsync(TimeSpan.FromSeconds(2));
-            byte[] buffer = new byte[1];
-            try { Check(await stream.ReadAsync(buffer).AsTask().WaitAsync(TimeSpan.FromSeconds(1)) == 0, "超长请求不应得到快照数据"); }
-            catch (IOException) { }
-        });
-    }
-
-    private static async Task WithConnection(Func<TcpClient, NetworkStream, Task, Task> test)
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        using var client = new TcpClient();
-        await client.ConnectAsync((IPEndPoint)listener.LocalEndpoint);
-        using var accepted = await listener.AcceptTcpClientAsync();
-        var manager = new WebSessionManager(w => { w.WriteStartObject(); w.WriteEndObject(); });
-        var handler = manager.HandleClientAsync(accepted);
-        try { await test(client, client.GetStream(), handler); }
-        finally
-        {
-            client.Close();
-            listener.Stop();
-            manager.Stop();
-            await handler.WaitAsync(TimeSpan.FromSeconds(2));
-        }
-    }
-
-    private static Task StockTest()
-    {
-        var template = JsonSerializer.Deserialize<PluginTemplate>(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Stock.json")))!;
-        foreach (var (input, expected) in new[] { ("us.NDX", "usNDX"), ("usBABA.N", "usBABA"), ("usAAPL.O", "usAAPL"), ("sh600519", "sh600519") })
-        {
-            var context = new Dictionary<string, string> { ["code"] = input };
-            PluginProcessor.ApplyTransforms(template.Execution.Steps![0].Process!, context);
-            Check(context["code"] == expected, "股票代码清洗错误：" + input);
-        }
-        return Task.CompletedTask;
-    }
-
-    private static async Task RejectUntrustedCertificate(Func<int, HttpClient> getClient, bool proxy = false)
-    {
-        // 只在本地生成临时自签名证书，不修改系统信任存储，也不依赖外部测试网站。
-        using var key = RSA.Create(2048);
-        var request = new CertificateRequest("CN=localhost", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        var names = new SubjectAlternativeNameBuilder();
-        names.AddIpAddress(IPAddress.Loopback);
-        names.AddDnsName("localhost");
-        request.CertificateExtensions.Add(names.Build());
-        using var generated = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
-        // Windows 的 TLS 服务端需要导入带私钥的证书；仅导入内存对象，不加入信任存储。
-        using var certificate = new X509Certificate2(generated.Export(X509ContentType.Pfx));
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        int port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var serve = Task.Run(async () =>
-        {
-            using var socket = await listener.AcceptTcpClientAsync(timeout.Token);
-            var network = socket.GetStream();
-            if (proxy)
-            {
-                var header = new StringBuilder();
-                var one = new byte[1];
-                while (!header.ToString().EndsWith("\r\n\r\n"))
-                {
-                    int count = await network.ReadAsync(one, timeout.Token);
-                    if (count == 0 || header.Length > 8192) throw new IOException("代理请求不完整");
-                    header.Append((char)one[0]);
-                }
-                Check(header.ToString().StartsWith("CONNECT "), "应通过显式代理建立隧道");
-                await network.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 200 Connection Established\r\n\r\n"), timeout.Token);
-            }
-            using var ssl = new SslStream(network);
-            try
-            {
-                await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = certificate }, timeout.Token);
-                var buffer = new byte[4096];
-                int count = await ssl.ReadAsync(buffer, timeout.Token);
-                if (count > 0)
-                    await ssl.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}"), timeout.Token);
-            }
-            catch (AuthenticationException) { }
-            catch (IOException) { }
-        });
-        try
-        {
-            var http = getClient(port);
-            bool rejected = false;
-            try { await http.GetStringAsync(proxy ? "https://localhost/" : $"https://127.0.0.1:{port}/", timeout.Token); }
-            catch (HttpRequestException ex) when (ex.InnerException is AuthenticationException) { rejected = true; }
-            Check(rejected, "不可信证书被接受，或请求未到达证书校验阶段");
-        }
-        finally
-        {
-            timeout.Cancel();
-            listener.Stop();
-            try { await serve; } catch (OperationCanceledException) { }
-        }
     }
 
     private static Task MemoryTest()

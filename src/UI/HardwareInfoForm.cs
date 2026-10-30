@@ -23,25 +23,29 @@ namespace LiteMonitor.src.UI
 
         public HardwareInfoForm()
         {
-            this.Text = T("LiteMonitor - Hardware Info", "LiteMonitor - 系统硬件详情");
+            this.Text = T("MellowMeter · Hardware", "MellowMeter · 硬件详情");
             this.Size = new Size(UIUtils.S(600), UIUtils.S(750)); // 稍微加宽一点
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.BackColor = Color.White;
+            this.BackColor = UIColors.MainBg;
+            this.ForeColor = UIColors.TextMain;
+            HandleCreated += (_, _) => LiteMonitor.src.UI.Helpers.WindowTheme.Apply(this);
             this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
 
             // 搜索栏
-            var pnlToolbar = new Panel { Dock = DockStyle.Top, Height = UIUtils.S(40), Padding = new Padding(10), BackColor = Color.WhiteSmoke };
+            var pnlToolbar = new Panel { Dock = DockStyle.Top, Height = UIUtils.S(40), Padding = new Padding(10), BackColor = UIColors.CardBg };
             _searchInput = new TextBox { 
                 Dock = DockStyle.Fill, 
                 BorderStyle = BorderStyle.FixedSingle,
                 Font = new Font("Microsoft YaHei UI", 9f), 
                 PlaceholderText = T("Search sensor name...", "搜索传感器名称...") 
             };
+            _searchInput.BackColor = UIColors.FieldBg;
+            _searchInput.ForeColor = UIColors.TextMain;
             _searchInput.TextChanged += (s, e) => RebuildTree(_searchInput.Text.Trim());
             pnlToolbar.Controls.Add(_searchInput);
 
             // 表头
-            _headerPanel = new Panel { Dock = DockStyle.Top, Height = UIUtils.S(24), BackColor = Color.FromArgb(250, 250, 250) };
+            _headerPanel = new Panel { Dock = DockStyle.Top, Height = UIUtils.S(24), BackColor = UIColors.CardBg };
             _headerPanel.Paint += HeaderPanel_Paint;
             _headerPanel.Resize += (s, e) => _headerPanel.Invalidate();
 
@@ -89,8 +93,9 @@ namespace LiteMonitor.src.UI
 
             // 局部刷新定时器
             _refreshTimer = new System.Windows.Forms.Timer { Interval = 1000 };
-            _refreshTimer.Tick += (s, e) => UpdateVisibleNodesSmart();
+            _refreshTimer.Tick += (s, e) => { if (WindowState != FormWindowState.Minimized) UpdateVisibleNodesSmart(); };
             _refreshTimer.Start();
+            LiteMonitor.src.UI.Helpers.WindowTheme.StyleAuxiliary(this);
         }
 
         private void UpdateVisibleNodesSmart()
@@ -139,17 +144,17 @@ namespace LiteMonitor.src.UI
             // 2. 绘制 "Sensor" (左侧)
             // 使用 Rectangle 而不是 Point，并垂直居中，防止位置跑偏
             Rectangle titleRect = new Rectangle(30, 0, xValueLeft - 10, _headerPanel.Height);
-            TextRenderer.DrawText(g, " " + T("Sensor", "硬件 > 传感器"), font, titleRect, Color.FromArgb(80, 80, 80), 
+            TextRenderer.DrawText(g, " " + T("Sensor", "硬件 > 传感器"), font, titleRect, UIColors.TextSub,
                 TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
 
             // 3. 绘制 "Max"
             Rectangle maxRect = new Rectangle(xMaxLeft, 0, colMaxW, _headerPanel.Height);
-            TextRenderer.DrawText(g, T("Max", "最大记录"), font, maxRect, Color.FromArgb(80, 80, 80), 
+            TextRenderer.DrawText(g, T("Max", "最大记录"), font, maxRect, UIColors.TextSub,
                 TextFormatFlags.VerticalCenter | TextFormatFlags.Right | TextFormatFlags.SingleLine);
 
             // 4. 绘制 "Value"
             Rectangle valRect = new Rectangle(xValueLeft, 0, colValW, _headerPanel.Height);
-            TextRenderer.DrawText(g, T("Value", "数值"), font, valRect, Color.FromArgb(80, 80, 80), 
+            TextRenderer.DrawText(g, T("Value", "数值"), font, valRect, UIColors.TextSub,
                 TextFormatFlags.VerticalCenter | TextFormatFlags.Right | TextFormatFlags.SingleLine);
             
             font.Dispose();

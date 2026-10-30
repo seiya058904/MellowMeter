@@ -310,7 +310,7 @@ namespace LiteMonitor.src.UI.Helpers
                 case 2: OpenSettings(); break;
                 case 3: OpenTrafficHistory(); break;
                 case 4: CleanMemory(); break;
-                case 5: WebActions.OpenWebMonitor(_cfg); break;
+
                 case 0: default: ToggleLayoutMode(); break;
             }
         }
@@ -352,7 +352,7 @@ namespace LiteMonitor.src.UI.Helpers
             if (File.Exists(tokenPath))
             {
                 try { File.Delete(tokenPath); } catch { }
-                string title = "⚡️LiteMonitor_v" + UpdateChecker.GetCurrentVersion();
+                string title = "⚡️LiteMonitor_v" + (typeof(MainForm).Assembly.GetName().Version?.ToString(3) ?? "0.2.0");
                 string content = _cfg.Language == "zh" ? "🎉 软件已成功更新到最新版本！" : "🎉 Software updated to latest version!";
                 ShowNotification(title, content, ToolTipIcon.Info);
             }

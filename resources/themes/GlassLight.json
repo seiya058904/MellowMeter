@@ -1,0 +1,40 @@
+{
+  "version": 3,
+  "name": "Glass Light",
+  "layout": {
+    "rowHeight": 38,
+    "padding": 12,
+    "cornerRadius": 16,
+    "groupRadius": 12,
+    "groupPadding": 8,
+    "groupSpacing": 25,
+    "groupBottom": 0,
+    "groupTitleOffset": 6,
+    "itemGap": 6
+  },
+  "font": {
+    "family": "Segoe UI",
+    "valueFamily": "Consolas",
+    "title": 11,
+    "group": 9,
+    "item": 9.5,
+    "value": 12,
+    "bold": false
+  },
+  "color": {
+    "background": "#EFF3F9",
+    "groupBackground": "#FAFCFF",
+    "textTitle": "#182334",
+    "textGroup": "#53647B",
+    "textPrimary": "#26364C",
+    "valueSafe": "#237548",
+    "valueWarn": "#986000",
+    "valueCrit": "#BA3447",
+    "barBackground": "#E1E8F1",
+    "barLow": "#3C9A68",
+    "barMid": "#CF952A",
+    "barHigh": "#D45A6A",
+    "accent": "#1766CE"
+  },
+  "material": "glass"
+}

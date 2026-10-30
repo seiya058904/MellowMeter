@@ -24,6 +24,8 @@ namespace LiteMonitor
         private ContextMenuStrip? _currentMenu;
         private DateTime _lastFindHandleTime = DateTime.MinValue;
         private string _lastLayoutSignature = "";
+        private long _lastMaintenance, _lastThemeCheck;
+        private long _lastDisplayRevision = -1;
         private readonly TaskbarTooltipHelper _tooltipHelper;
         
         // 公开属性
@@ -65,18 +67,20 @@ namespace LiteMonitor
             _bizHelper.AttachToTaskbar();
             _winHelper.ApplyLayeredStyle(_bizHelper.TransparentKey, _cfg.TaskbarClickThrough);
 
-            _timer.Interval = Math.Max(_cfg.RefreshMs, 60);
+            _timer.Interval = 2000;
             _timer.Tick += (_, __) => Tick();
             _timer.Start();
 
             // 鼠标悬浮提示初始化
             _tooltipHelper = new TaskbarTooltipHelper(this, _cfg, _ui);
 
+            _ui.FrameChanged += Tick;
             Tick();
         }
 
         public void ReloadLayout()
         {
+            _lastDisplayRevision = -1;
             _layout = new HorizontalLayout(ThemeManager.Current, 300, LayoutMode.Taskbar, target: this, settings: _cfg);
             _lastLayoutSignature = ""; // 重置签名，强制重算
             _winHelper.ApplyLayeredStyle(_bizHelper.TransparentKey, _cfg.TaskbarClickThrough);
@@ -102,6 +106,7 @@ namespace LiteMonitor
             {
                 _winHelper?.RestoreTaskbar();
                 _timer.Stop();
+                _ui.FrameChanged -= Tick;
                 _timer.Dispose();
                 _currentMenu?.Dispose();
                 _tooltipHelper?.Dispose();
@@ -171,11 +176,14 @@ namespace LiteMonitor
 
         private void Tick()
         {
-            _timer.Interval = _ui.EffectiveRefreshMs;
+            _timer.Interval = _ui.RenderingPaused ? 10000 : 2000;
             if (_ui.RenderingPaused) return;
             // [Fix] 周期性检查句柄，防止 Explorer 重启后句柄失效
             // 优化：仅在重试期或句柄无效时调用 FindHandles，且限制调用频率
-            bool isHandleInvalid = !_bizHelper.IsTaskbarValid();
+            long now = Environment.TickCount64;
+            bool maintain = now - _lastMaintenance >= 2000;
+            if (maintain) _lastMaintenance = now;
+            bool isHandleInvalid = maintain && !_bizHelper.IsTaskbarValid();
             
             // 如果处于重试期，或者句柄无效且距离上次查找超过2秒(防止无Explorer时高频空转)
             if (isHandleInvalid && (DateTime.Now - _lastFindHandleTime).TotalSeconds > 2)
@@ -184,7 +192,9 @@ namespace LiteMonitor
                 _lastFindHandleTime = DateTime.Now;
             }
 
-            if (Environment.TickCount64 % 5000 < _timer.Interval) _bizHelper.CheckTheme();
+            if (now - _lastThemeCheck >= 5000) { _lastThemeCheck = now; _bizHelper.CheckTheme(); }
+            bool dataChanged = _lastDisplayRevision != _ui.DisplayRevision;
+            if (!dataChanged && !maintain) return;
 
             // [Fix Part 1] 防空数据保护
             // 使用临时变量接收，先判断数据有效性，再赋值给成员变量 _cols
@@ -228,7 +238,10 @@ namespace LiteMonitor
             
             _tooltipHelper.UpdateContent();
 
-            Invalidate();
+            if (dataChanged) {
+                _lastDisplayRevision = _ui.DisplayRevision;
+                Invalidate();
+            }
         }
 
         protected override void OnPaintBackground(PaintEventArgs e)

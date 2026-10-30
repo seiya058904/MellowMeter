@@ -80,6 +80,9 @@ namespace LiteMonitor.src.UI.SettingsPage
                 () => Config.Skin, 
                 v => Config.Skin = v);
 
+            group.AddToggle(this, "Menu.GlassEffects", () => Config.GlassEffectsEnabled,
+                v => Config.GlassEffectsEnabled = v);
+
             // 2. Orientation
             group.AddComboIndex(this, "Menu.DisplayMode", 
                 new[] { LanguageManager.T("Menu.Vertical"), LanguageManager.T("Menu.Horizontal") },

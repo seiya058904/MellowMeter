@@ -79,6 +79,15 @@
     "BAT.Current": "🔋"
   },
   "Menu": {
+    "GlassEffects": "玻璃效果",
+    "SourcesLoading": "正在读取设备…",
+    "SourcesReady": "可用设备已载入",
+    "SourcesEmpty": "暂无可用设备，保留自动选择。",
+    "SourcesFailed": "设备读取失败，重新进入此页可重试。",
+    "VisibilitySafety": "已保留托盘图标，确保可以重新打开应用。",
+    "MoveUp": "上移",
+    "MoveDown": "下移",
+
     "AdvancedSensors": "高级传感器",
     "AdvancedSensorsTip": "增加温度、功耗、频率和风扇指标。应用后重启 MellowMeter；读数取决于硬件支持及可用的兼容驱动。",
     "HistoryEnabled": "记录本地历史",

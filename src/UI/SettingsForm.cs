@@ -22,6 +22,12 @@ namespace LiteMonitor.src.UI
         
         // 缓存所有页面实例
         private Dictionary<string, SettingsPageBase> _pages = new Dictionary<string, SettingsPageBase>();
+        private readonly Dictionary<string, Func<SettingsPageBase>> _pageFactories = new();
+        private readonly Dictionary<string, SettingsPageBase.ViewState> _viewStates = new();
+        private LiteButton? _applyButton;
+        private string _draftBaseline = "";
+        private bool _tracking, _dirtyQueued;
+        private bool _visualGlass;
         private string _currentKey = "";
         private string _visualSkin = "";
         private string _visualLanguage = "";
@@ -76,8 +82,11 @@ namespace LiteMonitor.src.UI
             
             InitializeComponent(); 
             
-            // ★★★ 关键点 1：构造时就初始化所有页面 ★★★
-            InitPages(); 
+            // Register factories and construct only the initial page.
+            InitPages();
+            _draftBaseline = Snapshot(_draftCfg);
+            _tracking = true;
+            UpdateDirtyState();
         }
 
         private void InitializeComponent()
@@ -97,14 +106,14 @@ namespace LiteMonitor.src.UI
             this.ShowInTaskbar = true;
 
             // 侧边栏
-            var pnlSidebar = new Panel { Dock = DockStyle.Left, Width = UIUtils.S(156), BackColor = UIColors.SidebarBg };
+            var pnlSidebar = new MaterialSidebar { Dock = DockStyle.Left, Width = UIUtils.S(156), BackColor = UIColors.SidebarBg };
             
             _pnlNavContainer = new FlowLayoutPanel 
             { 
                 Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, 
-                Padding = UIUtils.S(new Padding(6, 8, 6, 0)), BackColor = UIColors.SidebarBg
+                Padding = UIUtils.S(new Padding(6, 8, 6, 0)), BackColor = Color.Transparent
             };
-            var navigationTitle = new Label {
+            var navigationTitle = new MaterialSidebarTitle {
                 Text = LanguageManager.T("Menu.SettingsPanel"), Dock = DockStyle.Top,
                 Height = UIUtils.S(52), Padding = UIUtils.S(new Padding(18, 18, 0, 0)),
                 Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UIColors.TextMain
@@ -125,6 +134,7 @@ namespace LiteMonitor.src.UI
             var btnOk = new LiteButton(LanguageManager.T("Menu.OK"), true);
             var btnCancel = new LiteButton(LanguageManager.T("Menu.Cancel"), false);
             var btnApply = new LiteButton(LanguageManager.T("Menu.Apply"), false);
+            _applyButton = btnApply;
             foreach (var button in new[] { btnOk, btnCancel, btnApply })
                 button.Margin = UIUtils.S(new Padding(4, 0, 4, 0));
             this.AcceptButton = btnOk;
@@ -142,9 +152,10 @@ namespace LiteMonitor.src.UI
             _pnlContent = new BufferedPanel { Dock = DockStyle.Fill, Padding = new Padding(0) };
             this.Controls.Add(_pnlContent);
             
-            pnlSidebar.BringToFront(); 
-            pnlBottom.SendToBack(); 
-            _pnlContent.BringToFront();
+            Controls.SetChildIndex(pnlSidebar, 2);
+            Controls.SetChildIndex(pnlBottom, 1);
+            Controls.SetChildIndex(_pnlContent, 0);
+            _visualGlass = _cfg.GlassEffectsEnabled;
             _visualSkin = _cfg.Skin;
             _visualLanguage = LanguageManager.CurrentLang;
             WindowTheme.Apply(this);
@@ -156,24 +167,24 @@ namespace LiteMonitor.src.UI
                 _pnlNavContainer.Controls[0].Dispose();
             foreach (var page in _pages.Values) page.Dispose();
             _pages.Clear();
+            _pageFactories.Clear();
             _currentKey = "";
             
             // 注册所有页面
-            AddNav("MainPanel", "🖥️ " + LanguageManager.T("Menu.MainFormSettings"), new MainPanelPage());
-            AddNav("Taskbar", "➖ " + LanguageManager.T("Menu.TaskbarSettings"), new TaskbarPage());
-            AddNav("Monitor", "📊 " + LanguageManager.T("Menu.MonitorItemDisplay"), new MonitorPage());
-            AddNav("Threshold", "🔔 " + LanguageManager.T("Menu.Thresholds"), new ThresholdPage());
-            AddNav("System", "⚙️ " + LanguageManager.T("Menu.SystemHardwar"), new SystemHardwarPage());
+            AddNav("MainPanel", "🖥️ " + LanguageManager.T("Menu.MainFormSettings"), () => new MainPanelPage());
+            AddNav("Taskbar", "➖ " + LanguageManager.T("Menu.TaskbarSettings"), () => new TaskbarPage());
+            AddNav("Monitor", "📊 " + LanguageManager.T("Menu.MonitorItemDisplay"), () => new MonitorPage());
+            AddNav("Threshold", "🔔 " + LanguageManager.T("Menu.Thresholds"), () => new ThresholdPage());
+            AddNav("System", "⚙️ " + LanguageManager.T("Menu.SystemHardwar"), () => new SystemHardwarPage());
 
             _pnlNavContainer.PerformLayout();
             SwitchPage("MainPanel");
         }
 
-        private void AddNav(string key, string text, SettingsPageBase page)
+        private void AddNav(string key, string text, Func<SettingsPageBase> factory)
         {
             // ★★★ 关键点 2：将 Draft 传递给页面，而不是 Live Settings ★★★
-            page.SetContext(_draftCfg, _mainForm, _ui);
-            _pages[key] = page;
+            _pageFactories[key] = factory;
             var btn = new LiteNavBtn(text) { Tag = key, Width = UIUtils.S(144), Margin = UIUtils.S(new Padding(0, 3, 0, 3)) };
             btn.Click += (s, e) => SwitchPage(key);
             _pnlNavContainer.Controls.Add(btn);
@@ -181,8 +192,17 @@ namespace LiteMonitor.src.UI
 
         public void SwitchPage(string key)
         {
-            if (_currentKey == key || !_pages.ContainsKey(key)) return;
-            if (_pages.TryGetValue(_currentKey, out var previousPage)) previousPage.Save();
+            if (_currentKey == key || !_pageFactories.ContainsKey(key)) return;
+            if (_pages.TryGetValue(_currentKey, out var previousPage)) {
+                previousPage.Save();
+                _viewStates[_currentKey] = previousPage.CaptureView();
+            }
+            if (!_pages.ContainsKey(key)) {
+                var page = _pageFactories[key]();
+                page.SetContext(_draftCfg, _mainForm, _ui);
+                _pages[key] = page;
+                TrackChanges(page);
+            }
             _currentKey = key;
 
             // 更新导航按钮状态
@@ -212,6 +232,7 @@ namespace LiteMonitor.src.UI
 
                     _pnlContent.Controls.Add(targetPage);
                     targetPage.OnShow();
+                    if (_viewStates.TryGetValue(key, out var view)) targetPage.RestoreView(view);
                 }
                 finally
                 {
@@ -239,7 +260,7 @@ namespace LiteMonitor.src.UI
             {
                 // 自动纠正：如果所有可交互入口都被封死（隐藏或穿透+隐藏托盘），强制显示托盘
                 _draftCfg.HideTrayIcon = false;
-                MessageBox.Show("为了防止所有可交互入口都被死锁（隐藏或穿透+隐藏托盘），已强制显示托盘图标。", "MellowMeter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(LanguageManager.T("Menu.VisibilitySafety"), "MellowMeter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
             // 2. 合并变更到 Live Settings
@@ -259,6 +280,8 @@ namespace LiteMonitor.src.UI
             SettingsChanger.RebaseDraftMonitorItems(_cfg, _draftCfg);
 
             RefreshTheme();
+            _draftBaseline = Snapshot(_draftCfg);
+            UpdateDirtyState();
 
             if (oldAdvancedSensors != _cfg.AdvancedSensorsEnabled)
                 MessageBox.Show(this, LanguageManager.T("Menu.RestartForSensors"), "MellowMeter", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -274,17 +297,24 @@ namespace LiteMonitor.src.UI
         public void RefreshTheme()
         {
             if (IsDisposed || _applyingSettings ||
-                (_visualSkin == _cfg.Skin && _visualLanguage == LanguageManager.CurrentLang)) return;
+                (_visualSkin == _cfg.Skin && _visualLanguage == LanguageManager.CurrentLang && _visualGlass == _cfg.GlassEffectsEnabled)) return;
             SaveDraftPages();
             // Follow an external appearance change only where the user has no pending override.
+            var baseline = System.Text.Json.JsonSerializer.Deserialize<Settings>(_draftBaseline)!;
             if (_draftCfg.Skin == _visualSkin) _draftCfg.Skin = _cfg.Skin;
             if (_draftCfg.Language == _visualLanguage) _draftCfg.Language = _cfg.Language;
+            if (_draftCfg.GlassEffectsEnabled == _visualGlass) _draftCfg.GlassEffectsEnabled = _cfg.GlassEffectsEnabled;
+            baseline.Skin = _cfg.Skin;
+            baseline.Language = _cfg.Language;
+            baseline.GlassEffectsEnabled = _cfg.GlassEffectsEnabled;
+            _draftBaseline = Snapshot(baseline);
             RefreshAppearance();
         }
 
         private void RefreshAppearance()
         {
             string selectedPage = _currentKey;
+            foreach (var pair in _pages) _viewStates[pair.Key] = pair.Value.CaptureView();
             Rectangle previousBounds = Bounds;
             Font previousFont = Font;
             SuspendLayout();
@@ -302,6 +332,7 @@ namespace LiteMonitor.src.UI
                 InitPages();
                 SwitchPage(selectedPage);
                 Bounds = previousBounds;
+                UpdateDirtyState();
             }
             finally
             {
@@ -310,6 +341,44 @@ namespace LiteMonitor.src.UI
                 ResumeLayout(true);
                 Invalidate(true);
             }
+        }
+
+        private void TrackChanges(Control control)
+        {
+            control.ControlAdded += (_, e) => { if (e.Control != null) TrackChanges(e.Control); };
+            control.TextChanged += (_, _) => QueueDirtyState();
+            control.Click += (_, _) => QueueDirtyState();
+            if (control is CheckBox check) check.CheckedChanged += (_, _) => QueueDirtyState();
+            if (control is ComboBox combo) combo.SelectedIndexChanged += (_, _) => QueueDirtyState();
+            if (control is NumericUpDown number) number.ValueChanged += (_, _) => QueueDirtyState();
+            foreach (Control child in control.Controls) TrackChanges(child);
+        }
+
+        private void QueueDirtyState()
+        {
+            if (!_tracking || _dirtyQueued || !IsHandleCreated || IsDisposed) return;
+            _dirtyQueued = true;
+            BeginInvoke(new Action(() => { _dirtyQueued = false; if (!IsDisposed) UpdateDirtyState(); }));
+        }
+
+        private void UpdateDirtyState()
+        {
+            SaveDraftPages();
+            if (_applyButton != null) _applyButton.Enabled =
+                Snapshot(_draftCfg) != _draftBaseline;
+        }
+
+        private static string Snapshot(Settings settings)
+        {
+            var canonical = settings.DeepClone();
+            // Order numbers are storage details: visiting the editor normalizes them.
+            int index = 0;
+            foreach (var item in canonical.MonitorItems.OrderBy(x => x.SortIndex).ThenBy(x => x.Key)) item.SortIndex = index++;
+            index = 0;
+            foreach (var item in canonical.MonitorItems.OrderBy(x => x.TaskbarSortIndex).ThenBy(x => x.Key)) item.TaskbarSortIndex = index++;
+            canonical.MonitorItems = canonical.MonitorItems.OrderBy(x => x.Key).ToList();
+            canonical.GroupAliases = canonical.GroupAliases.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value);
+            return System.Text.Json.JsonSerializer.Serialize(canonical);
         }
 
         protected override void Dispose(bool disposing)

@@ -123,7 +123,7 @@ namespace LiteMonitor.src.SystemServices
 
             string preferredGpu = cfg.PreferredGpu ?? "";
             IHardware? selectedGpu = HardwareScanner.FindGpuByConfig(computer, preferredGpu);
-            bool shouldWarmGpuForMapping = cfg.IsAnyEnabled("GPU") || cfg.WebServerEnabled;
+            bool shouldWarmGpuForMapping = cfg.IsAnyEnabled("GPU");
 
             // 局部递归函数
             void RegisterTo(IHardware hw)
@@ -296,10 +296,8 @@ namespace LiteMonitor.src.SystemServices
                 if (best != null) newMap["MOBO.Temp"] = best;
             }
 
-            // B. 风扇匹配只在确实显示风扇/水泵时运行，避免启动阶段无意义地刷新主板控制器。
-            if (cfg.IsAnyEnabled("CPU.Fan") ||
-                cfg.IsAnyEnabled("CPU.Pump") ||
-                cfg.IsAnyEnabled("CASE.Fan"))
+            // Only the retained CPU fan metric needs motherboard fan discovery.
+            if (cfg.IsAnyEnabled("CPU.Fan"))
             {
                 _fanMapper.ScanAndMapFans(computer, cfg, newMap);
             }

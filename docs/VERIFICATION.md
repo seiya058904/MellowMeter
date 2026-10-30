@@ -1,5 +1,7 @@
 # Verification record
 
+For the current local v0.2 iteration, see the [new verification and performance report](iteration-0.2.0.md). The record below describes the published v0.1.0 work and its historical limits.
+
 Local evidence collected on **2026-10-29**. The original default floating theme and taskbar font are retained. The settings surface was rebuilt as compact rounded groups with optional disclosure sections and pill switches based on the existing WinForms controls. Captures cover every settings page in dark/light modes, Chinese labels, and the original cyan, purple and amber themes. Keyboard and draft behavior were exercised in the real WinForms event loop. The earlier interactive desktop check was stopped with Esc; the final styling has renderer/in-process interaction coverage but no final manual desktop recheck. The [initial Windows CI run](https://github.com/seiya058904/MellowMeter/actions/runs/40875378179) passed all six suites; subsequent commit results are available in the [workflow history](https://github.com/seiya058904/MellowMeter/actions/workflows/build.yml).
 
 ## Environment and completed checks

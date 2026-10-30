@@ -96,7 +96,7 @@ namespace LiteMonitor
             };
 
             // === 关闭按钮（扁平风格） ===
-            var btnClose = new Button
+            var btnClose = new LiteButton(strClose)
             {
                 Text = strClose,
                 DialogResult = DialogResult.OK,
@@ -114,6 +114,7 @@ namespace LiteMonitor
             Controls.AddRange([lblTitle, lblVer, lblDesc, githubLink, btnClose]);
             AcceptButton = btnClose;
             CancelButton = btnClose;
+            HandleCreated += (_, _) => LiteMonitor.src.UI.Helpers.WindowTheme.Apply(this);
         }
     }
 }

@@ -1,4 +1,6 @@
 using LiteMonitor.src.Core;
+using LiteMonitor.src.UI.Helpers;
+using LiteMonitor.src.UI.Controls;
 using LiteMonitor.src.SystemServices.InfoService;
 using LiteMonitor.src.SystemServices;
 using System;
@@ -65,6 +67,7 @@ namespace LiteMonitor
             var oldTheme = ThemeManager.Current;
 
             // 2. 清理全局画刷缓存 (这不会影响 ThemeManager 的字体了，因为解耦了)
+            GlassSurface.ClearCache();
             UIRenderer.ClearCache();
             UIUtils.ClearBrushCache();
 
@@ -73,6 +76,7 @@ namespace LiteMonitor
             // 或者优化：ThemeManager.Load 内部判断是否已加载
             ThemeManager.Load(name);
             var t = ThemeManager.Current;
+            WindowTheme.Configure(_cfg);
 
             // 4. 安全释放旧主题的字体
             // 此时 Current 已经是新主题了，Paint 事件只会用新字体，所以释放旧的是安全的
@@ -174,6 +178,9 @@ namespace LiteMonitor
             UIRenderer.Render(g, _groups, t);
         }
 
+        private int _renderSignature;
+        public long DisplayRevision { get; private set; }
+        public event Action? FrameChanged;
         private bool _busy = false;
         private volatile bool _disposed;
         private int _monitorDisposed;
@@ -198,6 +205,7 @@ namespace LiteMonitor
         private async void Tick()
         {
             if (_disposed || _busy || _suspended) return;
+            WindowTheme.RefreshPolicy();
             bool visible = !_sessionLocked && (_form.Visible || _cfg.ShowTaskbar);
             _timer.Interval = visible ? EffectiveRefreshMs : 10000;
             if (!visible && !_cfg.HistoryEnabled) return;
@@ -274,7 +282,25 @@ namespace LiteMonitor
                     }
                 }
 
-                if (visible && !_dragging) _form.Invalidate();
+                var hash = new HashCode();
+                void AddVisual(MetricItem? item, bool horizontal) {
+                    if (item == null) return;
+                    hash.Add(item.GetFormattedText(horizontal));
+                    hash.Add(item.CachedColorState);
+                    hash.Add(item.Label);
+                    hash.Add(item.ShortLabel);
+                    if (!horizontal) hash.Add((int)(item.CachedPercent * Math.Max(1, item.Bounds.Width)));
+                }
+                if (_cfg.HorizontalMode) foreach (var col in _hxColsHorizontal) { AddVisual(col.Top, true); AddVisual(col.Bottom, true); }
+                else foreach (var group in _groups) foreach (var item in group.Items) AddVisual(item, false);
+                foreach (var col in _hxColsTaskbar) { AddVisual(col.Top, true); AddVisual(col.Bottom, true); }
+                int signature = hash.ToHashCode();
+                if (signature != _renderSignature || _layoutDirty) {
+                    _renderSignature = signature;
+                    DisplayRevision++;
+                    if (visible && !_dragging && _form.Visible) _form.Invalidate();
+                    FrameChanged?.Invoke();
+                }
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Sampling failed: {ex}"); }
             finally

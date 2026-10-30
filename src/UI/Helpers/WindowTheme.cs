@@ -1,26 +1,99 @@
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
+using Microsoft.Win32;
+using LiteMonitor.src.Core;
 using LiteMonitor.src.UI.Controls;
 
 namespace LiteMonitor.src.UI.Helpers;
 
 internal static class WindowTheme
 {
-    // Keep native dragging, caption buttons and keyboard behavior; let DWM
-    // carry the same palette through the Windows 11 frame.
-    internal static void Apply(Form window)
-    {
-        if (!window.IsHandleCreated || window.IsDisposed || SystemInformation.HighContrast ||
-            !OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000)) return;
+    private sealed class State { public bool Backdrop; public bool Hooked; }
+    private static readonly ConditionalWeakTable<Form, State> States = new();
+    private static bool _requested = true;
+    private static long _lastPolicyCheck;
+    internal static bool EffectsAllowed { get; private set; } = true;
+    internal static bool HasBackdrop(Form window) => States.TryGetValue(window, out var state) && state.Backdrop;
 
-        Set(window.Handle, 20, UIColors.IsDark ? 1 : 0); // DWMWA_USE_IMMERSIVE_DARK_MODE
-        Set(window.Handle, 33, 2); // DWMWCP_ROUND
-        Set(window.Handle, 35, ColorTranslator.ToWin32(UIColors.MainBg)); // DWMWA_CAPTION_COLOR
-        Set(window.Handle, 36, ColorTranslator.ToWin32(UIColors.TextMain)); // DWMWA_TEXT_COLOR
+    internal static void Configure(Settings settings)
+    {
+        _requested = settings.GlassEffectsEnabled;
+        RefreshPolicy(true);
+        foreach (var window in Application.OpenForms.Cast<Form>().ToArray()) Apply(window);
     }
 
-    private static void Set(IntPtr handle, int attribute, int value) =>
-        DwmSetWindowAttribute(handle, attribute, ref value, sizeof(int));
+    internal static void RefreshPolicy(bool force = false)
+    {
+        if (!force && Environment.TickCount64 - _lastPolicyCheck < 5000) return;
+        _lastPolicyCheck = Environment.TickCount64;
+        bool transparency = true;
+        try {
+            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            transparency = key?.GetValue("EnableTransparency") is not int value || value != 0;
+        } catch { }
+        bool saver = GetSystemPowerStatus(out var power) && power.SystemStatusFlag != 0;
+        bool allowed = _requested && transparency && !SystemInformation.HighContrast && !saver;
+        if (EffectsAllowed == allowed) return;
+        EffectsAllowed = allowed;
+        GlassSurface.ClearCache();
+        foreach (var window in Application.OpenForms.Cast<Form>().ToArray()) {
+            Apply(window);
+            window.Invalidate(true);
+        }
+    }
 
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr handle, int attribute, ref int value, int size);
+    internal static void Apply(Form window)
+    {
+        if (!window.IsHandleCreated || window.IsDisposed) return;
+        var state = States.GetOrCreateValue(window);
+        if (!state.Hooked) {
+            state.Hooked = true;
+            UserPreferenceChangedEventHandler handler = (_, _) => {
+                if (!window.IsDisposed && window.IsHandleCreated)
+                    try { window.BeginInvoke(new Action(() => { RefreshPolicy(true); Apply(window); window.Invalidate(true); })); } catch (InvalidOperationException) { }
+            };
+            SystemEvents.UserPreferenceChanged += handler;
+            window.Disposed += (_, _) => SystemEvents.UserPreferenceChanged -= handler;
+        }
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000)) return;
+        Set(window.Handle, 20, UIColors.IsDark ? 1 : 0);
+        Set(window.Handle, 33, 2);
+        Set(window.Handle, 35, ColorTranslator.ToWin32(UIColors.MainBg));
+        Set(window.Handle, 36, ColorTranslator.ToWin32(UIColors.TextMain));
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22621)) return;
+        // Layered/click-through monitor windows keep their existing transparency contract.
+        bool eligible = window is LiteMonitor.src.UI.SettingsForm && window.Opacity == 1 && !SystemInformation.HighContrast;
+        bool glass = eligible && GlassSurface.Enabled;
+        int result = Set(window.Handle, 38, glass ? 2 : 1); // documented MAINWINDOW / NONE
+        var margins = new Margins { Left = glass && result == 0 ? UIUtils.S(156) : 0 };
+        int frame = DwmExtendFrameIntoClientArea(window.Handle, ref margins);
+        state.Backdrop = glass && result == 0 && frame == 0;
+    }
+
+    internal static void StyleAuxiliary(Form window)
+    {
+        void Style(Control control) {
+            if (control is LiteMonitor.ThemeEditor.ThemePreviewControl || Equals(control.Tag, "ThemeSwatch")) return;
+            control.ForeColor = UIColors.TextMain;
+            control.BackColor = control is TextBoxBase or NumericUpDown or ListBox or ComboBox ? UIColors.FieldBg : UIColors.MainBg;
+            if (control is Button button) {
+                button.FlatStyle = FlatStyle.Flat;
+                button.FlatAppearance.BorderColor = UIColors.Border;
+                button.FlatAppearance.MouseOverBackColor = UIColors.NavHover;
+            }
+            if (control is LinkLabel link) link.LinkColor = link.ActiveLinkColor = link.VisitedLinkColor = UIColors.Primary;
+            if (control is LiteTreeView tree) tree.RefreshPalette();
+            foreach (Control child in control.Controls) Style(child);
+        }
+        Style(window);
+        Apply(window);
+        window.Invalidate(true);
+    }
+
+    private static int Set(IntPtr handle, int attribute, int value) => DwmSetWindowAttribute(handle, attribute, ref value, sizeof(int));
+    [StructLayout(LayoutKind.Sequential)] private struct Margins { public int Left, Right, Top, Bottom; }
+    [StructLayout(LayoutKind.Sequential)] private struct PowerStatus { public byte ACLineStatus, BatteryFlag, BatteryLifePercent, SystemStatusFlag; public int BatteryLifeTime, BatteryFullLifeTime; }
+    [DllImport("kernel32.dll")] private static extern bool GetSystemPowerStatus(out PowerStatus status);
+    [DllImport("dwmapi.dll")] private static extern int DwmExtendFrameIntoClientArea(IntPtr handle, ref Margins margins);
+    [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr handle, int attribute, ref int value, int size);
 }

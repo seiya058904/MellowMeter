@@ -26,10 +26,33 @@ namespace LiteMonitor
             // or handled by the caller. This method strictly loads from disk/creates default.
             
             Settings s;
+            string? loadedSource = null;
             lock (_ioLock)
             {
-                s = TryLoadFile(FilePath) ?? TryLoadFile(_backupPath) ?? new Settings();
+                var primary = TryLoadFile(FilePath);
+                var backup = primary == null ? TryLoadFile(_backupPath) : null;
+                s = primary ?? backup ?? new Settings();
+                loadedSource = primary != null ? FilePath : backup != null ? _backupPath : null;
             }
+
+            if (s.SettingsSchemaVersion < 2)
+            {
+                // A dedicated, never-overwritten backup survives the normal rotating .bak file.
+                string migrationBackup = AppPaths.DataFile("settings.pre-v0.2.json");
+                if (loadedSource != null && !File.Exists(migrationBackup))
+                    File.Copy(loadedSource, migrationBackup, false);
+                s.SettingsSchemaVersion = 2;
+            }
+            s.AutoCheckUpdate = false;
+            s.WebServerEnabled = false;
+            if (s.MainFormDoubleClickAction == 5) s.MainFormDoubleClickAction = 0;
+            if (s.TaskbarDoubleClickAction == 5) s.TaskbarDoubleClickAction = 0;
+            s.PreferredCpuFan = s.PreferredCpuPump = s.PreferredCaseFan = "";
+            s.PluginInstances?.ForEach(plugin => plugin.Enabled = false);
+            s.MonitorItems?.RemoveAll(item => item == null || string.IsNullOrWhiteSpace(item.Key) ||
+                (item.Key is "CPU.Pump" or "CASE.Fan" or "FPS" ||
+                 (item.Key.StartsWith("DASH.", StringComparison.OrdinalIgnoreCase) &&
+                  item.Key is not ("DASH.HOST" or "DASH.Time" or "DASH.Uptime" or "DASH.IP"))));
 
             if (s.GroupAliases == null) s.GroupAliases = new Dictionary<string, string>();
 
@@ -172,7 +195,6 @@ namespace LiteMonitor
                 // [New] CPU Voltage
                 new MonitorItemConfig { Key = "CPU.Voltage", SortIndex = 205, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "CPU.Fan",   SortIndex = 206, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "CPU.Pump",  SortIndex = 207, VisibleInPanel = false },
 
                 // [3xx] GPU
                 new MonitorItemConfig { Key = "GPU.Load",  SortIndex = 301, VisibleInPanel = false, VisibleInTaskbar = false },
@@ -184,10 +206,8 @@ namespace LiteMonitor
 
                 // [4xx] HOST (MEM, FPS, MOBO, DISK Temp, CASE Fan)
                 new MonitorItemConfig { Key = "MEM.Load",  SortIndex = 401, VisibleInPanel = true, VisibleInTaskbar = true },
-                new MonitorItemConfig { Key = "FPS",       SortIndex = 402, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "MOBO.Temp", SortIndex = 403, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "DISK.Temp", SortIndex = 404, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "CASE.Fan",  SortIndex = 405, VisibleInPanel = false },
                 
                 // [5xx] BATTERY (New Group)
                 new MonitorItemConfig { Key = "BAT.Percent", SortIndex = 501, VisibleInPanel = false, VisibleInTaskbar = false },

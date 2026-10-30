@@ -80,7 +80,7 @@ namespace LiteMonitor
 
             Text = "MellowMeter · " + LanguageManager.T("Menu.MonitorHistory");
             Size = new Size(S(980), S(680));
-            MinimumSize = new Size(S(900), S(620));
+            MinimumSize = new Size(S(620), S(460));
             StartPosition = FormStartPosition.Manual;
             BackColor = C_Back;
             ForeColor = C_TextMain;
@@ -98,7 +98,7 @@ namespace LiteMonitor
                 BackColor = C_Panel,
                 Padding = new Padding(S(16), S(8), S(12), S(6)),
                 FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false
+                WrapContents = true, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink
             };
             Controls.Add(_summaryPanel);
 
@@ -121,7 +121,11 @@ namespace LiteMonitor
             LoadData();
 
             _timer = new System.Windows.Forms.Timer { Interval = 15000 };
-            _timer.Tick += (_, __) => LoadData();
+            _timer.Tick += (_, __) => { if (Visible && WindowState != FormWindowState.Minimized) LoadData(); };
+            Resize += (_, _) => {
+                if (WindowState == FormWindowState.Minimized) _timer.Stop();
+                else if (!_timer.Enabled) { LoadData(); _timer.Start(); }
+            };
             _timer.Start();
         }
 
@@ -179,9 +183,8 @@ namespace LiteMonitor
                         }
                 }
                 _chart.Title = GetCategoryTitle();
-                _chart.EmptyText = HasEnabledMetricInCurrentCategory()
-                    ? T("暂无历史数据", "No history") : T("当前分类没有开启的监控项", "No enabled metrics in this group");
-                _chart.RefreshTheme();
+                _chart.EmptyText = GetEmptyText();
+                _chart.RefreshTheme(_currentSeries);
                 FillSummary();
                 _visualSkin = _cfg.Skin;
                 _visualLanguage = LanguageManager.CurrentLang;
@@ -207,7 +210,7 @@ namespace LiteMonitor
                 BackColor = C_Back,
                 Padding = new Padding(S(16), S(12), S(12), S(8)),
                 FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false
+                WrapContents = true, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink
             };
 
             AddLabel(toolbar, T("分类", "Group"));
@@ -297,14 +300,17 @@ namespace LiteMonitor
 
             _chart.Title = GetCategoryTitle();
             _chart.Threshold = _category == TrendCategory.Temperature ? _cfg.AlertTempThreshold : null;
-            _chart.EmptyText = HasEnabledMetricInCurrentCategory()
-                ? T("暂无历史数据", "No history")
-                : T("当前分类没有开启的监控项", "No enabled metrics in this group");
+            _chart.EmptyText = GetEmptyText();
             _chart.SetSeries(_currentSeries);
 
             FillSummary();
             FillGrid();
         }
+
+        private string GetEmptyText() => !_cfg.HistoryEnabled ? T("历史记录已关闭，可在设置中开启", "History is paused. Enable it in Settings.")
+            : !HasEnabledMetricInCurrentCategory() ? T("当前分类没有开启的监控项", "No enabled metrics in this group")
+            : _range == TrendRange.Hour1 ? T("等待此时间范围内的首批数据；不可用传感器不会记录", "Waiting for samples in this range. Unavailable sensors are not recorded.")
+            : T("所选时间范围内暂无数据", "No samples in the selected range");
 
         private TrendChartSeries BuildSeries(List<HardwareHistoryPoint> raw, string key, int bucketMinutes, int index)
         {
@@ -357,7 +363,7 @@ namespace LiteMonitor
             {
                 float latest = s.Points.Last().Avg;
                 float max = s.Points.Max(p => p.Max);
-                AddSummaryText($"{s.Label}  {FormatMetric(latest, s.Unit)} / {FormatMetric(max, s.Unit)}", s.Color);
+                AddSummaryText($"{s.Label}\n{T("最新", "Latest")} {FormatMetric(latest, s.Unit)}  ·  {T("最高", "Max")} {FormatMetric(max, s.Unit)}", s.Color);
             }
 
             _summaryPanel.ResumeLayout();
@@ -625,7 +631,7 @@ namespace LiteMonitor
             var box = new Panel
             {
                 Width = GetSummaryBoxWidth(),
-                Height = S(38),
+                Height = S(46),
                 BackColor = C_Panel,
                 Margin = new Padding(0, 0, S(10), 0)
             };
@@ -677,7 +683,7 @@ namespace LiteMonitor
             int count = Math.Max(1, _currentSeries.Count);
             int available = Math.Max(S(240), _summaryPanel.ClientSize.Width - _summaryPanel.Padding.Horizontal - S(10) * Math.Max(0, count - 1));
             int width = available / count;
-            return Math.Max(S(150), Math.Min(S(230), width));
+            return Math.Max(S(150), Math.Min(S(300), width));
         }
 
         private void AddSpacer(FlowLayoutPanel panel, int width)

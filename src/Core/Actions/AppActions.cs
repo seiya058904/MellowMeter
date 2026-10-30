@@ -3,8 +3,8 @@ using System.Drawing;
 using System.Windows.Forms;
 using LiteMonitor.src.UI;
 using LiteMonitor.src.SystemServices;
-using LiteMonitor.src.WebServer; // ★★★ 引用 WebServer 命名空间 ★★★
-using LiteMonitor.src.Plugins;
+
+
 using System.Linq;
 using System.Collections.Generic;
 
@@ -210,40 +210,7 @@ namespace LiteMonitor.src.Core.Actions
         // =============================================================
         // 7. 网页服务 (新增逻辑)
         // =============================================================
-        public static void ApplyWebServer(Settings cfg)
-        {
-            var server = LiteWebServer.Instance;
-            if (server != null)
-            {
-                bool shouldRun = cfg.WebServerEnabled;
-                bool isRunning = server.IsRunning;
-                int targetPort = cfg.WebServerPort;
-                int currentPort = server.CurrentRunningPort;
-                string targetPwd = cfg.WebServerPassword;
-                string currentPwd = server.CurrentPassword;
 
-                if (shouldRun)
-                {
-                    // 端口变更 或 密码变更 均触发重启
-                    if (!isRunning || targetPort != currentPort || targetPwd != currentPwd)
-                    {
-                        server.Stop();
-                        if (!server.Start(out string err))
-                        {
-                            System.Diagnostics.Debug.WriteLine("WebServer restart failed: " + err);
-                        }
-                    }
-                }
-                else
-                {
-                    // 如果需要关闭，且当前正在运行 -> 关闭
-                    if (isRunning)
-                    {
-                        server.Stop();
-                    }
-                }
-            }
-        }
 
         // --- 内部辅助 ---
         private static void RefreshThemedWindows()
@@ -255,6 +222,8 @@ namespace LiteMonitor.src.Core.Actions
                 if (window is SettingsForm settings) settings.RefreshTheme();
                 else if (window is HardwareTrendForm trends) trends.RefreshTheme();
                 else if (window is TrafficHistoryForm traffic) traffic.RefreshTheme();
+                else if (window is AboutForm or HardwareInfoForm or LiteMonitor.ThemeEditor.ThemeEditorForm)
+                    LiteMonitor.src.UI.Helpers.WindowTheme.StyleAuxiliary(window);
             }
         }
 

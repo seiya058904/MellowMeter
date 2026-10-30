@@ -350,15 +350,7 @@ namespace LiteMonitor
             if (_cfg.ShowTaskbar) ToggleTaskbar(true);
 
             // 启动 WebServer
-            if (_cfg.WebServerEnabled)
-            {
-                if (src.WebServer.LiteWebServer.Instance?.Start(out string err) == false)
-                {
-                     ShowNotification("WebServer Error", 
-                         (_cfg.Language == "zh" ? "Web服务启动失败: " : "Web Server Failed: ") + err, 
-                         ToolTipIcon.Error);
-                }
-            }
+
             // 这样既检查了驱动，也检查了更新，以及置顶 透明度 穿透 等，而且时机完美（窗口显示后）
             if (_bizHelper != null)
             {
@@ -411,7 +403,7 @@ namespace LiteMonitor
             // Pausing history stops new samples; previously recorded data still needs flushing.
             TrafficLogger.Save();
             HardwareHistoryLogger.Save();
-            src.WebServer.LiteWebServer.Instance?.Stop();
+
             
             base.OnFormClosed(e);
             

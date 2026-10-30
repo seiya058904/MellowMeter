@@ -38,6 +38,12 @@ namespace LiteMonitor
         private readonly HashSet<string> _hiddenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly List<LegendHit> _legendHits = new List<LegendHit>();
 
+        private List<DateTime> _times = new();
+        private List<TrendChartSeries> _visibleSeries = new();
+        private (float Min, float Max) _range = (0, 100);
+        private readonly Dictionary<string, PointF[]> _geometry = new();
+        private readonly Dictionary<string, Dictionary<DateTime, TrendChartPoint>> _pointIndex = new();
+        private Rectangle _geometryPlot;
         private DateTime? _hoverTime;
         private string? _highlightKey;
         private int _legendRows = 1;
@@ -58,7 +64,12 @@ namespace LiteMonitor
         public void SetSeries(IEnumerable<TrendChartSeries> series)
         {
             _series.Clear();
-            _series.AddRange(series.Where(s => s.Points.Count > 0));
+            _series.AddRange(series.Where(s => s.Points.Count > 0).Select(s => new TrendChartSeries {
+                Key = s.Key, Label = s.Label, Unit = s.Unit, Color = s.Color,
+                Points = s.Points.OrderBy(p => p.Time).ToList()
+            }));
+            _pointIndex.Clear();
+            foreach (var item in _series) _pointIndex[item.Key] = item.Points.GroupBy(p => p.Time).ToDictionary(g => g.Key, g => g.First());
             _hiddenKeys.RemoveWhere(key => !_series.Any(s => s.Key.Equals(key, StringComparison.OrdinalIgnoreCase)));
 
             if (!string.IsNullOrEmpty(_highlightKey) && !_series.Any(s => s.Key.Equals(_highlightKey, StringComparison.OrdinalIgnoreCase)))
@@ -67,13 +78,23 @@ namespace LiteMonitor
             }
 
             _hoverTime = null;
+            RebuildIndex();
             Invalidate();
         }
 
-        public void RefreshTheme()
+        public void RefreshTheme(IEnumerable<TrendChartSeries>? styles = null)
         {
             BackColor = UIColors.CardBg;
             ForeColor = UIColors.TextMain;
+            if (styles != null) {
+                var byKey = styles.ToDictionary(s => s.Key, StringComparer.OrdinalIgnoreCase);
+                foreach (var series in _series)
+                    if (byKey.TryGetValue(series.Key, out var style)) {
+                        series.Color = style.Color;
+                        series.Label = style.Label;
+                        series.Unit = style.Unit;
+                    }
+            }
             // Keep hidden series, highlight and hover position intact.
             Invalidate();
         }
@@ -88,7 +109,7 @@ namespace LiteMonitor
                 return;
             }
 
-            _hiddenKeys.Remove(key);
+            if (_hiddenKeys.Remove(key)) RebuildIndex();
             if (_highlightKey != null && _highlightKey.Equals(key, StringComparison.OrdinalIgnoreCase)) return;
 
             _highlightKey = key;
@@ -118,6 +139,7 @@ namespace LiteMonitor
             }
 
             _hoverTime = null;
+            RebuildIndex();
             Invalidate();
         }
 
@@ -157,7 +179,13 @@ namespace LiteMonitor
             double span = Math.Max(1, (maxTime - minTime).TotalSeconds);
             double cursorSeconds = ((double)(e.X - plot.Left) / Math.Max(1, plot.Width)) * span;
             DateTime cursorTime = minTime.AddSeconds(cursorSeconds);
-            DateTime nearest = times.OrderBy(t => Math.Abs((t - cursorTime).TotalSeconds)).First();
+            int index = times.BinarySearch(cursorTime);
+            if (index < 0) {
+                index = ~index;
+                if (index >= times.Count) index = times.Count - 1;
+                else if (index > 0 && cursorTime.Ticks - times[index-1].Ticks <= times[index].Ticks - cursorTime.Ticks) index--;
+            }
+            DateTime nearest = times[index];
 
             if (_hoverTime != nearest)
             {
@@ -362,10 +390,18 @@ namespace LiteMonitor
             {
                 if (s.Points.Count == 0) continue;
 
-                var points = s.Points
-                    .OrderBy(p => p.Time)
-                    .Select(p => new PointF(TimeToX(p.Time, plot, minTime, maxTime), ValueToY(p.Avg, plot, minValue, maxValue)))
-                    .ToArray();
+                if (_geometryPlot != plot) { _geometry.Clear(); _geometryPlot = plot; }
+                if (!_geometry.TryGetValue(s.Key, out var points)) {
+                    IEnumerable<TrendChartPoint> reduced = s.Points;
+                    if (s.Points.Count > Math.Max(1, plot.Width) * 2) {
+                        // Keep the first, last, low and high average samples in each pixel column.
+                        reduced = s.Points.GroupBy(p => (int)TimeToX(p.Time, plot, minTime, maxTime))
+                            .SelectMany(bucket => new[] { bucket.First(), bucket.MinBy(p => p.Avg)!, bucket.MaxBy(p => p.Avg)!, bucket.Last() }
+                                .Distinct().OrderBy(p => p.Time));
+                    }
+                    points = reduced.Select(p => new PointF(TimeToX(p.Time, plot, minTime, maxTime), ValueToY(p.Avg, plot, minValue, maxValue))).ToArray();
+                    _geometry[s.Key] = points;
+                }
 
                 bool highlighted = IsHighlighted(s);
                 Color color = hasHighlight && !highlighted ? Color.FromArgb(95, s.Color) : s.Color;
@@ -396,8 +432,7 @@ namespace LiteMonitor
             var rows = new List<string> { _hoverTime.Value.ToString("MM-dd HH:mm") };
             foreach (var s in GetVisibleSeries())
             {
-                var p = s.Points.FirstOrDefault(item => item.Time == _hoverTime.Value);
-                if (p == null) continue;
+                if (!_pointIndex[s.Key].TryGetValue(_hoverTime.Value, out var p)) continue;
                 rows.Add($"{s.Label}: {FormatValue(p.Avg, s.Unit)}");
             }
             if (rows.Count <= 1) return;
@@ -421,7 +456,7 @@ namespace LiteMonitor
             }
         }
 
-        private (float Min, float Max) GetValueRange()
+        private (float Min, float Max) CalculateValueRange()
         {
             var values = GetVisibleSeries().SelectMany(s => s.Points.SelectMany(p => new[] { p.Min, p.Avg, p.Max })).ToList();
             if (Threshold.HasValue) values.Add(Threshold.Value);
@@ -441,19 +476,16 @@ namespace LiteMonitor
             return (min, max);
         }
 
-        private List<DateTime> GetAllTimes()
+        private void RebuildIndex()
         {
-            return GetVisibleSeries()
-                .SelectMany(s => s.Points.Select(p => p.Time))
-                .Distinct()
-                .OrderBy(t => t)
-                .ToList();
+            _visibleSeries = _series.Where(s => !_hiddenKeys.Contains(s.Key)).ToList();
+            _times = _visibleSeries.SelectMany(s => s.Points.Select(p => p.Time)).Distinct().OrderBy(t => t).ToList();
+            _range = CalculateValueRange();
+            _geometry.Clear();
         }
-
-        private List<TrendChartSeries> GetVisibleSeries()
-        {
-            return _series.Where(s => !_hiddenKeys.Contains(s.Key)).ToList();
-        }
+        private (float Min, float Max) GetValueRange() => _range;
+        private List<DateTime> GetAllTimes() => _times;
+        private List<TrendChartSeries> GetVisibleSeries() => _visibleSeries;
 
         private bool IsHighlighted(TrendChartSeries s)
         {

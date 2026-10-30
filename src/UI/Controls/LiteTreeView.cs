@@ -1,3 +1,4 @@
+using LiteMonitor.src.UI.Controls;
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -9,10 +10,10 @@ namespace LiteMonitor.src.UI.Controls
 {
     public class LiteTreeView : TreeView
     {
-        private readonly Brush _selectBgBrush = new SolidBrush(UIColors.NavSelected);
-        private readonly Brush _hoverBrush = new SolidBrush(UIColors.NavHover);
-        private readonly Pen _linePen = new Pen(UIColors.Border);
-        private readonly Brush _chevronBrush = new SolidBrush(UIColors.TextSub);
+        private Brush _selectBgBrush = new SolidBrush(UIColors.NavSelected);
+        private Brush _hoverBrush = new SolidBrush(UIColors.NavHover);
+        private Pen _linePen = new Pen(UIColors.Border);
+        private Brush _chevronBrush = new SolidBrush(UIColors.TextSub);
 
         private Font _baseFont;
         private Font _boldFont;
@@ -306,6 +307,16 @@ namespace LiteMonitor.src.UI.Controls
                     if (node.IsExpanded) node.Collapse(); else node.Expand();
                 }
             }
+        }
+
+        public void RefreshPalette()
+        {
+            _selectBgBrush.Dispose(); _hoverBrush.Dispose(); _linePen.Dispose(); _chevronBrush.Dispose();
+            _selectBgBrush = new SolidBrush(UIColors.NavSelected);
+            _hoverBrush = new SolidBrush(UIColors.NavHover);
+            _linePen = new Pen(UIColors.Border);
+            _chevronBrush = new SolidBrush(UIColors.TextSub);
+            BackColor = UIColors.CardBg; ForeColor = UIColors.TextMain; Invalidate();
         }
 
         protected override void Dispose(bool disposing)

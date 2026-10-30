@@ -1,3 +1,4 @@
+using LiteMonitor.src.UI.Controls;
 using System;
 using System.Drawing;
 using System.Linq;
@@ -39,7 +40,8 @@ namespace LiteMonitor.ThemeEditor
 
         public ThemeEditorForm()
         {
-            Text = "LiteMonitor Theme Editor";
+            Text = "MellowMeter · Theme Editor";
+            HandleCreated += (_, _) => LiteMonitor.src.UI.Helpers.WindowTheme.Apply(this);
             StartPosition = FormStartPosition.CenterScreen;
             
             // DPI 缩放支持
@@ -67,6 +69,7 @@ namespace LiteMonitor.ThemeEditor
 
             BuildUI();
             LoadThemeList();
+            LiteMonitor.src.UI.Helpers.WindowTheme.StyleAuxiliary(this);
         }
 
         // ============================================================
@@ -111,7 +114,7 @@ namespace LiteMonitor.ThemeEditor
             {
                 Dock = DockStyle.Right,
                 Width = (int)((this.Width / 3.0) * dpiScale),
-                BackColor = Color.White,
+                BackColor = UIColors.MainBg,
                 BorderStyle = BorderStyle.FixedSingle
             };
             
@@ -121,7 +124,7 @@ namespace LiteMonitor.ThemeEditor
                 Dock = DockStyle.Left,
                 Width = (int)(220 * dpiScale),
                 Padding = new Padding((int)(10 * dpiScale)),
-                BackColor = Color.WhiteSmoke
+                BackColor = UIColors.CardBg
             };
             
             lstThemes = new ListBox
@@ -269,7 +272,7 @@ namespace LiteMonitor.ThemeEditor
                 Location = new Point((int)(10 * dpiScale), y),
                 Width = (int)(350 * dpiScale),
                 Height = (int)(20 * dpiScale), // Fix DPI clipping
-                ForeColor = Color.Gray,
+                ForeColor = UIColors.TextSub,
                 Font = new Font("Microsoft YaHei UI", 8f)
             });
             y += (int)(25 * dpiScale);
@@ -419,7 +422,7 @@ namespace LiteMonitor.ThemeEditor
                 
                 // 简单的对比度计算：根据颜色亮度决定文字颜色
                 var brightness = (currentColor.R * 0.299 + currentColor.G * 0.587 + currentColor.B * 0.114);
-                var textColor = brightness > 127 ? Color.Black : Color.White;
+                var textColor = brightness > 127 ? UIColors.TextMain : UIColors.MainBg;
                 
                 var btn = new Button
                 {
@@ -427,6 +430,7 @@ namespace LiteMonitor.ThemeEditor
                     Width = (int)(120 * dpiScale),
                     Height = (int)(30 * dpiScale), // 稍微增加高度
                     Text = get(),
+                    Tag = "ThemeSwatch",
                     BackColor = currentColor, // 设置按钮背景色为当前颜色
                     ForeColor = textColor // 根据背景亮度设置文字颜色
                 };
@@ -450,7 +454,7 @@ namespace LiteMonitor.ThemeEditor
                         btn.BackColor = cd.Color; // 更新按钮背景色
                         // 更新文字颜色
                         var newBrightness = (cd.Color.R * 0.299 + cd.Color.G * 0.587 + cd.Color.B * 0.114);
-                        btn.ForeColor = newBrightness > 127 ? Color.Black : Color.White;
+                        btn.ForeColor = newBrightness > 127 ? UIColors.TextMain : UIColors.MainBg;
                         preview.SetTheme(_theme!);
                     }
                 };
@@ -463,6 +467,7 @@ namespace LiteMonitor.ThemeEditor
 
             var C = _theme.Color;
 
+            AddColor("强调色 / Accent", () => string.IsNullOrEmpty(C.Accent) ? C.BarLow : C.Accent, v => C.Accent = v);
             AddColor("背景色 / Background", () => C.Background, v => C.Background = v);
             AddColor("组背景 / GroupBackground", () => C.GroupBackground, v => C.GroupBackground = v);
 

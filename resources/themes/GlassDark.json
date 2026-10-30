@@ -1,0 +1,40 @@
+{
+  "version": 3,
+  "name": "Glass Dark",
+  "layout": {
+    "rowHeight": 38,
+    "padding": 12,
+    "cornerRadius": 16,
+    "groupRadius": 12,
+    "groupPadding": 8,
+    "groupSpacing": 25,
+    "groupBottom": 0,
+    "groupTitleOffset": 6,
+    "itemGap": 6
+  },
+  "font": {
+    "family": "Segoe UI",
+    "valueFamily": "Consolas",
+    "title": 11,
+    "group": 9,
+    "item": 9.5,
+    "value": 12,
+    "bold": false
+  },
+  "color": {
+    "background": "#20232B",
+    "groupBackground": "#2B303A",
+    "textTitle": "#F5F7FC",
+    "textGroup": "#B9C3D5",
+    "textPrimary": "#EDF2FA",
+    "valueSafe": "#69D99C",
+    "valueWarn": "#FFD07A",
+    "valueCrit": "#FF9499",
+    "barBackground": "#3B4351",
+    "barLow": "#69D99C",
+    "barMid": "#FFD07A",
+    "barHigh": "#FF9499",
+    "accent": "#87B8FF"
+  },
+  "material": "glass"
+}

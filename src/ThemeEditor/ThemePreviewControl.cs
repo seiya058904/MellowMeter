@@ -61,6 +61,7 @@ namespace LiteMonitor.ThemeEditor
             var scaled = new Theme
             {
                 Name = original.Name,
+                Material = original.Material,
                 FontTitle = original.FontTitle,
                 FontGroup = original.FontGroup,
                 FontItem = original.FontItem,
@@ -191,6 +192,7 @@ namespace LiteMonitor.ThemeEditor
             var preview = new Theme
             {
                 Name = original.Name,
+                Material = original.Material,
                 FontTitle = original.FontTitle,
                 FontGroup = original.FontGroup,
                 FontItem = original.FontItem,

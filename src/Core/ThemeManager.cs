@@ -113,6 +113,7 @@ namespace LiteMonitor.src.Core
     public class ColorConfig
     {
         public string Background { get; set; } = "#202225";
+        public string Accent { get; set; } = "";
 
         public string TextTitle { get; set; } = "#FFFFFF";
         public string TextGroup { get; set; } = "#B0B0B0";
@@ -137,6 +138,7 @@ namespace LiteMonitor.src.Core
     public class Theme
     {
         public string Name { get; set; } = "Default";
+        public string Material { get; set; } = "solid";
         public int Version { get; set; } = 3;
 
         public LayoutConfig Layout { get; set; } = new();

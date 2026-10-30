@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <PlatformTarget>x64</PlatformTarget>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(ProbeDirectory)' == ''">
+    <ProjectReference Include="../../MellowMeter.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(ProbeDirectory)' != ''">
+    <Reference Include="MellowMeter"><HintPath>$(ProbeDirectory)/MellowMeter.dll</HintPath></Reference>
+    <Reference Include="System.Text.Json"><HintPath>$(ProbeDirectory)/System.Text.Json.dll</HintPath></Reference>
+    <Reference Include="System.Text.Encodings.Web"><HintPath>$(ProbeDirectory)/System.Text.Encodings.Web.dll</HintPath></Reference>
+    <Reference Include="System.IO.Pipelines"><HintPath>$(ProbeDirectory)/System.IO.Pipelines.dll</HintPath></Reference>
+    <Content Include="$(ProbeDirectory)/**/*" Link="%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
