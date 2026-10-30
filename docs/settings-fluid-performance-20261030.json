@@ -1,0 +1,1587 @@
+{
+  "baselineCommit": "f1a04924088ee45e2ae32ad4c022a39cd7d58c17",
+  "implementationCommit": "5b7f456",
+  "dpi": 168,
+  "method": "Native message-loop action-to-idle latency including pending paint; not OS input-to-photon timing. Round -1 is excluded warmup. Real basic sampling remains enabled, physical advanced sensors disabled. Allocations include background process activity.",
+  "normalization": "First tab/filter/label sample of every baseline round is separated to match the final probe; warmup round -1 excluded.",
+  "baseline": {
+    "assemblySha256": "3FE11BF595B2B2386018FE9F73A98B8C4339E33CBDB5103EA35D16FAB38B1BA0",
+    "operations": {
+      "open": {
+        "count": 3,
+        "medianMs": 608.0424,
+        "p95Ms": 670.9484,
+        "meanAllocatedBytes": 1595469.3333333333,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 608.0424,
+            "p95Ms": 608.0424,
+            "meanAllocatedBytes": 1590456.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 670.9484,
+            "p95Ms": 670.9484,
+            "meanAllocatedBytes": 1597976.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 578.1504,
+            "p95Ms": 578.1504,
+            "meanAllocatedBytes": 1597976.0
+          }
+        ]
+      },
+      "first-Taskbar": {
+        "count": 3,
+        "medianMs": 96.98,
+        "p95Ms": 125.8223,
+        "meanAllocatedBytes": 123000.0,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 95.4184,
+            "p95Ms": 95.4184,
+            "meanAllocatedBytes": 106600.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 125.8223,
+            "p95Ms": 125.8223,
+            "meanAllocatedBytes": 155800.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 96.98,
+            "p95Ms": 96.98,
+            "meanAllocatedBytes": 106600.0
+          }
+        ]
+      },
+      "first-Monitor": {
+        "count": 3,
+        "medianMs": 457.5053,
+        "p95Ms": 524.3396,
+        "meanAllocatedBytes": 1567765.3333333333,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 524.3396,
+            "p95Ms": 524.3396,
+            "meanAllocatedBytes": 1583008.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 451.0834,
+            "p95Ms": 451.0834,
+            "meanAllocatedBytes": 1539760.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 457.5053,
+            "p95Ms": 457.5053,
+            "meanAllocatedBytes": 1580528.0
+          }
+        ]
+      },
+      "first-Threshold": {
+        "count": 3,
+        "medianMs": 192.4883,
+        "p95Ms": 194.0787,
+        "meanAllocatedBytes": 569210.6666666666,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 167.6176,
+            "p95Ms": 167.6176,
+            "meanAllocatedBytes": 571944.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 192.4883,
+            "p95Ms": 192.4883,
+            "meanAllocatedBytes": 563744.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 194.0787,
+            "p95Ms": 194.0787,
+            "meanAllocatedBytes": 571944.0
+          }
+        ]
+      },
+      "first-System": {
+        "count": 3,
+        "medianMs": 158.6299,
+        "p95Ms": 163.6798,
+        "meanAllocatedBytes": 295090.6666666667,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 145.6796,
+            "p95Ms": 145.6796,
+            "meanAllocatedBytes": 286976.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 158.6299,
+            "p95Ms": 158.6299,
+            "meanAllocatedBytes": 303144.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 163.6798,
+            "p95Ms": 163.6798,
+            "meanAllocatedBytes": 295152.0
+          }
+        ]
+      },
+      "switch-MainPanel": {
+        "count": 30,
+        "medianMs": 42.5256,
+        "p95Ms": 62.5286,
+        "meanAllocatedBytes": 147614.93333333332,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 10,
+            "medianMs": 39.7251,
+            "p95Ms": 94.0108,
+            "meanAllocatedBytes": 148982.4
+          },
+          {
+            "round": 1,
+            "count": 10,
+            "medianMs": 53.4401,
+            "p95Ms": 61.489,
+            "meanAllocatedBytes": 147011.2
+          },
+          {
+            "round": 2,
+            "count": 10,
+            "medianMs": 43.7874,
+            "p95Ms": 61.8014,
+            "meanAllocatedBytes": 146851.2
+          }
+        ]
+      },
+      "switch-Taskbar": {
+        "count": 30,
+        "medianMs": 18.2484,
+        "p95Ms": 35.8184,
+        "meanAllocatedBytes": 88297.06666666667,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 10,
+            "medianMs": 26.1449,
+            "p95Ms": 31.4802,
+            "meanAllocatedBytes": 86135.2
+          },
+          {
+            "round": 1,
+            "count": 10,
+            "medianMs": 23.4805,
+            "p95Ms": 38.049,
+            "meanAllocatedBytes": 88560.0
+          },
+          {
+            "round": 2,
+            "count": 10,
+            "medianMs": 17.1129,
+            "p95Ms": 31.4788,
+            "meanAllocatedBytes": 90196.0
+          }
+        ]
+      },
+      "switch-Monitor": {
+        "count": 30,
+        "medianMs": 54.6037,
+        "p95Ms": 79.2188,
+        "meanAllocatedBytes": 191910.13333333333,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 10,
+            "medianMs": 52.089,
+            "p95Ms": 61.9489,
+            "meanAllocatedBytes": 191162.4
+          },
+          {
+            "round": 1,
+            "count": 10,
+            "medianMs": 75.5803,
+            "p95Ms": 80.1948,
+            "meanAllocatedBytes": 192692.0
+          },
+          {
+            "round": 2,
+            "count": 10,
+            "medianMs": 54.925,
+            "p95Ms": 76.7204,
+            "meanAllocatedBytes": 191876.0
+          }
+        ]
+      },
+      "switch-Threshold": {
+        "count": 30,
+        "medianMs": 98.663,
+        "p95Ms": 129.4984,
+        "meanAllocatedBytes": 299627.4666666667,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 10,
+            "medianMs": 104.9522,
+            "p95Ms": 125.5606,
+            "meanAllocatedBytes": 300426.4
+          },
+          {
+            "round": 1,
+            "count": 10,
+            "medianMs": 100.9075,
+            "p95Ms": 138.0259,
+            "meanAllocatedBytes": 300748.8
+          },
+          {
+            "round": 2,
+            "count": 10,
+            "medianMs": 52.566,
+            "p95Ms": 103.5011,
+            "meanAllocatedBytes": 297707.2
+          }
+        ]
+      },
+      "switch-System": {
+        "count": 30,
+        "medianMs": 54.6452,
+        "p95Ms": 100.2703,
+        "meanAllocatedBytes": 222532.53333333333,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 10,
+            "medianMs": 83.5762,
+            "p95Ms": 122.678,
+            "meanAllocatedBytes": 222440.0
+          },
+          {
+            "round": 1,
+            "count": 10,
+            "medianMs": 58.1694,
+            "p95Ms": 83.6986,
+            "meanAllocatedBytes": 223757.6
+          },
+          {
+            "round": 2,
+            "count": 10,
+            "medianMs": 54.6452,
+            "p95Ms": 81.5067,
+            "meanAllocatedBytes": 221400.0
+          }
+        ]
+      },
+      "first-tab-taskbar": {
+        "count": 3,
+        "medianMs": 645.5642,
+        "p95Ms": 647.3395,
+        "meanAllocatedBytes": 1309544.0,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 631.7767,
+            "p95Ms": 631.7767,
+            "meanAllocatedBytes": 1320200.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 647.3395,
+            "p95Ms": 647.3395,
+            "meanAllocatedBytes": 1295600.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 645.5642,
+            "p95Ms": 645.5642,
+            "meanAllocatedBytes": 1312832.0
+          }
+        ]
+      },
+      "first-filter": {
+        "count": 3,
+        "medianMs": 131.2835,
+        "p95Ms": 138.1749,
+        "meanAllocatedBytes": 373341.3333333333,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 131.2835,
+            "p95Ms": 131.2835,
+            "meanAllocatedBytes": 376144.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 128.3613,
+            "p95Ms": 128.3613,
+            "meanAllocatedBytes": 366704.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 138.1749,
+            "p95Ms": 138.1749,
+            "meanAllocatedBytes": 377176.0
+          }
+        ]
+      },
+      "first-tab-panel": {
+        "count": 3,
+        "medianMs": 416.1792,
+        "p95Ms": 419.3953,
+        "meanAllocatedBytes": 1372133.3333333333,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 416.1792,
+            "p95Ms": 416.1792,
+            "meanAllocatedBytes": 1377600.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 389.5983,
+            "p95Ms": 389.5983,
+            "meanAllocatedBytes": 1369400.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 419.3953,
+            "p95Ms": 419.3953,
+            "meanAllocatedBytes": 1369400.0
+          }
+        ]
+      },
+      "first-labels": {
+        "count": 3,
+        "medianMs": 927.5005,
+        "p95Ms": 1068.2783,
+        "meanAllocatedBytes": 1511037.3333333333,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 855.8513,
+            "p95Ms": 855.8513,
+            "meanAllocatedBytes": 1499272.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 1068.2783,
+            "p95Ms": 1068.2783,
+            "meanAllocatedBytes": 1525040.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 927.5005,
+            "p95Ms": 927.5005,
+            "meanAllocatedBytes": 1508800.0
+          }
+        ]
+      },
+      "tab-taskbar": {
+        "count": 27,
+        "medianMs": 307.1184,
+        "p95Ms": 588.4723,
+        "meanAllocatedBytes": 823325.6296296297,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 9,
+            "medianMs": 308.6516,
+            "p95Ms": 408.8258,
+            "meanAllocatedBytes": 850355.5555555555
+          },
+          {
+            "round": 1,
+            "count": 9,
+            "medianMs": 413.1026,
+            "p95Ms": 588.4723,
+            "meanAllocatedBytes": 816287.1111111111
+          },
+          {
+            "round": 2,
+            "count": 9,
+            "medianMs": 303.4228,
+            "p95Ms": 656.7843,
+            "meanAllocatedBytes": 803334.2222222222
+          }
+        ]
+      },
+      "filter": {
+        "count": 27,
+        "medianMs": 496.0685,
+        "p95Ms": 602.9029,
+        "meanAllocatedBytes": 823229.6296296297,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 9,
+            "medianMs": 520.7262,
+            "p95Ms": 556.3927,
+            "meanAllocatedBytes": 818006.2222222222
+          },
+          {
+            "round": 1,
+            "count": 9,
+            "medianMs": 507.7749,
+            "p95Ms": 602.9029,
+            "meanAllocatedBytes": 827237.3333333334
+          },
+          {
+            "round": 2,
+            "count": 9,
+            "medianMs": 495.177,
+            "p95Ms": 609.7054,
+            "meanAllocatedBytes": 824445.3333333334
+          }
+        ]
+      },
+      "tab-panel": {
+        "count": 27,
+        "medianMs": 629.8078,
+        "p95Ms": 765.888,
+        "meanAllocatedBytes": 1484461.9259259258,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 9,
+            "medianMs": 641.34,
+            "p95Ms": 712.818,
+            "meanAllocatedBytes": 1553403.5555555555
+          },
+          {
+            "round": 1,
+            "count": 9,
+            "medianMs": 620.3958,
+            "p95Ms": 747.7244,
+            "meanAllocatedBytes": 1436296.888888889
+          },
+          {
+            "round": 2,
+            "count": 9,
+            "medianMs": 673.1548,
+            "p95Ms": 786.7257,
+            "meanAllocatedBytes": 1463685.3333333333
+          }
+        ]
+      },
+      "labels": {
+        "count": 27,
+        "medianMs": 734.5631,
+        "p95Ms": 860.0322,
+        "meanAllocatedBytes": 1470922.0740740742,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 9,
+            "medianMs": 797.741,
+            "p95Ms": 845.08,
+            "meanAllocatedBytes": 1428618.6666666667
+          },
+          {
+            "round": 1,
+            "count": 9,
+            "medianMs": 589.001,
+            "p95Ms": 904.4516,
+            "meanAllocatedBytes": 1506313.7777777778
+          },
+          {
+            "round": 2,
+            "count": 9,
+            "medianMs": 733.4006,
+            "p95Ms": 849.0608,
+            "meanAllocatedBytes": 1477833.7777777778
+          }
+        ]
+      },
+      "apply-unchanged": {
+        "count": 15,
+        "medianMs": 35.354,
+        "p95Ms": 60.6415,
+        "meanAllocatedBytes": 2536514.1333333333,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 5,
+            "medianMs": 35.1187,
+            "p95Ms": 60.6415,
+            "meanAllocatedBytes": 2509582.4
+          },
+          {
+            "round": 1,
+            "count": 5,
+            "medianMs": 35.354,
+            "p95Ms": 52.2654,
+            "meanAllocatedBytes": 2560865.6
+          },
+          {
+            "round": 2,
+            "count": 5,
+            "medianMs": 39.999,
+            "p95Ms": 47.2384,
+            "meanAllocatedBytes": 2539094.4
+          }
+        ]
+      },
+      "apply-width": {
+        "count": 15,
+        "medianMs": 37.2166,
+        "p95Ms": 70.2337,
+        "meanAllocatedBytes": 2346397.3333333335,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 5,
+            "medianMs": 37.3997,
+            "p95Ms": 44.1395,
+            "meanAllocatedBytes": 2371590.4
+          },
+          {
+            "round": 1,
+            "count": 5,
+            "medianMs": 36.7394,
+            "p95Ms": 46.0508,
+            "meanAllocatedBytes": 2321184.0
+          },
+          {
+            "round": 2,
+            "count": 5,
+            "medianMs": 37.8003,
+            "p95Ms": 70.2337,
+            "meanAllocatedBytes": 2346417.6
+          }
+        ]
+      }
+    },
+    "resources": [
+      {
+        "state": "settings-closed",
+        "cpuPercentMachine": 0.01950352690671372,
+        "privateBytes": 24866816,
+        "workingSetBytes": 77426688,
+        "handles": 527,
+        "gdi": 33,
+        "user": 39
+      },
+      {
+        "state": "closed-round--1",
+        "privateBytes": 58740736,
+        "handles": 583,
+        "gdi": 98,
+        "user": 60
+      },
+      {
+        "state": "settings-open-idle",
+        "cpuPercentMachine": 0.13661443395052406,
+        "privateBytes": 59768832,
+        "workingSetBytes": 128675840,
+        "handles": 585,
+        "gdi": 119,
+        "user": 152
+      },
+      {
+        "state": "closed-round-0",
+        "privateBytes": 70656000,
+        "handles": 591,
+        "gdi": 98,
+        "user": 61
+      },
+      {
+        "state": "closed-round-1",
+        "privateBytes": 79835136,
+        "handles": 592,
+        "gdi": 130,
+        "user": 61
+      },
+      {
+        "state": "after-interaction-idle",
+        "cpuPercentMachine": 0.11713844007852629,
+        "privateBytes": 89169920,
+        "workingSetBytes": 158515200,
+        "handles": 593,
+        "gdi": 148,
+        "user": 578
+      },
+      {
+        "state": "closed-round-2",
+        "privateBytes": 90095616,
+        "handles": 593,
+        "gdi": 118,
+        "user": 61
+      },
+      {
+        "state": "after-20-open-close",
+        "cpuPercentMachine": 0,
+        "privateBytes": 79798272,
+        "workingSetBytes": 143040512,
+        "handles": 605,
+        "gdi": 300,
+        "user": 66
+      }
+    ]
+  },
+  "candidate": {
+    "assemblySha256": "CC3879E821E51AD42C73FF02F3E053E9561B49C2B42C97FF008B3B1E60EC3D09",
+    "operations": {
+      "open": {
+        "count": 3,
+        "medianMs": 275.0908,
+        "p95Ms": 325.4926,
+        "meanAllocatedBytes": 490474.6666666667,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 269.5812,
+            "p95Ms": 269.5812,
+            "meanAllocatedBytes": 489456.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 275.0908,
+            "p95Ms": 275.0908,
+            "meanAllocatedBytes": 482800.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 325.4926,
+            "p95Ms": 325.4926,
+            "meanAllocatedBytes": 499168.0
+          }
+        ]
+      },
+      "first-Taskbar": {
+        "count": 3,
+        "medianMs": 238.8824,
+        "p95Ms": 253.7881,
+        "meanAllocatedBytes": 626386.6666666666,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 253.7881,
+            "p95Ms": 253.7881,
+            "meanAllocatedBytes": 626520.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 218.0875,
+            "p95Ms": 218.0875,
+            "meanAllocatedBytes": 605856.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 238.8824,
+            "p95Ms": 238.8824,
+            "meanAllocatedBytes": 646784.0
+          }
+        ]
+      },
+      "first-Monitor": {
+        "count": 3,
+        "medianMs": 359.3855,
+        "p95Ms": 428.82,
+        "meanAllocatedBytes": 1616765.3333333333,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 321.5726,
+            "p95Ms": 321.5726,
+            "meanAllocatedBytes": 1615808.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 359.3855,
+            "p95Ms": 359.3855,
+            "meanAllocatedBytes": 1615808.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 428.82,
+            "p95Ms": 428.82,
+            "meanAllocatedBytes": 1618680.0
+          }
+        ]
+      },
+      "first-Threshold": {
+        "count": 3,
+        "medianMs": 182.1262,
+        "p95Ms": 194.6049,
+        "meanAllocatedBytes": 582765.3333333334,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 155.0371,
+            "p95Ms": 155.0371,
+            "meanAllocatedBytes": 580144.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 194.6049,
+            "p95Ms": 194.6049,
+            "meanAllocatedBytes": 604408.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 182.1262,
+            "p95Ms": 182.1262,
+            "meanAllocatedBytes": 563744.0
+          }
+        ]
+      },
+      "first-System": {
+        "count": 3,
+        "medianMs": 407.0774,
+        "p95Ms": 413.562,
+        "meanAllocatedBytes": 896274.6666666666,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 363.901,
+            "p95Ms": 363.901,
+            "meanAllocatedBytes": 917856.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 407.0774,
+            "p95Ms": 407.0774,
+            "meanAllocatedBytes": 885496.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 413.562,
+            "p95Ms": 413.562,
+            "meanAllocatedBytes": 885472.0
+          }
+        ]
+      },
+      "switch-MainPanel": {
+        "count": 30,
+        "medianMs": 18.8411,
+        "p95Ms": 24.685,
+        "meanAllocatedBytes": 39086.666666666664,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 10,
+            "medianMs": 18.3447,
+            "p95Ms": 24.18,
+            "meanAllocatedBytes": 38540.0
+          },
+          {
+            "round": 1,
+            "count": 10,
+            "medianMs": 18.3903,
+            "p95Ms": 26.8909,
+            "meanAllocatedBytes": 40180.0
+          },
+          {
+            "round": 2,
+            "count": 10,
+            "medianMs": 19.6786,
+            "p95Ms": 24.685,
+            "meanAllocatedBytes": 38540.0
+          }
+        ]
+      },
+      "switch-Taskbar": {
+        "count": 30,
+        "medianMs": 13.0045,
+        "p95Ms": 19.3857,
+        "meanAllocatedBytes": 35533.333333333336,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 10,
+            "medianMs": 13.0045,
+            "p95Ms": 18.1539,
+            "meanAllocatedBytes": 36900.0
+          },
+          {
+            "round": 1,
+            "count": 10,
+            "medianMs": 12.4409,
+            "p95Ms": 20.9426,
+            "meanAllocatedBytes": 34440.0
+          },
+          {
+            "round": 2,
+            "count": 10,
+            "medianMs": 13.3524,
+            "p95Ms": 19.3857,
+            "meanAllocatedBytes": 35260.0
+          }
+        ]
+      },
+      "switch-Monitor": {
+        "count": 30,
+        "medianMs": 29.2469,
+        "p95Ms": 53.3239,
+        "meanAllocatedBytes": 85416.0,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 10,
+            "medianMs": 49.147,
+            "p95Ms": 53.3239,
+            "meanAllocatedBytes": 86004.8
+          },
+          {
+            "round": 1,
+            "count": 10,
+            "medianMs": 30.1454,
+            "p95Ms": 50.1377,
+            "meanAllocatedBytes": 85787.2
+          },
+          {
+            "round": 2,
+            "count": 10,
+            "medianMs": 28.8151,
+            "p95Ms": 58.856,
+            "meanAllocatedBytes": 84456.0
+          }
+        ]
+      },
+      "switch-Threshold": {
+        "count": 30,
+        "medianMs": 28.4697,
+        "p95Ms": 48.5024,
+        "meanAllocatedBytes": 178169.6,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 10,
+            "medianMs": 28.2915,
+            "p95Ms": 51.2322,
+            "meanAllocatedBytes": 176702.4
+          },
+          {
+            "round": 1,
+            "count": 10,
+            "medianMs": 33.2389,
+            "p95Ms": 48.5024,
+            "meanAllocatedBytes": 179884.8
+          },
+          {
+            "round": 2,
+            "count": 10,
+            "medianMs": 29.0745,
+            "p95Ms": 41.5187,
+            "meanAllocatedBytes": 177921.6
+          }
+        ]
+      },
+      "switch-System": {
+        "count": 30,
+        "medianMs": 27.2805,
+        "p95Ms": 38.1997,
+        "meanAllocatedBytes": 88081.33333333333,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 10,
+            "medianMs": 27.4556,
+            "p95Ms": 38.1997,
+            "meanAllocatedBytes": 89584.0
+          },
+          {
+            "round": 1,
+            "count": 10,
+            "medianMs": 28.2844,
+            "p95Ms": 39.905,
+            "meanAllocatedBytes": 86100.0
+          },
+          {
+            "round": 2,
+            "count": 10,
+            "medianMs": 26.859,
+            "p95Ms": 35.891,
+            "meanAllocatedBytes": 88560.0
+          }
+        ]
+      },
+      "first-tab-taskbar": {
+        "count": 3,
+        "medianMs": 235.0043,
+        "p95Ms": 240.8345,
+        "meanAllocatedBytes": 325266.6666666667,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 235.0043,
+            "p95Ms": 235.0043,
+            "meanAllocatedBytes": 328000.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 240.8345,
+            "p95Ms": 240.8345,
+            "meanAllocatedBytes": 328000.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 212.7152,
+            "p95Ms": 212.7152,
+            "meanAllocatedBytes": 319800.0
+          }
+        ]
+      },
+      "first-filter": {
+        "count": 3,
+        "medianMs": 50.9965,
+        "p95Ms": 57.3045,
+        "meanAllocatedBytes": 87424.0,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 50.9965,
+            "p95Ms": 50.9965,
+            "meanAllocatedBytes": 82000.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 45.5106,
+            "p95Ms": 45.5106,
+            "meanAllocatedBytes": 82000.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 57.3045,
+            "p95Ms": 57.3045,
+            "meanAllocatedBytes": 98272.0
+          }
+        ]
+      },
+      "first-tab-panel": {
+        "count": 3,
+        "medianMs": 199.7672,
+        "p95Ms": 208.9621,
+        "meanAllocatedBytes": 209832.0,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 208.9621,
+            "p95Ms": 208.9621,
+            "meanAllocatedBytes": 211296.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 199.7672,
+            "p95Ms": 199.7672,
+            "meanAllocatedBytes": 213200.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 166.0463,
+            "p95Ms": 166.0463,
+            "meanAllocatedBytes": 205000.0
+          }
+        ]
+      },
+      "first-labels": {
+        "count": 3,
+        "medianMs": 240.4227,
+        "p95Ms": 241.6144,
+        "meanAllocatedBytes": 131200.0,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 1,
+            "medianMs": 238.8633,
+            "p95Ms": 238.8633,
+            "meanAllocatedBytes": 131200.0
+          },
+          {
+            "round": 1,
+            "count": 1,
+            "medianMs": 240.4227,
+            "p95Ms": 240.4227,
+            "meanAllocatedBytes": 131200.0
+          },
+          {
+            "round": 2,
+            "count": 1,
+            "medianMs": 241.6144,
+            "p95Ms": 241.6144,
+            "meanAllocatedBytes": 131200.0
+          }
+        ]
+      },
+      "tab-taskbar": {
+        "count": 27,
+        "medianMs": 135.5011,
+        "p95Ms": 201.999,
+        "meanAllocatedBytes": 192638.5185185185,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 9,
+            "medianMs": 122.9689,
+            "p95Ms": 169.4457,
+            "meanAllocatedBytes": 192096.0
+          },
+          {
+            "round": 1,
+            "count": 9,
+            "medianMs": 135.5011,
+            "p95Ms": 207.792,
+            "meanAllocatedBytes": 194489.77777777778
+          },
+          {
+            "round": 2,
+            "count": 9,
+            "medianMs": 137.7646,
+            "p95Ms": 194.8339,
+            "meanAllocatedBytes": 191329.77777777778
+          }
+        ]
+      },
+      "filter": {
+        "count": 27,
+        "medianMs": 166.6954,
+        "p95Ms": 219.6197,
+        "meanAllocatedBytes": 164979.25925925927,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 9,
+            "medianMs": 181.5165,
+            "p95Ms": 219.6197,
+            "meanAllocatedBytes": 165819.55555555556
+          },
+          {
+            "round": 1,
+            "count": 9,
+            "medianMs": 163.3519,
+            "p95Ms": 220.7708,
+            "meanAllocatedBytes": 161739.55555555556
+          },
+          {
+            "round": 2,
+            "count": 9,
+            "medianMs": 166.9569,
+            "p95Ms": 206.3245,
+            "meanAllocatedBytes": 167378.66666666666
+          }
+        ]
+      },
+      "tab-panel": {
+        "count": 27,
+        "medianMs": 216.7395,
+        "p95Ms": 250.9002,
+        "meanAllocatedBytes": 242349.92592592593,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 9,
+            "medianMs": 218.37,
+            "p95Ms": 244.591,
+            "meanAllocatedBytes": 239622.22222222222
+          },
+          {
+            "round": 1,
+            "count": 9,
+            "medianMs": 217.6675,
+            "p95Ms": 250.9002,
+            "meanAllocatedBytes": 244177.77777777778
+          },
+          {
+            "round": 2,
+            "count": 9,
+            "medianMs": 213.3764,
+            "p95Ms": 308.4112,
+            "meanAllocatedBytes": 243249.77777777778
+          }
+        ]
+      },
+      "labels": {
+        "count": 27,
+        "medianMs": 74.8444,
+        "p95Ms": 97.7731,
+        "meanAllocatedBytes": 65802.66666666667,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 9,
+            "medianMs": 68.6504,
+            "p95Ms": 97.7731,
+            "meanAllocatedBytes": 66359.11111111111
+          },
+          {
+            "round": 1,
+            "count": 9,
+            "medianMs": 74.8444,
+            "p95Ms": 98.4637,
+            "meanAllocatedBytes": 65449.77777777778
+          },
+          {
+            "round": 2,
+            "count": 9,
+            "medianMs": 79.0054,
+            "p95Ms": 87.5804,
+            "meanAllocatedBytes": 65599.11111111111
+          }
+        ]
+      },
+      "apply-unchanged": {
+        "count": 15,
+        "medianMs": 0.4236,
+        "p95Ms": 3.8859,
+        "meanAllocatedBytes": 114778.66666666667,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 5,
+            "medianMs": 0.4064,
+            "p95Ms": 2.2277,
+            "meanAllocatedBytes": 115320.0
+          },
+          {
+            "round": 1,
+            "count": 5,
+            "medianMs": 0.4917,
+            "p95Ms": 2.3974,
+            "meanAllocatedBytes": 115328.0
+          },
+          {
+            "round": 2,
+            "count": 5,
+            "medianMs": 0.4236,
+            "p95Ms": 3.8859,
+            "meanAllocatedBytes": 113688.0
+          }
+        ]
+      },
+      "apply-width": {
+        "count": 15,
+        "medianMs": 15.7485,
+        "p95Ms": 25.1332,
+        "meanAllocatedBytes": 734626.6666666666,
+        "rounds": [
+          {
+            "round": 0,
+            "count": 5,
+            "medianMs": 16.1186,
+            "p95Ms": 25.1332,
+            "meanAllocatedBytes": 782395.2
+          },
+          {
+            "round": 1,
+            "count": 5,
+            "medianMs": 15.7485,
+            "p95Ms": 22.3411,
+            "meanAllocatedBytes": 706294.4
+          },
+          {
+            "round": 2,
+            "count": 5,
+            "medianMs": 14.8671,
+            "p95Ms": 22.8081,
+            "meanAllocatedBytes": 715190.4
+          }
+        ]
+      }
+    },
+    "resources": [
+      {
+        "state": "settings-closed",
+        "cpuPercentMachine": 0,
+        "privateBytes": 23687168,
+        "workingSetBytes": 77967360,
+        "handles": 530,
+        "gdi": 33,
+        "user": 38
+      },
+      {
+        "state": "closed-round--1",
+        "privateBytes": 54050816,
+        "handles": 590,
+        "gdi": 202,
+        "user": 61
+      },
+      {
+        "state": "settings-open-idle",
+        "cpuPercentMachine": 0.07800001745203591,
+        "privateBytes": 58773504,
+        "workingSetBytes": 128978944,
+        "handles": 590,
+        "gdi": 208,
+        "user": 124
+      },
+      {
+        "state": "closed-round-0",
+        "privateBytes": 63877120,
+        "handles": 589,
+        "gdi": 202,
+        "user": 62
+      },
+      {
+        "state": "closed-round-1",
+        "privateBytes": 63766528,
+        "handles": 593,
+        "gdi": 338,
+        "user": 62
+      },
+      {
+        "state": "after-interaction-idle",
+        "cpuPercentMachine": 0,
+        "privateBytes": 86953984,
+        "workingSetBytes": 157569024,
+        "handles": 599,
+        "gdi": 371,
+        "user": 829
+      },
+      {
+        "state": "closed-round-2",
+        "privateBytes": 87904256,
+        "handles": 599,
+        "gdi": 212,
+        "user": 63
+      },
+      {
+        "state": "after-20-open-close",
+        "cpuPercentMachine": 0.09754598596838106,
+        "privateBytes": 86790144,
+        "workingSetBytes": 152076288,
+        "handles": 595,
+        "gdi": 278,
+        "user": 60
+      }
+    ]
+  },
+  "compositionStudy": [
+    {
+      "experiment": "candidate-r2-results",
+      "assemblySha256": "23A230DFEA814E8C7D8CB94628BED2E4D520661A167E6D0BB85AA157301F376D",
+      "localBuffer": false,
+      "summary": [
+        {
+          "operation": "open",
+          "count": 3,
+          "medianMs": 211.2728,
+          "p95Ms": 214.446,
+          "meanAllocatedBytes": 427954.6666666667
+        },
+        {
+          "operation": "first-Taskbar",
+          "count": 3,
+          "medianMs": 159.6019,
+          "p95Ms": 161.161,
+          "meanAllocatedBytes": 572965.3333333334
+        },
+        {
+          "operation": "first-Monitor",
+          "count": 3,
+          "medianMs": 275.4978,
+          "p95Ms": 285.2399,
+          "meanAllocatedBytes": 1473738.6666666667
+        },
+        {
+          "operation": "first-Threshold",
+          "count": 3,
+          "medianMs": 106.7665,
+          "p95Ms": 107.8458,
+          "meanAllocatedBytes": 489861.3333333333
+        },
+        {
+          "operation": "first-System",
+          "count": 3,
+          "medianMs": 240.8701,
+          "p95Ms": 242.2823,
+          "meanAllocatedBytes": 787938.6666666666
+        },
+        {
+          "operation": "switch-MainPanel",
+          "count": 30,
+          "medianMs": 15.0075,
+          "p95Ms": 16.2218,
+          "meanAllocatedBytes": 38813.333333333336
+        },
+        {
+          "operation": "switch-Taskbar",
+          "count": 30,
+          "medianMs": 10.2248,
+          "p95Ms": 11.4508,
+          "meanAllocatedBytes": 35225.6
+        },
+        {
+          "operation": "switch-Monitor",
+          "count": 30,
+          "medianMs": 21.8886,
+          "p95Ms": 24.3441,
+          "meanAllocatedBytes": 85002.66666666667
+        },
+        {
+          "operation": "switch-Threshold",
+          "count": 30,
+          "medianMs": 23.6795,
+          "p95Ms": 26.0278,
+          "meanAllocatedBytes": 176862.66666666666
+        },
+        {
+          "operation": "switch-System",
+          "count": 30,
+          "medianMs": 21.8503,
+          "p95Ms": 23.6293,
+          "meanAllocatedBytes": 87304.53333333334
+        },
+        {
+          "operation": "tab-taskbar",
+          "count": 30,
+          "medianMs": 108.1377,
+          "p95Ms": 121.3203,
+          "meanAllocatedBytes": 181256.26666666666
+        },
+        {
+          "operation": "filter",
+          "count": 30,
+          "medianMs": 135.215,
+          "p95Ms": 164.5465,
+          "meanAllocatedBytes": 153209.6
+        },
+        {
+          "operation": "tab-panel",
+          "count": 30,
+          "medianMs": 135.797,
+          "p95Ms": 139.8633,
+          "meanAllocatedBytes": 234446.66666666666
+        },
+        {
+          "operation": "labels",
+          "count": 30,
+          "medianMs": 60.4778,
+          "p95Ms": 199.2178,
+          "meanAllocatedBytes": 71295.2
+        },
+        {
+          "operation": "apply-unchanged",
+          "count": 15,
+          "medianMs": 0.3108,
+          "p95Ms": 0.4307,
+          "meanAllocatedBytes": 112396.8
+        },
+        {
+          "operation": "apply-width",
+          "count": 15,
+          "medianMs": 13.9912,
+          "p95Ms": 25.3237,
+          "meanAllocatedBytes": 733645.3333333334
+        }
+      ]
+    },
+    {
+      "experiment": "candidate-local-all",
+      "assemblySha256": "23A230DFEA814E8C7D8CB94628BED2E4D520661A167E6D0BB85AA157301F376D",
+      "localBuffer": true,
+      "summary": [
+        {
+          "operation": "open",
+          "count": 3,
+          "medianMs": 222.7983,
+          "p95Ms": 227.2198,
+          "meanAllocatedBytes": 444533.3333333333
+        },
+        {
+          "operation": "first-Taskbar",
+          "count": 3,
+          "medianMs": 157.9528,
+          "p95Ms": 164.3482,
+          "meanAllocatedBytes": 608840
+        },
+        {
+          "operation": "first-Monitor",
+          "count": 3,
+          "medianMs": 295.0804,
+          "p95Ms": 301.0466,
+          "meanAllocatedBytes": 1552941.3333333333
+        },
+        {
+          "operation": "first-Threshold",
+          "count": 3,
+          "medianMs": 111.9056,
+          "p95Ms": 112.8838,
+          "meanAllocatedBytes": 571944
+        },
+        {
+          "operation": "first-System",
+          "count": 3,
+          "medianMs": 245.9266,
+          "p95Ms": 247.1663,
+          "meanAllocatedBytes": 895029.3333333334
+        },
+        {
+          "operation": "switch-MainPanel",
+          "count": 30,
+          "medianMs": 30.3769,
+          "p95Ms": 33.166,
+          "meanAllocatedBytes": 144169.86666666667
+        },
+        {
+          "operation": "switch-Taskbar",
+          "count": 30,
+          "medianMs": 18.4993,
+          "p95Ms": 25.6449,
+          "meanAllocatedBytes": 141148
+        },
+        {
+          "operation": "switch-Monitor",
+          "count": 30,
+          "medianMs": 38.297,
+          "p95Ms": 48.9979,
+          "meanAllocatedBytes": 187524
+        },
+        {
+          "operation": "switch-Threshold",
+          "count": 30,
+          "medianMs": 43.81,
+          "p95Ms": 48.8377,
+          "meanAllocatedBytes": 285378.6666666667
+        },
+        {
+          "operation": "switch-System",
+          "count": 30,
+          "medianMs": 36.9356,
+          "p95Ms": 40.2962,
+          "meanAllocatedBytes": 193791.73333333334
+        },
+        {
+          "operation": "tab-taskbar",
+          "count": 30,
+          "medianMs": 134.163,
+          "p95Ms": 150.0446,
+          "meanAllocatedBytes": 258278.66666666666
+        },
+        {
+          "operation": "filter",
+          "count": 30,
+          "medianMs": 161.2573,
+          "p95Ms": 190.0066,
+          "meanAllocatedBytes": 233922.93333333332
+        },
+        {
+          "operation": "tab-panel",
+          "count": 30,
+          "medianMs": 156.5535,
+          "p95Ms": 164.6355,
+          "meanAllocatedBytes": 332745.3333333333
+        },
+        {
+          "operation": "labels",
+          "count": 30,
+          "medianMs": 72.2306,
+          "p95Ms": 215.4558,
+          "meanAllocatedBytes": 173946.4
+        },
+        {
+          "operation": "apply-unchanged",
+          "count": 15,
+          "medianMs": 0.416,
+          "p95Ms": 0.8326,
+          "meanAllocatedBytes": 213181.33333333334
+        },
+        {
+          "operation": "apply-width",
+          "count": 15,
+          "medianMs": 14.4208,
+          "p95Ms": 21.8706,
+          "meanAllocatedBytes": 809066.6666666666
+        }
+      ]
+    }
+  ],
+  "packages": {
+    "implementationCommit": "5b7f456",
+    "packages": [
+      {
+        "archive": "MellowMeter-0.2.0-win-x64-lite.zip",
+        "sha256": "a943ab1b053f4c2a5569eaa0761e9f12f0c70c025e6192d6c9bb86966d8484bc",
+        "zipBytes": 2862990,
+        "expandedBytes": 6848962,
+        "files": 46,
+        "categories": {
+          "application": 824265,
+          "resources": 97462,
+          "dependencies": 5821232,
+          "notices": 106003,
+          "runtime": 0
+        },
+        "allEntriesMatchFolder": true
+      },
+      {
+        "archive": "MellowMeter-0.2.0-win-x64.zip",
+        "sha256": "7b70b9fdd88de2ebfbf92a5f55e3bf359643b68ca4255b365cd40459376f538d",
+        "zipBytes": 73988887,
+        "expandedBytes": 172325555,
+        "files": 504,
+        "categories": {
+          "application": 858731,
+          "resources": 97462,
+          "dependencies": 5821232,
+          "notices": 179258,
+          "runtime": 165368872
+        },
+        "allEntriesMatchFolder": true
+      }
+    ],
+    "appSha256": "cc3879e821e51ad42c73ff02f3e053e9561b49c2b42c97ff008b3b1e60ec3d09",
+    "sameApplicationAssembly": true,
+    "themesPerEdition": 12
+  }
+}

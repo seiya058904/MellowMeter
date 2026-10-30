@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/seiya058904/MellowMeter/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/release-v0.1.0-4F9B6B?style=flat-square" alt="Release v0.1.0" /></a>
+  <a href="https://github.com/seiya058904/MellowMeter/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-v0.2.0-4F9B6B?style=flat-square" alt="Release v0.2.0" /></a>
   <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-536E62?style=flat-square" alt="Windows 10 and 11" />
   <img src="https://img.shields.io/badge/native-WinForms%20%2B%20.NET%208-77749A?style=flat-square" alt="Native WinForms and .NET 8" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-B78D50?style=flat-square" alt="MIT license" /></a>
@@ -26,14 +26,14 @@
   &nbsp;·&nbsp; <a href="#development">For developers</a>
 </p>
 
-<p align="center"><sub>Portable ZIP · Runtime included · Basic monitoring without a hardware driver</sub></p>
+<p align="center"><sub>Portable or Lite ZIP · 32 selectable metrics · Local history</sub></p>
 <p align="center"><sub>English · <a href="README.zh-CN.md">简体中文</a> · <a href="https://github.com/seiya058904/MellowMeter/issues">Issues &amp; feedback</a></sub></p>
 
 ---
 
-MellowMeter builds on **[LiteMonitor](https://github.com/Diorser/LiteMonitor)**, retaining its compact floating monitor, taskbar layout, colorful readings, and familiar themes. It adds a calmer default setup, rounded settings, and coordinated light/dark styling — without trying to become a full dashboard.
+MellowMeter builds on **[LiteMonitor](https://github.com/Diorser/LiteMonitor)**, retaining its compact floating monitor, taskbar layout, colorful readings, and familiar themes. It adds refined grouped settings, local history, and coordinated light/dark styling — without trying to become a full dashboard.
 
-**Local v0.2 iteration:** All **32 upstream built-in monitoring items** are restored, with original default selections and panel layouts. Settings use the v0.1 static interface. **12 themes** remain; Glass Light and Glass Dark have been removed. Existing Glass selections map to Mellow Light/Dark, and new profiles use DarkFlat Classic. Local builds are available for review; this iteration has not been published.
+**v0.2.0:** All **32 built-in monitoring items**, **12 themes**, and the original panel/taskbar selections. Settings now create pages on demand, reuse metric editors and apply only changed settings. Solid rounded groups and optional light feedback keep the interface consistent. See the [measured results and remaining limits](docs/settings-fluid-20261030.md).
 
 <a id="features"></a>
 
@@ -42,8 +42,8 @@ MellowMeter builds on **[LiteMonitor](https://github.com/Diorser/LiteMonitor)**,
 <table>
 <tr>
 <td width="50%" valign="top">
-<strong>📊 Four readings. One glance.</strong><br /><br />
-CPU busy time, memory load, upload speed, and download speed appear by default. Everything important stays visible without a maze of widgets.
+<strong>📊 32 metrics. Your selection.</strong><br /><br />
+Choose CPU, GPU, memory, disk, network, battery and more. The default vertical panel selects 13 items; the taskbar selects six. Unavailable values stay clearly marked.
 </td>
 <td width="50%" valign="top">
 <strong>🪟 Right where you need it.</strong><br /><br />
@@ -57,7 +57,7 @@ Soft rounded settings, pill switches, collapsible groups, and coordinated themes
 </td>
 <td valign="top">
 <strong>🗂️ History that stays yours.</strong><br /><br />
-Review local monitoring history and export hardware trends as CSV. Advanced hardware sensors are optional, not a requirement for basic use.
+Review local monitoring history and export hardware trends as CSV. Advanced sensors are enabled in new profiles; turn them off for basic Windows API monitoring. Availability depends on hardware and installed components.
 </td>
 </tr>
 </table>
@@ -67,39 +67,39 @@ Review local monitoring history and export hardware trends as CSV. Advanced hard
 ## 🖼️ A closer look
 
 <p align="center">
-  <img src="docs/screenshots/panel-dark.png" alt="MellowMeter's compact dark floating panel with its default CPU, memory, upload, and download readings" width="82%" />
+  <img src="docs/screenshots/fluid/panel-dark.png" alt="MellowMeter's vertical dark monitoring panel with unavailable advanced sensors shown as dashes" width="300" />
 </p>
-<p align="center"><sub>01 / The floating panel — the four default readings, without extra clutter</sub></p>
+<p align="center"><sub>The vertical panel — configurable metrics and clear unavailable readings</sub></p>
 
 <table>
 <tr>
 <td width="50%" align="center" valign="top">
-  <img src="docs/screenshots/settings-dark.png" alt="MellowMeter rounded settings in a dark theme" width="100%" /><br />
-  <sub>02 / After dark</sub>
+  <img src="docs/screenshots/fluid/settings-dark.png" alt="MellowMeter rounded settings in a dark theme" width="100%" /><br />
+  <sub>Dark settings</sub>
 </td>
 <td width="50%" align="center" valign="top">
-  <img src="docs/screenshots/settings-light.png" alt="MellowMeter rounded settings in a light theme" width="100%" /><br />
-  <sub>03 / In the daylight</sub>
+  <img src="docs/screenshots/fluid/settings-light.png" alt="MellowMeter rounded settings in a light theme" width="100%" /><br />
+  <sub>Light settings</sub>
 </td>
 </tr>
 </table>
 
 <details>
-<summary><strong>✨ More looks — expanded panel, themes &amp; history</strong></summary>
+<summary><strong>✨ More looks — monitor settings, themes &amp; history</strong></summary>
 
 <p align="center">
-  <img src="docs/screenshots/expanded-dark.png" alt="Expanded dark monitor panel" width="82%" />
+  <img src="docs/screenshots/fluid/settings-metrics.png" alt="Reusable metric editors with grouped rows and segmented selection" width="100%" />
 </p>
-<p align="center"><sub>Expanded floating panel</sub></p>
+<p align="center"><sub>Grouped monitor settings</sub></p>
 
 <table>
 <tr>
 <td width="50%" valign="top" align="center">
-  <img src="docs/screenshots/settings-purple.png" alt="Settings in AuroraDream Purple" width="100%" /><br />
+  <img src="docs/screenshots/fluid/settings-purple.png" alt="Settings in AuroraDream Purple" width="100%" /><br />
   <sub>AuroraDream Purple</sub>
 </td>
 <td width="50%" valign="top" align="center">
-  <img src="docs/screenshots/history-dark.png" alt="Local monitoring history in the dark theme" width="100%" /><br />
+  <img src="docs/screenshots/fluid/history-dark.png" alt="Local monitoring history in the dark theme" width="100%" /><br />
   <sub>Local history</sub>
 </td>
 </tr>
@@ -117,9 +117,10 @@ Browse the [screenshot collection](docs/screenshots/) for more theme and taskbar
 
 | Download | Details |
 | :--- | :--- |
-| **[MellowMeter v0.1.0 · Windows x64 portable ZIP](https://github.com/seiya058904/MellowMeter/releases/download/v0.1.0/MellowMeter-0.1.0-win-x64.zip)** | **70.6 MiB**, includes the .NET 8 runtime. No separate SDK required. |
-| [SHA256SUMS.txt](https://github.com/seiya058904/MellowMeter/releases/download/v0.1.0/SHA256SUMS.txt) | Compare the archive's SHA-256 hash with the published checksum. |
-| [Release notes](https://github.com/seiya058904/MellowMeter/releases/tag/v0.1.0) | Changes, downloads, and release verification. |
+| **[MellowMeter v0.2.0 · Windows x64 portable ZIP](https://github.com/seiya058904/MellowMeter/releases/download/v0.2.0/MellowMeter-0.2.0-win-x64.zip)** | **70.6 MiB**, includes the .NET 8 runtime. No separate SDK required. |
+| **[MellowMeter v0.2.0 · Windows x64 Lite ZIP](https://github.com/seiya058904/MellowMeter/releases/download/v0.2.0/MellowMeter-0.2.0-win-x64-lite.zip)** | **2.73 MiB**, same features; requires the installed .NET 8 Desktop Runtime x64. |
+| [SHA256SUMS.txt](https://github.com/seiya058904/MellowMeter/releases/download/v0.2.0/SHA256SUMS.txt) | Compare the archive's SHA-256 hash with the published checksum. |
+| [Release notes](https://github.com/seiya058904/MellowMeter/releases/tag/v0.2.0) | Changes, downloads, and release verification. |
 
 **Three steps to start:**
 
@@ -137,16 +138,16 @@ The application targets **Windows 10/11 x64**; the recorded physical host test w
 
 | What | How it behaves |
 | :--- | :--- |
-| **Default metrics** | CPU busy time, memory load, network upload, and network download. |
-| **Advanced sensors** | Optional GPU, temperature, disk, clock, power, and fan readings. Enable in **Settings → System**, apply, and restart. Hardware, permissions, and compatible drivers determine availability. |
-| **Unavailable readings** | Shown as **—** rather than guessed or silently replaced. The app does not install hardware drivers. |
+| **Default metrics** | 32 selectable items; 13 selected in the vertical panel and six in the taskbar. New profiles use DarkFlat Classic. |
+| **Advanced sensors** | Enabled in new profiles and switchable in **Settings → System**. Apply and restart after changing this option. Hardware, permissions, and compatible drivers determine availability. |
+| **Unavailable readings** | Shown as **—** rather than guessed or silently replaced. Driver and FPS component installation is manual, from **Settings → System**; nothing is installed automatically. |
 | **Network rates** | Automatic selection uses the busiest eligible adapter, not a sum across all interfaces; local and SMB traffic may be included. |
 | **History** | Stored on your PC, with CSV export for hardware trends. Monitoring data is not uploaded. |
 
 <details>
-<summary><strong>What is deliberately outside the normal v0.1.0 experience?</strong></summary>
+<summary><strong>What is deliberately outside the normal v0.2.0 experience?</strong></summary>
 
-Plugins, FPS tools, web serving, automatic updating, and speed tests are not part of this release's normal interface or startup path. CPU reports processor <em>busy time</em>, which is not the same as frequency-weighted CPU utility. For hosts with more than 64 logical processors, the collector has a [documented processor-group limitation](docs/VERIFICATION.md#measurement-limits).
+Plugins, web serving, automatic updating, and speed tests are excluded. FPS is available through an explicitly installed optional component. CPU reports processor <em>busy time</em>, which is not the same as frequency-weighted CPU utility. For hosts with more than 64 logical processors, the collector has a [documented processor-group limitation](docs/VERIFICATION.md#measurement-limits).
 
 </details>
 
@@ -189,14 +190,14 @@ Further reading: [design direction](docs/DESIGN.md) · [verification and limitat
 
 ## 🧪 Tested — with the edges clearly marked
 
-The published v0.1.0 Windows 11 x64 check passed **371 desktop assertions** and produced **37 renderer captures**, with all **six CI suites** passing at that release. The v0.2 source uses four suites after retiring only tests for removed services; current local results and real desktop captures are recorded in the [v0.2 report](docs/iteration-0.2.0.md). No v0.2 remote CI or public release is claimed by local verification.
+The current Windows 11 x64 build is checked with **four regression suites**, native package interaction, both package variants and a three-round settings performance comparison. See the [current verification report](docs/settings-fluid-20261030.md) for exact results, source/binary identity and exceptions. Published CI results are available in [Actions](https://github.com/seiya058904/MellowMeter/actions/workflows/build.yml).
 
 | Covered | Not established by these checks |
 | :--- | :--- |
 | Windows 11 host checks, render/interaction regressions, and portable package smoke test | Universal Windows 10 and hardware compatibility |
 | Synthetic renderer scaling at 100%, 150%, and 200%; host captures at 175% | Physical DPI switching, mixed-DPI monitors, and HDR-like display differences |
 | Simulated lock/suspend/hidden-state transitions | Physical sleep/wake, Explorer restart, and varied sensor/driver environments |
-| One brief comparison with a modified LiteMonitor baseline | General performance gains or long-term stability across machines |
+| Three measured rounds against the preceding MellowMeter settings | Universal sub-100 ms interactions or long-term stability across machines |
 
 Read the [full verification record](docs/VERIFICATION.md) for methods, limits, and the benchmark context.
 
