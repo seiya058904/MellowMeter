@@ -29,6 +29,11 @@
 <p align="center"><sub>Portable or Lite ZIP · 32 selectable metrics · Local history</sub></p>
 <p align="center"><sub>English · <a href="README.zh-CN.md">简体中文</a> · <a href="https://github.com/seiya058904/MellowMeter/issues">Issues &amp; feedback</a></sub></p>
 
+<p align="center">
+  <a href="docs/promo/mellowmeter-loop.mp4"><img src="docs/promo/mellowmeter-loop.gif" alt="A 10-second loop of MellowMeter: the floating panel shows live readings, CPU usage climbs and turns from green to amber, then five built-in themes fan out and fold back" width="100%" /></a><br />
+  <sub>Recorded from the v0.2.0 portable build on Windows 11 with a separate profile. CPU load was briefly generated to show the color change; advanced sensors were off, so temperatures and GPU show dashes. <a href="docs/promo/mellowmeter-loop.mp4">MP4</a></sub>
+</p>
+
 ---
 
 MellowMeter builds on **[LiteMonitor](https://github.com/Diorser/LiteMonitor)**, retaining its compact floating monitor, taskbar layout, colorful readings, and familiar themes. It adds refined grouped settings, local history, and coordinated light/dark styling — without trying to become a full dashboard.
@@ -65,11 +70,6 @@ Review local monitoring history and export hardware trends as CSV. Advanced sens
 <a id="preview"></a>
 
 ## 🖼️ A closer look
-
-<p align="center">
-  <a href="docs/promo/mellowmeter-loop.mp4"><img src="docs/promo/mellowmeter-loop.gif" alt="A 10-second loop of MellowMeter: the floating panel shows live readings, CPU usage climbs and turns from green to amber, then five built-in themes fan out and fold back" width="100%" /></a><br />
-  <sub>Recorded from the v0.2.0 portable build on Windows 11 with a separate profile. CPU load was briefly generated to show the color change; advanced sensors were off, so temperatures and GPU show dashes. <a href="docs/promo/mellowmeter-loop.mp4">MP4</a></sub>
-</p>
 
 <p align="center">
   <img src="docs/screenshots/fluid/panel-dark.png" alt="MellowMeter's vertical dark monitoring panel with unavailable advanced sensors shown as dashes" width="300" />
