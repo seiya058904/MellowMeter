@@ -67,6 +67,11 @@ Review local monitoring history and export hardware trends as CSV. Advanced sens
 ## 🖼️ A closer look
 
 <p align="center">
+  <a href="docs/promo/mellowmeter-loop.mp4"><img src="docs/promo/mellowmeter-loop.gif" alt="A 10-second loop of MellowMeter: the floating panel shows live readings, CPU usage climbs and turns from green to amber, then five built-in themes fan out and fold back" width="100%" /></a><br />
+  <sub>Recorded from the v0.2.0 portable build on Windows 11 with a separate profile. CPU load was briefly generated to show the color change; advanced sensors were off, so temperatures and GPU show dashes. <a href="docs/promo/mellowmeter-loop.mp4">MP4</a></sub>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/fluid/panel-dark.png" alt="MellowMeter's vertical dark monitoring panel with unavailable advanced sensors shown as dashes" width="300" />
 </p>
 <p align="center"><sub>The vertical panel — configurable metrics and clear unavailable readings</sub></p>
