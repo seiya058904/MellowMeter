@@ -29,6 +29,15 @@ internal static partial class SmokeSuite
         await Task.Delay(20);
     }
 
+    // A slow host may run one animation frame in the time a fast one runs ten: wait for the state,
+    // never for a fixed time, when asserting that something has started moving.
+    private static async Task<bool> Until(Func<bool> condition, int limitMs = 2000)
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (!condition() && clock.ElapsedMilliseconds < limitMs) await Task.Delay(5);
+        return condition();
+    }
+
     private static async Task TestFlagshipSettings(MainForm main, Settings cfg, UIController ui)
     {
         _stage = "motion engine";
@@ -169,13 +178,13 @@ internal static partial class SmokeSuite
         int contentHandlesBefore = surface.Content.Controls.Count;
         float start = surface.Offset;
         PostMessage(surface.Handle, WM_MOUSEWHEEL, new IntPtr(-120 << 16), IntPtr.Zero);
-        await Task.Delay(40);
+        await Until(() => surface.Offset > start);
         float during = surface.Offset;
         Check(during > start && InterfaceMotion.IsAnimating(surface, "scroll"), "A wheel notch glides rather than jumps");
-        Check(surface.IndicatorRevealed, "Scrolling reveals the indicator");
+        Check(await Until(() => surface.IndicatorRevealed), "Scrolling reveals the indicator");
         await MotionIdle();
         float settled = surface.Offset;
-        Check(settled > during, "The glide carries on to its destination");
+        Check(settled >= during && settled > start, "The glide carries on to its destination");
         Check(surface.Content.Top == -(int)MathF.Round(settled), "Scrolling moves the single content window");
         await Task.Delay(1500);
         await MotionIdle();
@@ -257,10 +266,11 @@ internal static partial class SmokeSuite
         bool preFlick = toggle.Checked;
         x = toggle.Checked ? toggle.Width - UIUtils.S(10) : UIUtils.S(10);
         direction = toggle.Checked ? -1 : 1;
+        // Blocking sleeps keep the gesture fast however busy the message loop is: velocity is real time.
         SendMessage(toggle.Handle, WM_LBUTTONDOWN, new IntPtr(1), Point32(x, height));
-        await Task.Delay(30);
+        Thread.Sleep(3);
         SendMessage(toggle.Handle, WM_MOUSEMOVE, new IntPtr(1), Point32(x + direction * UIUtils.S(4), height));
-        await Task.Delay(5);
+        Thread.Sleep(3);
         SendMessage(toggle.Handle, WM_MOUSEMOVE, new IntPtr(1), Point32(x + direction * UIUtils.S(7), height));
         SendMessage(toggle.Handle, WM_LBUTTONUP, IntPtr.Zero, Point32(x + direction * UIUtils.S(7), height));
         Check(toggle.Checked != preFlick && changes == 2, "A quick flick toggles by velocity before the midpoint");
@@ -400,7 +410,7 @@ internal static partial class SmokeSuite
         group.Collapsed = false;
         Check(group.IsAnimatingDisclosure, "Opening a group animates its height");
         Check(settings.DisclosureVeil.Opacity > 0.5, "Rows start covered by the fading veil when a group opens");
-        await Task.Delay(60);
+        await Until(() => group.Height > closed);
         int partial = group.Height;
         Check(partial > closed, "The body grows during the transition");
         group.Collapsed = true; // interrupt
@@ -619,8 +629,7 @@ internal static partial class SmokeSuite
         int edgeY = edgeRow.PointToScreen(new Point(0, edgeRow.Height / 2)).Y;
         session = new ReorderSession(rowsHost, edgeRow, surface, edgeY, commit, () => finished++, followPointer: false);
         session.MoveTo(surface.RectangleToScreen(surface.ClientRectangle).Bottom - UIUtils.S(6));
-        await Task.Delay(260);
-        Check(surface.Offset > scrollBefore, "Dragging near the edge scrolls the list");
+        Check(await Until(() => surface.Offset > scrollBefore), "Dragging near the edge scrolls the list");
         session.MoveTo(edgeY);
         await Task.Delay(30);
         session.Cancel();
