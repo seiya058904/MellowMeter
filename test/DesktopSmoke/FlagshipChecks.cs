@@ -430,6 +430,13 @@ internal static partial class SmokeSuite
             await MotionIdle();
             var active = pages[key];
             CheckSettingsRowGeometry(active, "minimum window " + key);
+            if (key == "Monitor")
+            {
+                var editors = Field<LiteCheck>(active, "_chkEditLabels");
+                editors.Checked = true;
+                CheckSettingsRowGeometry(active, "minimum window label editors");
+                editors.Checked = false;
+            }
             Check(Descendants(settings).OfType<LiteButton>().Where(b => b.Parent?.GetType().Name == "ActionBar").All(b => settings.ClientRectangle.Contains(settings.RectangleToClient(b.RectangleToScreen(b.ClientRectangle)))),
                 "minimum window " + key + ": all actions stay inside the window");
         }
@@ -478,6 +485,26 @@ internal static partial class SmokeSuite
                     scaled.SwitchPage(key);
                     await MotionIdle();
                     CheckSettingsRowGeometry(Field<Dictionary<string, SettingsPageBase>>(scaled, "_pages")[key], $"synthetic {scale:P0} {key}");
+                }
+                // A 1024-pixel screen clamps the window below its minimum at this scale (seen on CI).
+                scaled.MinimumSize = Size.Empty;
+                scaled.Width = Math.Min(scaled.Width, 1000);
+                await Task.Delay(30);
+                foreach (var key in new[] { "MainPanel", "Taskbar", "Monitor", "Threshold", "System" })
+                {
+                    scaled.SwitchPage(key);
+                    await MotionIdle();
+                    var narrowPage = Field<Dictionary<string, SettingsPageBase>>(scaled, "_pages")[key];
+                    narrowPage.PerformLayout();
+                    CheckSettingsRowGeometry(narrowPage, $"narrow window at {scale:P0} {key}");
+                    if (key == "Monitor")
+                    {
+                        SelectTab(narrowPage, 1);
+                        await MotionIdle();
+                        CheckSettingsRowGeometry(narrowPage, $"narrow window at {scale:P0} Monitor taskbar tab");
+                        SelectTab(narrowPage, 0);
+                        await MotionIdle();
+                    }
                 }
                 scaled.Close();
             }

@@ -46,7 +46,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             _tabPanel = new TitlePanel(LanguageManager.T("Menu.MonitorItemDisplay"))
             {
                 Dock = DockStyle.Top,
-                Height = TabPanelHeight(false),
+                Height = UIUtils.S(92),
                 BackColor = UIColors.MainBg
             };
 
@@ -126,18 +126,31 @@ namespace LiteMonitor.src.UI.SettingsPage
             foreach (var block in _blocks.Values) yield return block.RowsPanel;
         }
 
-        private static int TabPanelHeight(bool taskbar) => UIUtils.S(taskbar ? 124 : 92);
-
+        // A small screen can narrow the window below its normal minimum, so controls take a new
+        // line rather than overlap, and the panel grows to fit them.
         private void ArrangeToolbar()
         {
             int gutter = UIUtils.S(DS.PageGutter), top = UIUtils.S(50), width = _tabPanel.Width;
-            int edit = width - gutter - _chkEditLabels.Width;
-            _chkEditLabels.Location = new Point(edit, top + (UIUtils.S(34) - _chkEditLabels.Height) / 2);
-            int tabs = Math.Min(NaturalTabsWidth, Math.Max(UIUtils.S(120), edit - gutter - UIUtils.S(12)));
-            _tabs.SetBounds(gutter, top, tabs, _tabs.Height);
-            int second = top + UIUtils.S(40);
-            _chkOnlyVisible.Location = new Point(gutter, second);
-            _chkLinkHorizontal.Location = new Point(_chkOnlyVisible.Right + UIUtils.S(20), second);
+            int available = Math.Max(0, width - gutter * 2), line = UIUtils.S(32);
+            bool wrapEditor = NaturalTabsWidth + UIUtils.S(12) + _chkEditLabels.Width > available;
+            _tabs.SetBounds(gutter, top, Math.Max(UIUtils.S(60), Math.Min(NaturalTabsWidth, available)), _tabs.Height);
+            int y = top + UIUtils.S(40);
+            if (wrapEditor)
+            {
+                _chkEditLabels.Location = new Point(gutter, y);
+                y += line;
+            }
+            else _chkEditLabels.Location = new Point(width - gutter - _chkEditLabels.Width, top + (UIUtils.S(34) - _chkEditLabels.Height) / 2);
+            if (_isTaskbarTab)
+            {
+                _chkOnlyVisible.Location = new Point(gutter, y);
+                int next = _chkOnlyVisible.Right + UIUtils.S(20);
+                if (next + _chkLinkHorizontal.Width > width - gutter) { y += line; next = gutter; }
+                _chkLinkHorizontal.Location = new Point(next, y);
+                y += line;
+            }
+            int height = y + UIUtils.S(2);
+            if (_tabPanel.Height != height) _tabPanel.Height = height;
         }
 
         private int NaturalTabsWidth
@@ -162,7 +175,6 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             _chkLinkHorizontal.Visible = _isTaskbarTab;
             _chkOnlyVisible.Visible = _isTaskbarTab;
-            _tabPanel.Height = TabPanelHeight(_isTaskbarTab);
 
             if (_isTaskbarTab && Config != null)
                 _chkLinkHorizontal.Checked = Config.HorizontalFollowsTaskbar;

@@ -482,26 +482,59 @@ namespace LiteMonitor.src.UI.Controls
             Height = UIUtils.S(DS.RowHeight);
         }
 
-        public int HeightForWidth(int width) => UIUtils.S(DS.RowHeight);
+        private const int FieldGap = 22;
+        private int FieldLine => _crit.Height + UIUtils.S(8);
+
+        // One line when it fits; otherwise the title on top and the fields below, side by side
+        // or stacked, so a window narrowed by a small screen never overlaps them.
+        private int Lines(int width)
+        {
+            int both = _warn.Width + UIUtils.S(FieldGap) + _crit.Width;
+            if (both + UIUtils.S(DS.RowGap) + UIUtils.S(96) <= width) return 1;
+            return both <= width ? 2 : 3;
+        }
+
+        public int HeightForWidth(int width) => UIUtils.S(DS.RowHeight) + (Lines(width) - 1) * FieldLine;
 
         protected override void OnLayout(LayoutEventArgs e)
         {
             if (!Visible) return;
-            int gap = UIUtils.S(22), y = Math.Max(0, (Height - _crit.Height) / 2);
-            _crit.Location = new Point(Math.Max(0, Width - _crit.Width), y);
-            _warn.Location = new Point(Math.Max(0, _crit.Left - gap - _warn.Width), y);
+            int gap = UIUtils.S(FieldGap), row = UIUtils.S(DS.RowHeight), lines = Lines(Width);
+            if (lines == 1)
+            {
+                int y = Math.Max(0, (row - _crit.Height) / 2);
+                _crit.Location = new Point(Math.Max(0, Width - _crit.Width), y);
+                _warn.Location = new Point(Math.Max(0, _crit.Left - gap - _warn.Width), y);
+            }
+            else if (lines == 2)
+            {
+                _crit.Location = new Point(Math.Max(0, Width - _crit.Width), row);
+                _warn.Location = new Point(Math.Max(0, _crit.Left - gap - _warn.Width), row);
+            }
+            else
+            {
+                _warn.Location = new Point(Math.Max(0, Width - _warn.Width), row);
+                _crit.Location = new Point(Math.Max(0, Width - _crit.Width), row + FieldLine);
+            }
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
             g.FillRectangle(Ink.B(UIColors.CardBg), e.ClipRectangle);
-            Ink.Line(g, _title, UiFonts.Get(TextRole.Body), new Rectangle(0, 0, Math.Max(0, _warn.Left - UIUtils.S(DS.RowGap)), Height), UIColors.TextMain);
-            float mid = _warn.Right + (_crit.Left - _warn.Right) / 2f;
-            Ink.Chevron(g, new PointF(mid, Height / 2f), UIUtils.S(3.5f), 0, UIColors.TextTertiary, Ink.LineWidth(1.4f));
+            int row = UIUtils.S(DS.RowHeight), lines = Lines(Width);
+            int titleWidth = lines == 1 ? Math.Max(0, _warn.Left - UIUtils.S(DS.RowGap)) : Width;
+            Ink.Line(g, _title, UiFonts.Get(TextRole.Body), new Rectangle(0, 0, titleWidth, row), UIColors.TextMain);
+            if (lines < 3)
+            {
+                float mid = _warn.Right + (_crit.Left - _warn.Right) / 2f;
+                Ink.Chevron(g, new PointF(mid, _warn.Top + _warn.Height / 2f), UIUtils.S(3.5f), 0, UIColors.TextTertiary, Ink.LineWidth(1.4f));
+            }
             bool last = Parent is { } parent && ReferenceEquals(parent.Controls[0], this);
             if (!last) g.DrawLine(Ink.P(UIColors.Separator, 1), 0, Height - 1, Width, Height - 1);
         }
+
+        protected override void OnResize(EventArgs e) { base.OnResize(e); Invalidate(); }
     }
 
     // =======================================================================
