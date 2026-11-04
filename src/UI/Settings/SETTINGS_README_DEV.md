@@ -72,11 +72,17 @@ v => { if(Config != null) Config.SomeProp = v; }
 ```
 
 ### UI 组件
-使用 `LiteSettingsGroup` 和辅助方法（`AddToggle`, `AddCombo`）来创建控件，不要手动实例化 WinForms 控件。这能保证样式和行为的一致性。
+使用 `LiteSettingsGroup` 和 `SettingsUIBuilder` 的辅助方法来创建控件，不要手动实例化 WinForms 控件。这能保证样式和行为的一致性。间距、圆角、字体和颜色都来自 `Controls/DesignSystem.cs`，不要写魔法数字。
+
+按取值空间选控件：开关用 `AddToggle`，两个互斥选项用 `AddSegmented`，有序的固定档位用 `AddSlider`，可自由输入的数字用 `AddInt`/`AddDouble`（带步进器），长列表用 `AddCombo`/`AddComboIndex`（主题化菜单）。说明文字用 `AddHint`，会显示为分组下方的脚注。
+
+页面用 `CreateSurface(标题)` 创建滚动表面，用 `AddGroupToPage` 添加分组。不要使用 `AutoScroll`：滚动只移动一个内容窗口，这是滚动帧成本低的原因。自绘控件的 `OnPaint` 必须用 `Ink` 的共享画笔并铺满自己的不透明背景，设置窗口已不再使用 `WS_EX_COMPOSITED`。
+
+动效一律走 `InterfaceMotion.Spring` / `MotionValue`，弹簧预设在 `SpringSpec`。本机 Windows“动画效果”关闭时所有动效都不运行；验证动效时设置环境变量 `MELLOWMETER_FORCE_MOTION=1`，它只影响当前进程。
 
 ### 国际化
 *   不要硬编码字符串。请使用 `LanguageManager.T("Key")`。
-*   新增 Key 后，确保在 `resources/lang/en.json` 和 `zh.json` 中都有对应的翻译。
+*   新增 Key 后，确保 `resources/lang/` 下全部九种语言都有对应的翻译。缺失时界面会显示 Key 本身。
 
 ---
 

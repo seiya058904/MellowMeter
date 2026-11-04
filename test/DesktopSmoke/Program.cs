@@ -228,6 +228,7 @@ internal static partial class SmokeSuite
                 _stage = "iteration regressions";
                 await TestIteration(main, cfg, ui);
                 await TestRestoreAuditAndMotion(main, cfg, ui);
+                await TestFlagshipSettings(main, cfg, ui);
                 _stage = "power and taskbar recovery";
                 await TestLifecycle(main, cfg, ui);
                 _stage = "paused-history shutdown";
@@ -455,13 +456,13 @@ internal static partial class SmokeSuite
                     cpuRow = Descendants(activePage).OfType<MonitorItemRow>().Single(row => row.Config.Key == "CPU.Load");
                     Field<LiteUnderlineInput>(cpuRow, "_inputName").Inner.Text = previousLabel;
                     editLabels.Checked = false;
-                    Field<Button>(activePage, "_btnTabBar").PerformClick();
+                    SelectTab(activePage, 1);
                     await Task.Delay(30);
                     CheckSettingsRowGeometry(activePage, label + " taskbar tab");
                     editLabels.Checked = true;
                     CheckSettingsRowGeometry(activePage, label + " taskbar label editors");
                     editLabels.Checked = false;
-                    Field<Button>(activePage, "_btnTabMain").PerformClick();
+                    SelectTab(activePage, 0);
                 }
 
                 var groups = Descendants(activePage).OfType<LiteSettingsGroup>()
@@ -517,7 +518,7 @@ internal static partial class SmokeSuite
     private static void CheckSettingsRowGeometry(Control page, string label)
     {
         var rows = Descendants(page).Where(control => control.Visible &&
-            control is LiteSettingsItem or LiteActionRow or LiteThresholdRow or MonitorItemRow or MonitorGroupHeader).ToList();
+            control is LiteSettingsItem or LiteThresholdRow or MonitorItemRow or MonitorGroupHeader).ToList();
         if (page.GetType().Name == "MonitorPage")
         {
             rows.Add(Field<Panel>(page, "_tabPanel"));
@@ -627,6 +628,9 @@ internal static partial class SmokeSuite
             if (parent is ScrollableControl scroll && scroll.AutoScroll) scroll.ScrollControlIntoView(target);
         target.FindForm()?.Activate();
         Check(target.Focus(), target.GetType().Name + ": test keyboard target receives focus");
+        // KeyEventArgs folds in the live modifier state: a person holding Shift would turn this
+        // synthetic Space into Shift+Space, which a button ignores. Wait for the keys to be free.
+        for (int wait = 0; wait < 150 && Control.ModifierKeys != Keys.None; wait++) Thread.Sleep(20);
         var wndProc = typeof(Control).GetMethod("WndProc", BindingFlags.Instance | BindingFlags.NonPublic)!;
         object[] down = { Message.Create(target.Handle, 0x0100, (IntPtr)Keys.Space, (IntPtr)0x00390001) };
         object[] up = { Message.Create(target.Handle, 0x0101, (IntPtr)Keys.Space, new IntPtr(unchecked((int)0xC0390001))) };
@@ -776,6 +780,9 @@ internal static partial class SmokeSuite
     private static T Field<T>(object instance, string name) =>
         (T)(instance.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(instance)
             ?? throw new InvalidOperationException("Missing test integration field: " + name));
+
+    private static void SelectTab(object monitorPage, int index) =>
+        typeof(LiteSelector).GetMethod("PerformSelect", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(Field<LiteSelector>(monitorPage, "_tabs"), new object[] { index });
 
     private static void Invoke(object instance, string name) =>
         (instance.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)

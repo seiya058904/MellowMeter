@@ -17,8 +17,11 @@ namespace LiteMonitor.src.UI
         private UIController _ui;
         private MainForm _mainForm;
 
-        private FlowLayoutPanel _pnlNavContainer;
-        private BufferedPanel _pnlContent; // 使用现有的 BufferedPanel
+        private LiteSelector _nav;
+        private BufferedPanel _pnlContent; // host of the retained pages
+        private RevealVeil? _veil;
+        private RevealVeil? _disclosureVeil;
+        internal RevealVeil DisclosureVeil => _disclosureVeil ??= new RevealVeil();
 
         // 缓存所有页面实例
         private Dictionary<string, SettingsPageBase> _pages = new Dictionary<string, SettingsPageBase>();
@@ -27,22 +30,15 @@ namespace LiteMonitor.src.UI
         private string _visualSkin = "";
         private string _visualLanguage = "";
         private bool _applyingSettings;
+        private bool _shown;
+        private bool _visualHighContrast;
+        private bool _visualMotionOff;
 
-        protected override CreateParams CreateParams
-        {
-            get
-            {
-                CreateParams cp = base.CreateParams;
-                cp.ExStyle |= 0x02000000; // Preserve upstream composited page rendering.
-                return cp;
-            }
-        }
+        [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr w, IntPtr l);
+        [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool RedrawWindow(IntPtr hwnd, IntPtr rect, IntPtr region, uint flags);
 
-        protected override void OnResizeBegin(EventArgs e)
-        {
-            this.SuspendLayout();
-            base.OnResizeBegin(e);
-        }
+        // Diagnostics only: renders at a synthetic scale on the host monitor for visual checks.
+        internal static float? ScaleOverride { get; set; }
 
         protected override void OnHandleCreated(EventArgs e)
         {
@@ -53,17 +49,19 @@ namespace LiteMonitor.src.UI
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
-            // A short high-DPI desktop should scroll the page, never hide the actions.
-            var work = Screen.FromControl(this).WorkingArea;
-            int margin = UIUtils.S(12);
-            Size = new Size(Math.Min(Width, work.Width - margin * 2), Math.Min(Height, work.Height - margin * 2));
-            Location = new Point(work.Left + (work.Width - Width) / 2, work.Top + (work.Height - Height) / 2);
+            _shown = true;
+            FitToWorkingArea(center: true);
         }
 
-        protected override void OnResizeEnd(EventArgs e)
+        // A short high-DPI desktop should scroll the page, never hide the actions.
+        private void FitToWorkingArea(bool center)
         {
-            base.OnResizeEnd(e);
-            this.ResumeLayout(true);
+            var work = Screen.FromControl(this).WorkingArea;
+            int margin = UIUtils.S(12);
+            var limit = new Size(work.Width - margin * 2, work.Height - margin * 2);
+            MinimumSize = new Size(Math.Min(MinimumSize.Width, limit.Width), Math.Min(MinimumSize.Height, limit.Height));
+            Size = new Size(Math.Min(Width, limit.Width), Math.Min(Height, limit.Height));
+            if (center) Location = new Point(work.Left + (work.Width - Width) / 2, work.Top + (work.Height - Height) / 2);
         }
 
         public SettingsForm(Settings cfg, UIController ui, MainForm mainForm)
@@ -82,80 +80,66 @@ namespace LiteMonitor.src.UI
             InitPages();
         }
 
-        [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_pnlNavContainer), nameof(_pnlContent))]
+        [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_nav), nameof(_pnlContent))]
         private void InitializeComponent()
         {
-            UIUtils.ScaleFactor = this.DeviceDpi / 96f;
+            UIUtils.ScaleFactor = ScaleOverride ?? this.DeviceDpi / 96f;
 
             this.AutoScaleMode = AutoScaleMode.None; // Controls use UIUtils DPI scaling.
-            this.ClientSize = UIUtils.S(new Size(800, 540));
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
+            this.ClientSize = UIUtils.S(new Size(DS.WindowWidth, DS.WindowHeight));
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
             this.MinimizeBox = true;
+            this.MinimumSize = SizeFromClientSize(UIUtils.S(new Size(DS.WindowMinWidth, DS.WindowMinHeight)));
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Text = "MellowMeter · " + LanguageManager.T("Menu.SettingsPanel");
-            this.Font = new Font("Segoe UI", 9F);
+            this.Font = UiFonts.Get(TextRole.Body);
             this.BackColor = UIColors.MainBg;
             this.ForeColor = UIColors.TextMain;
             this.ShowInTaskbar = true;
 
             // 侧边栏
-            var pnlSidebar = new Panel { Dock = DockStyle.Left, Width = UIUtils.S(156), BackColor = UIColors.SidebarBg };
-
-            _pnlNavContainer = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false,
-                Padding = UIUtils.S(new Padding(6, 8, 6, 0)), BackColor = UIColors.SidebarBg
-            };
-            var navigationTitle = new Label {
-                Text = LanguageManager.T("Menu.SettingsPanel"), Dock = DockStyle.Top,
-                Height = UIUtils.S(52), Padding = UIUtils.S(new Padding(18, 18, 0, 0)),
-                Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = UIColors.TextMain
-            };
-            pnlSidebar.Controls.Add(_pnlNavContainer);
-            pnlSidebar.Controls.Add(navigationTitle);
-            this.Controls.Add(pnlSidebar);
+            _nav = new LiteSelector(vertical: true) { AccessibleName = LanguageManager.T("Menu.SettingsPanel") };
+            _nav.SelectionCommitted += index => SwitchPage(_navKeys[index]);
+            var sidebar = new SidebarPanel(_nav, LanguageManager.T("Menu.SettingsPanel")) { Dock = DockStyle.Left, Width = UIUtils.S(DS.SidebarWidth), BackColor = UIColors.SidebarBg };
 
             // 底部按钮
-            var pnlBottom = new Panel { Dock = DockStyle.Bottom, Height = UIUtils.S(60), BackColor = UIColors.MainBg };
-
-            var flowBtns = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Right, AutoSize = true, FlowDirection = FlowDirection.RightToLeft,
-                Padding = UIUtils.S(new Padding(0, 12, 18, 0)), WrapContents = false, BackColor = Color.Transparent
-            };
-
             var btnOk = new LiteButton(LanguageManager.T("Menu.OK"), true);
             var btnCancel = new LiteButton(LanguageManager.T("Menu.Cancel"), false);
             var btnApply = new LiteButton(LanguageManager.T("Menu.Apply"), false);
-            foreach (var button in new[] { btnOk, btnCancel, btnApply })
-                button.Margin = UIUtils.S(new Padding(4, 0, 4, 0));
             this.AcceptButton = btnOk;
             this.CancelButton = btnCancel;
 
             btnOk.Click += (s, e) => { ApplySettings(); this.DialogResult = DialogResult.OK; this.Close(); };
             btnCancel.Click += (s, e) => { this.DialogResult = DialogResult.Cancel; this.Close(); };
             btnApply.Click += (s, e) => { ApplySettings(); };
+            var actions = new ActionBar(new[] { btnOk, btnCancel, btnApply }) { Dock = DockStyle.Bottom, Height = UIUtils.S(DS.BottomBar), BackColor = UIColors.MainBg };
 
-            flowBtns.Controls.Add(btnOk); flowBtns.Controls.Add(btnCancel); flowBtns.Controls.Add(btnApply);
-            pnlBottom.Controls.Add(flowBtns);
-            this.Controls.Add(pnlBottom);
+            // 内容区
+            _pnlContent = new BufferedPanel { Dock = DockStyle.Fill, Padding = Padding.Empty, BackColor = UIColors.MainBg };
 
-            // 内容区 - 使用 LiteUI.cs 中定义的 BufferedPanel
-            _pnlContent = new BufferedPanel { Dock = DockStyle.Fill, Padding = new Padding(0) };
+            // Dock order: content fills what the sidebar and action bar leave.
             this.Controls.Add(_pnlContent);
+            this.Controls.Add(actions);
+            this.Controls.Add(sidebar);
+            // Keyboard order follows reading order; the window never opens inside a text field.
+            sidebar.TabIndex = 0;
+            _pnlContent.TabIndex = 1;
+            actions.TabIndex = 2;
 
-            pnlSidebar.BringToFront();
-            pnlBottom.SendToBack();
-            _pnlContent.BringToFront();
             _visualSkin = _cfg.Skin;
             _visualLanguage = LanguageManager.CurrentLang;
+            _visualHighContrast = UIColors.HighContrast;
+            _visualMotionOff = InterfaceMotion.SystemAnimationsOff;
             WindowTheme.Apply(this);
         }
+
+        private readonly List<string> _navKeys = new();
 
         private void InitPages(string selectedPage = "MainPanel")
         {
             _pageFactories.Clear();
+            _navKeys.Clear();
             AddNav("MainPanel", LanguageManager.T("Menu.MainFormSettings"), () => new MainPanelPage());
             AddNav("Taskbar", LanguageManager.T("Menu.TaskbarSettings"), () => new TaskbarPage());
             AddNav("Monitor", LanguageManager.T("Menu.MonitorItemDisplay"), () => new MonitorPage());
@@ -167,9 +151,8 @@ namespace LiteMonitor.src.UI
         private void AddNav(string key, string text, Func<SettingsPageBase> factory)
         {
             _pageFactories[key] = factory;
-            var btn = new LiteNavBtn(text) { IconKey = key, Tag = key, Width = UIUtils.S(144), Margin = UIUtils.S(new Padding(0, 3, 0, 3)) };
-            btn.Click += (_, _) => SwitchPage(key);
-            _pnlNavContainer.Controls.Add(btn);
+            _navKeys.Add(key);
+            _nav.Add(key, text, key);
         }
 
         public void SwitchPage(string key)
@@ -177,6 +160,16 @@ namespace LiteMonitor.src.UI
             if (_currentKey == key || !_pageFactories.TryGetValue(key, out var factory)) return;
             _pages.TryGetValue(_currentKey, out var previous);
             previous?.Save();
+            // With motion on, a page-coloured veil covers the swap and then dissolves; the new page is
+            // complete and interactive beneath it from the first frame. No snapshot of either page.
+            bool reveal = _shown && InterfaceMotion.Enabled && previous != null && Visible && WindowState != FormWindowState.Minimized;
+            if (reveal)
+            {
+                _veil ??= new RevealVeil();
+                _veil.Cover(_pnlContent, this);
+            }
+            bool atomic = _pnlContent.IsHandleCreated && _pnlContent.Visible;
+            if (atomic) SendMessage(_pnlContent.Handle, 0x000B, IntPtr.Zero, IntPtr.Zero); // WM_SETREDRAW off
             _pnlContent.SuspendLayout();
             try
             {
@@ -195,10 +188,55 @@ namespace LiteMonitor.src.UI
                 target.BringToFront();
                 if (previous != null) previous.Visible = false;
                 _currentKey = key;
-                foreach (var button in _pnlNavContainer.Controls.OfType<LiteNavBtn>())
-                    button.IsActive = Equals(button.Tag, key);
+                _nav.SetSelectedKey(key);
+                if (reveal) target.PlayEntrance();
             }
-            finally { _pnlContent.ResumeLayout(true); }
+            finally
+            {
+                _pnlContent.ResumeLayout(true);
+                if (atomic)
+                {
+                    SendMessage(_pnlContent.Handle, 0x000B, new IntPtr(1), IntPtr.Zero); // WM_SETREDRAW on
+                    RedrawWindow(_pnlContent.Handle, IntPtr.Zero, IntPtr.Zero, 0x0001 | 0x0080 | 0x0100); // INVALIDATE | ALLCHILDREN | UPDATENOW
+                }
+            }
+            if (reveal) _veil!.Reveal();
+        }
+
+        // Tab can enter the page from the sidebar; what it lands on must be on screen.
+        protected override bool ProcessTabKey(bool forward)
+        {
+            bool moved = base.ProcessTabKey(forward);
+            if (moved && _pages.TryGetValue(_currentKey, out var page)) page.RevealActiveControl();
+            return moved;
+        }
+
+        // High contrast and the Windows animation preference change the palette and the motion note,
+        // both resolved at construction: rebuild once, keeping every view state and draft.
+        internal void OnSystemPreferenceChanged()
+        {
+            UIColors.InvalidatePalette();
+            if (IsDisposed || !_shown || (_visualHighContrast == UIColors.HighContrast && _visualMotionOff == InterfaceMotion.SystemAnimationsOff)) return;
+            SaveDraftPages();
+            RefreshAppearance(null);
+        }
+
+        protected override bool ProcessDialogKey(Keys keyData)
+        {
+            if (keyData is Keys.PageUp or Keys.PageDown or Keys.Home or Keys.End &&
+                _pages.TryGetValue(_currentKey, out var page) && page.ScrollKey(keyData)) return true;
+            return base.ProcessDialogKey(keyData);
+        }
+
+        // Per-monitor DPI change: the shell is rebuilt at the new scale like a theme change, keeping
+        // visited pages, scroll, disclosure and drafts. Fonts are per-scale, so nothing is stale.
+        protected override void OnDpiChanged(DpiChangedEventArgs e)
+        {
+            base.OnDpiChanged(e);
+            if (!_shown || IsDisposed) return;
+            SaveDraftPages();
+            RefreshAppearance(e.SuggestedRectangle);
+            FitToWorkingArea(center: false);
         }
 
         private void ApplySettings()
@@ -258,15 +296,19 @@ namespace LiteMonitor.src.UI
             // Follow an external appearance change only where the user has no pending override.
             if (_draftCfg.Skin == _visualSkin) _draftCfg.Skin = _cfg.Skin;
             if (_draftCfg.Language == _visualLanguage) _draftCfg.Language = _cfg.Language;
-            RefreshAppearance();
+            RefreshAppearance(null);
         }
 
-        private void RefreshAppearance()
+        private void RefreshAppearance(Rectangle? bounds)
         {
             string selectedPage = _currentKey;
             var views = _pages.ToDictionary(pair => pair.Key, pair => pair.Value.CaptureView());
-            Rectangle previousBounds = Bounds;
+            Rectangle previousBounds = bounds ?? Bounds;
             var previousFonts = ControlResources.CaptureFonts(this);
+            _veil?.HideNow();
+            _disclosureVeil?.HideNow();
+            bool shown = _shown;
+            _shown = false; // reconstruction is not navigation: no transitions
             SuspendLayout();
             try
             {
@@ -290,6 +332,7 @@ namespace LiteMonitor.src.UI
             }
             finally
             {
+                _shown = shown;
                 foreach (var font in previousFonts) font.Dispose();
                 ResumeLayout(true);
                 Invalidate(true);
@@ -304,10 +347,80 @@ namespace LiteMonitor.src.UI
                 // Detached pages are not in the form's Controls collection.
                 foreach (var page in _pages.Values) page.Dispose();
                 _pages.Clear();
+                _veil?.Dispose();
+                _veil = null;
+                _disclosureVeil?.Dispose();
+                _disclosureVeil = null;
                 _cfg.SyncToLanguage();
             }
             base.Dispose(disposing);
             if (fonts != null) foreach (var font in fonts) font.Dispose();
+            if (disposing && !Application.OpenForms.OfType<SettingsForm>().Any(f => !ReferenceEquals(f, this))) FrameClock.ReleaseIdle();
+        }
+
+        // Sidebar: owner-drawn title above the navigation list and a hairline to the content.
+        private sealed class SidebarPanel : Panel
+        {
+            private readonly LiteSelector _nav;
+            private readonly string _title;
+
+            public SidebarPanel(LiteSelector nav, string title)
+            {
+                SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.Opaque | ControlStyles.ResizeRedraw, true);
+                _nav = nav; _title = title;
+                Controls.Add(nav);
+            }
+
+            protected override void OnLayout(LayoutEventArgs e)
+            {
+                int inset = UIUtils.S(10);
+                _nav.SetBounds(inset, UIUtils.S(56), Math.Max(0, Width - inset * 2 - 1), _nav.Height);
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                var g = e.Graphics;
+                g.FillRectangle(Ink.B(UIColors.SidebarBg), e.ClipRectangle);
+                Ink.Line(g, _title, UiFonts.Get(TextRole.Title), new Rectangle(UIUtils.S(22), UIUtils.S(14), Math.Max(0, Width - UIUtils.S(30)), UIUtils.S(36)), UIColors.TextMain);
+                g.DrawLine(Ink.P(UIColors.Blend(UIColors.MainBg, UIColors.TextMain, 0.09f), 1), Width - 1, 0, Width - 1, Height);
+            }
+        }
+
+        // Bottom toolbar: right-aligned actions with a hairline, always reachable in a short window.
+        private sealed class ActionBar : Panel
+        {
+            private readonly LiteButton[] _buttons; // right to left
+
+            public ActionBar(LiteButton[] buttons)
+            {
+                SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.Opaque | ControlStyles.ResizeRedraw, true);
+                _buttons = buttons;
+                int order = buttons.Length;
+                foreach (var button in buttons)
+                {
+                    button.TabIndex = --order; // Tab reaches Apply, Cancel, then OK
+                    int text = TextRenderer.MeasureText(button.Text, button.Font, Size.Empty, Ink.TextFlags).Width;
+                    button.Width = Math.Max(UIUtils.S(DS.ButtonMinWidth), text + UIUtils.S(32));
+                    Controls.Add(button);
+                }
+            }
+
+            protected override void OnLayout(LayoutEventArgs e)
+            {
+                int x = Width - UIUtils.S(DS.PageGutter);
+                foreach (var button in _buttons)
+                {
+                    x -= button.Width;
+                    button.Location = new Point(x, (Height - button.Height) / 2);
+                    x -= UIUtils.S(8);
+                }
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                e.Graphics.FillRectangle(Ink.B(UIColors.MainBg), e.ClipRectangle);
+                e.Graphics.DrawLine(Ink.P(UIColors.Blend(UIColors.MainBg, UIColors.TextMain, 0.09f), 1), 0, 0, Width, 0);
+            }
         }
     }
 }

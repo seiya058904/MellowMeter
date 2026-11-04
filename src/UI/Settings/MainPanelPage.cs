@@ -4,23 +4,16 @@ using System.Windows.Forms;
 using System.Linq;
 using LiteMonitor.src.Core;
 using LiteMonitor.src.UI.Controls;
-using System.Diagnostics;
-using LiteMonitor.src.SystemServices;
 
 namespace LiteMonitor.src.UI.SettingsPage
 {
     public class MainPanelPage : SettingsPageBase
     {
-        private Panel _container;
         private bool _isLoaded = false;
 
         public MainPanelPage()
         {
-            this.BackColor = UIColors.MainBg;
-            this.Dock = DockStyle.Fill;
-            this.Padding = new Padding(0);
-            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(18)) };
-            this.Controls.Add(_container);
+            CreateSurface(LanguageManager.T("Menu.MainFormSettings"));
         }
 
         public override void OnShow()
@@ -28,14 +21,11 @@ namespace LiteMonitor.src.UI.SettingsPage
             base.OnShow();
             if (Config == null || _isLoaded) return;
 
-            _container.SuspendLayout();
-            ClearAndDispose(_container.Controls);
-
+            Surface!.Content.SuspendLayout();
             CreateAppearanceCard();
             CreateBehaviorCard();
             CreateHorizontalModeGroup();
-
-            _container.ResumeLayout();
+            Surface.Content.ResumeLayout();
             _isLoaded = true;
         }
 
@@ -45,10 +35,10 @@ namespace LiteMonitor.src.UI.SettingsPage
             var group = new LiteSettingsGroup(LanguageManager.T("Menu.MainFormSettings")) { Collapsible = true, Collapsed = true };
 
             // 1. Hide Main Form (with logic)
-            var chkHide = group.AddToggle(this, "Menu.HideMainForm", 
-                () => Config.HideMainForm, 
+            var chkHide = group.AddToggle(this, "Menu.HideMainForm",
+                () => Config.HideMainForm,
                 v => Config.HideMainForm = v);
-            
+
             chkHide.CheckedChanged += (s, e) => EnsureSafeVisibility(chkHide, null, null);
 
             // 2. Toggles
@@ -58,7 +48,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             group.AddToggle(this, "Menu.ClickThrough", () => Config.ClickThrough, v => Config.ClickThrough = v);
 
             // 3. Double Click Action
-            string[] actions = { 
+            string[] actions = {
                 LanguageManager.T("Menu.ActionSwitchLayout"),
                 LanguageManager.T("Menu.ActionTaskMgr"),
                 LanguageManager.T("Menu.ActionSettings"),
@@ -78,40 +68,37 @@ namespace LiteMonitor.src.UI.SettingsPage
             var group = new LiteSettingsGroup(LanguageManager.T("Menu.Appearance"));
 
             // 1. Theme
-            group.AddCombo(this, "Menu.Theme", ThemeManager.GetAvailableThemes(), 
-                () => Config.Skin, 
+            group.AddCombo(this, "Menu.Theme", ThemeManager.GetAvailableThemes(),
+                () => Config.Skin,
                 v => Config.Skin = v);
 
             // 2. Orientation
-            group.AddComboIndex(this, "Menu.DisplayMode", 
+            group.AddSegmented(this, "Menu.DisplayMode",
                 new[] { LanguageManager.T("Menu.Vertical"), LanguageManager.T("Menu.Horizontal") },
-                () => Config.HorizontalMode ? 1 : 0, 
+                () => Config.HorizontalMode ? 1 : 0,
                 idx => Config.HorizontalMode = (idx == 1));
 
-            // 3. Width
-            int[] widths = { 180, 200, 220, 240, 260, 280, 300, 360, 420, 480, 540, 600, 660, 720, 780, 840, 900, 960, 1020, 1080, 1140, 1200 };
-            group.AddCombo(this, "Menu.Width", 
-                widths.Select(w => w + " px"), 
-                () => Config.PanelWidth + " px",
-                s => Config.PanelWidth = MetricUtils.ParseInt(s));
+            // 3. Width: the same values the setting has always offered, as slider stops.
+            double[] widths = { 180, 200, 220, 240, 260, 280, 300, 360, 420, 480, 540, 600, 660, 720, 780, 840, 900, 960, 1020, 1080, 1140, 1200 };
+            group.AddSlider(this, "Menu.Width", widths, v => $"{v:0} px",
+                () => Config.PanelWidth,
+                v => Config.PanelWidth = (int)v);
 
             // 4. Opacity
-            double[] opacities = { 1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.6, 0.5, 0.4, 0.3 };
-            group.AddCombo(this, "Menu.Opacity",
-                opacities.Select(o => Math.Round(o * 100) + "%"),
-                () => Math.Round(Config.Opacity * 100) + "%",
-                s => Config.Opacity = MetricUtils.ParseDouble(s) / 100.0);
+            double[] opacities = { 30, 40, 50, 60, 70, 75, 80, 85, 90, 95, 100 };
+            group.AddSlider(this, "Menu.Opacity", opacities, v => $"{v:0}%",
+                () => Math.Round(Config.Opacity * 100),
+                v => Config.Opacity = v / 100.0);
 
             // 5. Scale
-            double[] scales = { 2.0, 1.75, 1.5, 1.25, 1.0, 0.9, 0.85, 0.8, 0.75, 0.7, 0.6, 0.5 };
-            group.AddCombo(this, "Menu.Scale",
-                scales.Select(s => (s * 100) + "%"),
-                () => (Config.UIScale * 100) + "%",
-                s => Config.UIScale = MetricUtils.ParseDouble(s) / 100.0);
+            double[] scales = { 50, 60, 70, 75, 80, 85, 90, 100, 125, 150, 175, 200 };
+            group.AddSlider(this, "Menu.Scale", scales, v => $"{v:0}%",
+                () => Math.Round(Config.UIScale * 100, 2),
+                v => Config.UIScale = v / 100.0);
 
             group.AddToggle(this, "Menu.InterfaceAnimations", () => Config.InterfaceAnimationsEnabled, v => Config.InterfaceAnimationsEnabled = v);
+            if (InterfaceMotion.SystemAnimationsOff) group.AddHint(LanguageManager.T("Menu.InterfaceAnimationsSystemOff"));
             AddGroupToPage(group);
-
         }
 
         private void CreateHorizontalModeGroup()
@@ -120,13 +107,11 @@ namespace LiteMonitor.src.UI.SettingsPage
             // --- Group: Horizontal Mode ---
             var groupHorz = new LiteSettingsGroup(LanguageManager.T("Menu.Horizontal")) { Collapsible = true, Collapsed = true };
 
-          
-
             // 1. Follow Taskbar
-            groupHorz.AddToggle(this, "Menu.HorizontalFollowsTaskbar", 
-                () => Config.HorizontalFollowsTaskbar, 
+            groupHorz.AddToggle(this, "Menu.HorizontalFollowsTaskbar",
+                () => Config.HorizontalFollowsTaskbar,
                 v => Config.HorizontalFollowsTaskbar = v);
-                
+
             // 2. Single Line
             groupHorz.AddToggle(this, "Menu.TaskbarSingleLine",
                 () => Config.HorizontalSingleLine,
@@ -135,21 +120,13 @@ namespace LiteMonitor.src.UI.SettingsPage
             // 3. Spacing
             groupHorz.AddInt(this, "Menu.TaskbarItemSpacing", "px",
                 () => Config.HorizontalItemSpacing,
-                v => Config.HorizontalItemSpacing = v);
+                v => Config.HorizontalItemSpacing = v, min: 0);
 
             groupHorz.AddInt(this, "Menu.TaskbarInnerSpacing", "px",
                 () => Config.HorizontalInnerSpacing,
-                v => Config.HorizontalInnerSpacing = v);
-            
-            AddGroupToPage(groupHorz);
-        }
+                v => Config.HorizontalInnerSpacing = v, min: 0);
 
-        private void AddGroupToPage(LiteSettingsGroup group)
-        {
-            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = UIUtils.S(new Padding(0, 0, 0, 12)) };
-            wrapper.Controls.Add(group);
-            _container.Controls.Add(wrapper);
-            _container.Controls.SetChildIndex(wrapper, 0);
+            AddGroupToPage(groupHorz);
         }
     }
 }

@@ -11,7 +11,6 @@ namespace LiteMonitor.src.UI.SettingsPage
 {
     public class TaskbarPage : SettingsPageBase
     {
-        private Panel _container;
         private List<Control> _customColorInputs = new List<Control>();
         private List<Control> _customLayoutInputs = new List<Control>();
         private Control _styleCombo;
@@ -23,11 +22,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         public TaskbarPage()
         {
-            this.BackColor = UIColors.MainBg;
-            this.Dock = DockStyle.Fill;
-            this.Padding = new Padding(0);
-            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(18)) };
-            this.Controls.Add(_container);
+            CreateSurface(LanguageManager.T("Menu.TaskbarSettings"));
 
             // 1. 启动后台任务 (字体扫描)
             _taskFonts = Task.Run(() => {
@@ -87,8 +82,6 @@ namespace LiteMonitor.src.UI.SettingsPage
             finally
             {
                 this.ResumeLayout(true);
-                // 强制刷新一次布局，解决异步加载字体导致底部留白未被正确计算的问题
-                _container.PerformLayout();
             }
         }
 
@@ -110,7 +103,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             chkShow.CheckedChanged += (s, e) => { if(Config!=null) EnsureSafeVisibility(null, null, chkShow); };
 
             // Style Combo
-            var combo = group.AddComboIndex(this, "Menu.TaskbarStyle",
+            var combo = group.AddSegmented(this, "Menu.TaskbarStyle",
                 new[] { LanguageManager.T("Menu.TaskbarStyleBold"), LanguageManager.T("Menu.TaskbarStyleRegular") },
                 // UI: 0=Bold, 1=Regular | Config: 1=Bold, 0=Regular
                 () => (Config?.TaskbarPresetStyle ?? 1) == 1 ? 0 : 1,
@@ -156,7 +149,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                 idx => { if(Config!=null) Config.TaskbarDoubleClickAction = idx; }
             );
 
-            group.AddComboIndex(this, "Menu.TaskbarAlign",
+            group.AddSegmented(this, "Menu.TaskbarAlign",
                 new[] { LanguageManager.T("Menu.TaskbarAlignRight"), LanguageManager.T("Menu.TaskbarAlignLeft") },
                 () => (Config?.TaskbarAlignLeft ?? false) ? 1 : 0,
                 idx => { if(Config!=null) Config.TaskbarAlignLeft = (idx == 1); }
@@ -203,9 +196,9 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             group.AddHint(LanguageManager.T("Menu.TaskbarCustomLayoutTip"));
 
-            AddL(group.AddDouble(this, "Menu.TaskbarFontSize", "pt", 
+            AddL(group.AddDouble(this, "Menu.TaskbarFontSize", "pt",
                 () => Config?.TaskbarFontSize ?? Settings.DEFAULT_TB_SIZE_REGULAR, 
-                v => { if(Config!=null && Config.TaskbarCustomLayout) Config.TaskbarFontSize = (float)v; }));
+                v => { if(Config!=null && Config.TaskbarCustomLayout) Config.TaskbarFontSize = (float)v; }, step: 0.5));
             
             AddL(group.AddToggle(this, "Menu.TaskbarFontBold", 
                 () => Config?.TaskbarFontBold ?? false, 
@@ -214,11 +207,11 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             AddL(group.AddInt(this, "Menu.TaskbarItemSpacing", "px", 
                 () => Config?.TaskbarItemSpacing ?? Settings.DEFAULT_TB_GAP, 
-                v => { if(Config!=null && Config.TaskbarCustomLayout) Config.TaskbarItemSpacing = v; }));
+                v => { if(Config!=null && Config.TaskbarCustomLayout) Config.TaskbarItemSpacing = v; }, min: 0));
             
             AddL(group.AddInt(this, "Menu.TaskbarInnerSpacing", "px", 
                 () => Config?.TaskbarInnerSpacing ?? Settings.DEFAULT_TB_INNER_REGULAR, 
-                v => { if(Config!=null && Config.TaskbarCustomLayout) Config.TaskbarInnerSpacing = v; }));
+                v => { if(Config!=null && Config.TaskbarCustomLayout) Config.TaskbarInnerSpacing = v; }, min: 0));
             
             AddL(group.AddInt(this, "Menu.TaskbarVerticalPadding", "px", 
                 () => Config?.TaskbarVerticalPadding ?? Settings.DEFAULT_TB_VOFF, 
@@ -241,11 +234,10 @@ namespace LiteMonitor.src.UI.SettingsPage
             };
 
             // Color Picker Tool
-            var tbResult = new LiteUnderlineInput("#000000", "", "", 65, null, HorizontalAlignment.Center);
-            tbResult.Padding = UIUtils.S(new Padding(0, 5, 0, 1)); 
+            var tbResult = new LiteUnderlineInput("#000000", "", "", 84, null, HorizontalAlignment.Center);
             tbResult.Inner.ReadOnly = true; 
             var btnPick = new LiteSortBtn("🖌"); 
-            btnPick.Location = new Point(UIUtils.S(70), UIUtils.S(1));
+            btnPick.Location = new Point(UIUtils.S(90), UIUtils.S(2));
             btnPick.Click += (s, e) => {
                 var screen = Screen.FromControl(this);
                 Rectangle bounds = screen.Bounds;
@@ -276,7 +268,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                         if (control is LiteColorInput ci && ci.Input.Inner.Tag?.ToString() == "Menu.BackgroundColor") { ci.HexValue = hex; break; }
                 }
             };
-            Panel toolCtrl = new Panel { Size = new Size(UIUtils.S(96), UIUtils.S(26)) };
+            Panel toolCtrl = new Panel { Size = new Size(UIUtils.S(118), UIUtils.S(DS.ControlHeight)), BackColor = UIColors.CardBg };
             toolCtrl.Controls.Add(tbResult); toolCtrl.Controls.Add(btnPick);
             group.AddItem(new LiteSettingsItem(LanguageManager.T("Menu.ScreenColorPicker"), toolCtrl));
             group.AddHint(LanguageManager.T("Menu.TaskbarCustomTip"));
@@ -298,12 +290,5 @@ namespace LiteMonitor.src.UI.SettingsPage
             AddGroupToPage(group);
         }
 
-        private void AddGroupToPage(LiteSettingsGroup group)
-        {
-            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 12) };
-            wrapper.Controls.Add(group);
-            _container.Controls.Add(wrapper);
-            _container.Controls.SetChildIndex(wrapper, 0);
-        }
     }
 }

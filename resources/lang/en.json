@@ -79,6 +79,8 @@
     "BAT.Current": "BCUR"
   },
   "Menu": {
+    "DragToReorder": "Drag to reorder",
+    "InterfaceAnimationsSystemOff": "Windows animation effects are off, so motion is disabled. Turn them on in Settings > Accessibility > Visual effects.",
     "InstallFpsComponent": "Install FPS component…",
     "InstallSensorDriver": "Install sensor driver…",
     "OptionalComponentsTip": "Temperature sensors may need PawnIO. FPS requires its helper and administrator access. Nothing is installed at startup. Install only when needed, then restart MellowMeter.",

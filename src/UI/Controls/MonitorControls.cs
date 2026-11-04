@@ -6,127 +6,95 @@ using LiteMonitor.src.SystemServices.InfoService; // [New]
 
 namespace LiteMonitor.src.UI.Controls
 {
+    // Column geometry of the monitor list, anchored to the trailing edge so rows follow the window.
     public static class MonitorLayout
     {
-        public static readonly int H_ROW = UIUtils.S(44);
-        
-        public static readonly int X_COL1 = UIUtils.S(20);  
-        public static readonly int X_COL2 = UIUtils.S(140);
-        
-        // ★★★ [新增] 单位列 (位于 Name Input 和 Checkbox 之间) ★★★
-        public static readonly int X_COL_UNIT = UIUtils.S(300); 
-
-        // [需求4] 原有列全部右移
-        public static readonly int X_COL3 = UIUtils.S(390); 
-        public static readonly int X_COL4 = UIUtils.S(510); 
-
-        // 兼容
-        public static readonly int X_ID = X_COL1;
-        public static readonly int X_NAME = X_COL2;
-        public static readonly int X_SWITCH = X_COL3;
-        public static readonly int X_SORT = X_COL4;
+        private const int Grip = 26, Sort = 26, GapGrip = 4, GapSwitch = 12;
+        public static int H_ROW => UIUtils.S(DS.RowHeight);
+        public static int GripX(int width) => width - UIUtils.S(Grip);
+        public static int DownX(int width) => GripX(width) - UIUtils.S(GapGrip + Sort);
+        public static int UpX(int width) => DownX(width) - UIUtils.S(Sort);
+        public static int SwitchX(int width) => UpX(width) - UIUtils.S(GapSwitch + DS.SwitchWidth);
+        public static int UnitX(int width) => SwitchX(width) - UIUtils.S(14 + UnitWidth);
+        public const int UnitWidth = 64;
+        public static int NameX => UIUtils.S(112);
+        public static int NameWidth(int width) => Math.Max(UIUtils.S(48), UnitX(width) - UIUtils.S(8) - NameX);
     }
 
-    public class MonitorItemRow : Panel
+    public class MonitorItemRow : Panel, IHeightForWidth
     {
         public MonitorItemConfig Config { get; private set; }
 
-        private Label _lblId;           
-        private Label _lblName;         
-        
-        private LiteUnderlineInput _inputName;  
-        private LiteUnderlineInput _inputShort; 
-        
-        // ★★★ [新增] 单位输入框 ★★★
+        private string _name;                   // owner-drawn title
+        private LiteUnderlineInput _inputName;
+        private LiteUnderlineInput _inputShort;
         private LiteUnderlineInput _inputUnit;
 
-        private LiteCheck _chkPanel;            
-        private LiteCheck _chkTaskbar;          
-        
+        private LiteCheck _chkPanel;
+        private LiteCheck _chkTaskbar;
+
         private LiteSortBtn _btnUp;
         private LiteSortBtn _btnDown;
+        internal LiteDragGrip Grip { get; }
 
+        private float _reveal;
         private bool _isTaskbarMode = false; // 记录当前模式
         private bool _showEditors;
         public bool ShowEditors
         {
             get => _showEditors;
             set {
-                _lblName.Text = _inputName.Inner.Text;
-                if (_showEditors == value) return;
+                _name = _inputName.Inner.Text;
+                if (_showEditors == value) { Invalidate(); return; }
                 _showEditors = value;
-                SuspendLayout();
-                try { ApplyModeVisibility(); } finally { ResumeLayout(false); }
+                ApplyModeVisibility();
             }
         }
 
         public event EventHandler? MoveUp;
         public event EventHandler? MoveDown;
 
+        public int HeightForWidth(int width) => MonitorLayout.H_ROW;
+
         // ★★★ 修改构造函数：增加 isTaskbarMode 参数 ★★★
         public MonitorItemRow(MonitorItemConfig item, bool isTaskbarMode)
         {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.Opaque, true);
             this.Config = item;
             this._isTaskbarMode = isTaskbarMode; // 记录模式
-            this.Dock = DockStyle.Top;
-            this.Height = MonitorLayout.H_ROW;
             this.BackColor = UIColors.CardBg;
 
-            // 1. ID Label (主界面模式)
-            _lblId = new Label
-            {
-                Text = item.Key,
-                Location = new Point(MonitorLayout.X_COL1, UIUtils.S(14)),
-                Size = new Size(UIUtils.S(110), UIUtils.S(20)),
-                AutoEllipsis = true,
-                ForeColor = UIColors.TextSub,
-                Font = UIFonts.Regular(8F)
-            };
-
-            // 2. Name Label (任务栏模式)
             // [Refactor] 使用统一解析器
             string labelResolved = MetricLabelResolver.ResolveLabel(item);
-            
+
             string defName = LanguageManager.T(UIUtils.Intern("Items." + item.Key));
             string valName = !string.IsNullOrEmpty(labelResolved) ? labelResolved : defName;
-            
-            _lblName = new Label
-            {
-                Text = valName, 
-                Location = new Point(MonitorLayout.X_COL1, UIUtils.S(14)),
-                Size = new Size(UIUtils.S(110), UIUtils.S(20)),
-                AutoEllipsis = true,
-                ForeColor = UIColors.TextMain,
-                Font = UIFonts.Regular(9F),
-                Visible = false 
-            };
+            _name = valName;
 
-            // 3. Name Input
-            _inputName = new LiteUnderlineInput(valName, "", "", 100, UIColors.TextMain) 
-            { Location = new Point(MonitorLayout.X_COL2, UIUtils.S(8)) };
+            // Name Input
+            _inputName = new LiteUnderlineInput(valName, "", "", 100, UIColors.TextMain) { ClearButtonEnabled = true, Visible = false, AccessibleName = LanguageManager.T("Menu.name") + " · " + valName };
 
-            // 4. Short Input
+            // Short Input
             // [Refactor] 使用统一解析器
             string shortResolved = MetricLabelResolver.ResolveShortLabel(item);
 
             string defShortKey = UIUtils.Intern("Short." + item.Key);
             string defShort = LanguageManager.T(defShortKey);
-            if (defShort.StartsWith("Short.")) defShort = item.Key.Split('.')[1]; 
-            
-            string valShort = !string.IsNullOrEmpty(shortResolved) ? shortResolved : defShort;
-            
-            _inputShort = new LiteUnderlineInput(valShort, "", "", 80, UIColors.TextMain) 
-            { Location = new Point(MonitorLayout.X_COL2, UIUtils.S(8)), Visible = false };
+            if (defShort.StartsWith("Short.")) defShort = item.Key.Split('.')[1];
 
-            // ★★★ 5. [新增] Unit Input 初始化逻辑 ★★★
+            string valShort = !string.IsNullOrEmpty(shortResolved) ? shortResolved : defShort;
+
+            _inputShort = new LiteUnderlineInput(valShort, "", "", 100, UIColors.TextMain) { ClearButtonEnabled = true, Visible = false, AccessibleName = LanguageManager.T("Menu.short") + " · " + valName };
+
+            // ★★★ Unit Input 初始化逻辑 ★★★
             // 1. 根据传入的模式，获取正确的默认单位 (如 Panel="{u}/s", Taskbar="{u}")
             // 使用 Settings 上下文，确保用户能看到 {u} 占位符
             var unitCtx = isTaskbarMode ? MetricUtils.UnitContext.SettingsTaskbar : MetricUtils.UnitContext.SettingsPanel;
             string defUnit = MetricUtils.GetUnitStr(item.Key, 0, unitCtx);
-            
+
             // 2. 获取当前配置值
             string? userConfig = isTaskbarMode ? item.UnitTaskbar : item.UnitPanel;
-            
+
             // 3. 决定显示文本 (null显示默认值, ""显示空格)
             // 注意：如果配置是""(隐藏)，我们给输入框显示一个空格" "，让用户知道这里不是空的(默认)，而是特意留空的。
             string displayUnit;
@@ -134,67 +102,90 @@ namespace LiteMonitor.src.UI.Controls
             else if (userConfig == "") displayUnit = " ";    // Hide -> 显示空格
             else displayUnit = userConfig;                   // Custom -> 显示自定义
 
-            // 4. 初始化输入框 (Placeholder 设为 defUnit)
-            _inputUnit = new LiteUnderlineInput(displayUnit, "", "", 50, UIColors.TextSub)
-            { Location = new Point(MonitorLayout.X_COL_UNIT, UIUtils.S(8)) };
-            ControlResources.ReplaceFont(_inputUnit.Inner, UIFonts.Regular(8F));
+            // 4. 初始化输入框
+            _inputUnit = new LiteUnderlineInput(displayUnit, "", "", MonitorLayout.UnitWidth, UIColors.TextSub) { Visible = false, AccessibleName = LanguageManager.T("Menu.Unit") + " · " + valName };
+            _inputUnit.Inner.Font = UiFonts.Get(TextRole.Footnote);
 
-            // 6. Checkboxes
-            _chkPanel = new LiteCheck(item.VisibleInPanel)
-            { Location = new Point(MonitorLayout.X_COL3, UIUtils.S(10)), AccessibleName = valName + " · " + LanguageManager.T("Menu.MainForm") };
-            
-            _chkTaskbar = new LiteCheck(item.VisibleInTaskbar)
-            { Location = new Point(MonitorLayout.X_COL3, UIUtils.S(10)), Visible = false, AccessibleName = valName + " · " + LanguageManager.T("Menu.Taskbar") };
+            // Switches
+            _chkPanel = new LiteCheck(item.VisibleInPanel) { AccessibleName = valName + " · " + LanguageManager.T("Menu.MainForm") };
+            _chkTaskbar = new LiteCheck(item.VisibleInTaskbar) { Visible = false, AccessibleName = valName + " · " + LanguageManager.T("Menu.Taskbar") };
 
-            // 7. Sort Buttons
-            _btnUp = new LiteSortBtn("▲") { Location = new Point(MonitorLayout.X_COL4, UIUtils.S(10)) };
-            _btnDown = new LiteSortBtn("▼") { Location = new Point(MonitorLayout.X_COL4 + UIUtils.S(36), UIUtils.S(10)) };
-            
+            // Move commands stay as real buttons: they are the keyboard path to reordering.
+            _btnUp = new LiteSortBtn("▲") { Reveal = 0 };
+            _btnDown = new LiteSortBtn("▼") { Reveal = 0 };
             _btnUp.Click += (s, e) => MoveUp?.Invoke(this, EventArgs.Empty);
             _btnDown.Click += (s, e) => MoveDown?.Invoke(this, EventArgs.Empty);
+            Grip = new LiteDragGrip();
 
-            this.Controls.AddRange(new Control[] { 
-                _lblId, _lblName, 
-                _inputName, _inputShort, _inputUnit, // 加在这里
-                _chkPanel, _chkTaskbar, 
-                _btnUp, _btnDown 
+            this.Controls.AddRange(new Control[] {
+                _inputName, _inputShort, _inputUnit,
+                _chkPanel, _chkTaskbar,
+                _btnUp, _btnDown, Grip
             });
+            foreach (Control child in Controls)
+            {
+                child.MouseEnter += (_, _) => SetHover(true);
+                child.MouseLeave += (_, _) => CheckHover();
+            }
 
-            // ★★★ 立即应用模式可见性 ★★★
+            this.Height = MonitorLayout.H_ROW;
             ApplyModeVisibility();
         }
+
+        private void SetHover(bool hovered) =>
+            InterfaceMotion.Spring(this, "reveal", SpringSpec.Hover, _reveal, hovered ? 1 : 0, v =>
+            {
+                _reveal = v;
+                _btnUp.Reveal = _btnDown.Reveal = v;
+                _btnUp.Invalidate(); _btnDown.Invalidate();
+            });
+
+        private void CheckHover()
+        {
+            if (!IsHandleCreated || !ClientRectangle.Contains(PointToClient(Cursor.Position))) SetHover(false);
+        }
+
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); SetHover(true); }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); CheckHover(); }
 
         // 提取出来的可见性设置方法
         private void ApplyModeVisibility()
         {
-            if (!_showEditors)
-            {
-                _lblId.Visible = false;
-                _lblName.Visible = true;
-                _lblName.Width = UIUtils.S(330);
-                _inputName.Visible = _inputShort.Visible = _inputUnit.Visible = false;
-                _chkPanel.Visible = !_isTaskbarMode;
-                _chkTaskbar.Visible = _isTaskbarMode;
-                return;
-            }
-            _lblName.Width = UIUtils.S(110);
-            _inputUnit.Visible = true;
-            if (_isTaskbarMode)
-            {
-                _lblId.Visible = false; _lblName.Visible = true; 
-                _inputName.Visible = false; _inputShort.Visible = true;
-                _chkPanel.Visible = false; _chkTaskbar.Visible = true;
-            }
-            else
-            {
-                _lblId.Visible = true; _lblName.Visible = false;
-                _inputName.Visible = true; _inputShort.Visible = false;
-                _chkPanel.Visible = true; _chkTaskbar.Visible = false;
-            }
+            _inputUnit.Visible = _showEditors;
+            _inputName.Visible = _showEditors && !_isTaskbarMode;
+            _inputShort.Visible = _showEditors && _isTaskbarMode;
+            _chkPanel.Visible = !_isTaskbarMode;
+            _chkTaskbar.Visible = _isTaskbarMode;
+            Arrange();
+            Invalidate();
         }
 
+        private static void Place(Control control, int x, int y, int? width = null)
+        {
+            if (control.Left != x || control.Top != y || (width is int w && control.Width != w))
+                control.SetBounds(x, y, width ?? control.Width, control.Height);
+        }
+
+        private void Arrange()
+        {
+            int width = Width;
+            if (width <= 0) return;
+            int Middle(Control c) => (Height - c.Height) / 2;
+            Place(Grip, MonitorLayout.GripX(width), Middle(Grip));
+            Place(_btnDown, MonitorLayout.DownX(width), Middle(_btnDown));
+            Place(_btnUp, MonitorLayout.UpX(width), Middle(_btnUp));
+            Place(_chkPanel, MonitorLayout.SwitchX(width), Middle(_chkPanel));
+            Place(_chkTaskbar, MonitorLayout.SwitchX(width), Middle(_chkTaskbar));
+            if (!_showEditors) return;
+            Place(_inputName, MonitorLayout.NameX, Middle(_inputName), MonitorLayout.NameWidth(width));
+            Place(_inputShort, MonitorLayout.NameX, Middle(_inputShort), MonitorLayout.NameWidth(width));
+            Place(_inputUnit, MonitorLayout.UnitX(width), Middle(_inputUnit));
+        }
+
+        protected override void OnLayout(LayoutEventArgs e) => Arrange();
+
         // [需求2] 暴露方法供组开关调用
-        public void SetPanelChecked(bool check) 
+        public void SetPanelChecked(bool check)
         {
             _chkPanel.Checked = check;
         }
@@ -203,9 +194,7 @@ namespace LiteMonitor.src.UI.Controls
         {
             // 如果模式没变，直接返回
             if (_isTaskbarMode == isTaskbarMode) return;
-            
-            SuspendLayout();
-            try {
+
             _isTaskbarMode = isTaskbarMode;
 
             // 重新获取默认值和配置
@@ -220,21 +209,18 @@ namespace LiteMonitor.src.UI.Controls
             string display = (userConfig == null) ? defUnit : (userConfig == "" ? " " : userConfig);
             _inputUnit.Inner.Text = display;
             ApplyModeVisibility();
-            } finally { ResumeLayout(false); }
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            var fonts = disposing ? ControlResources.CaptureFonts(this) : null;
-            base.Dispose(disposing);
-            if (fonts != null) foreach (var font in fonts) font.Dispose();
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            base.OnPaint(e);
-            using (var p = new Pen(UIColors.Border))
-                e.Graphics.DrawLine(p, MonitorLayout.X_COL1, Height - 1, Width - UIUtils.S(20), Height - 1);
+            var g = e.Graphics;
+            g.FillRectangle(Ink.B(UIColors.CardBg), e.ClipRectangle);
+            bool keyColumn = _showEditors && !_isTaskbarMode;
+            string title = keyColumn ? Config.Key : _name;
+            int limit = _showEditors ? MonitorLayout.NameX - UIUtils.S(8) : MonitorLayout.SwitchX(Width) - UIUtils.S(12);
+            Ink.Line(g, title, UiFonts.Get(keyColumn ? TextRole.Footnote : TextRole.Body), new Rectangle(0, 0, Math.Max(0, limit), Height), keyColumn ? UIColors.TextSub : UIColors.TextMain);
+            if (Parent is { } parent && !ReferenceEquals(parent.Controls[0], this))
+                g.DrawLine(Ink.P(UIColors.Separator, 1), 0, Height - 1, Width, Height - 1);
         }
 
         public void SyncToConfig()
@@ -367,80 +353,113 @@ namespace LiteMonitor.src.UI.Controls
         }
     }
 
-    public class MonitorGroupHeader : Panel
+    public class MonitorGroupHeader : Panel, IHeightForWidth
     {
         public string GroupKey { get; private set; }
         public LiteUnderlineInput InputAlias { get; private set; }
-        private LiteCheck _chkAll; // [需求2] 增加组开关
-        private Label _groupLabel;
+        private readonly LiteCheck _chkAll; // [需求2] 增加组开关
+        private readonly LiteSortBtn _btnUp, _btnDown;
+        internal LiteDragGrip Grip { get; }
+        private string _title;
+        private bool _editing;
+        private float _reveal;
+
         public bool ShowEditors
         {
             set
             {
+                _editing = value;
                 InputAlias.Visible = value;
-                _groupLabel.Text = value ? GroupKey : InputAlias.Inner.Text;
-                _groupLabel.Width = UIUtils.S(value ? 110 : 330);
+                _title = value ? GroupKey : UiText.StripLeadingSymbol(InputAlias.Inner.Text);
+                Arrange();
+                Invalidate();
             }
         }
         public event EventHandler? MoveUp;
         public event EventHandler? MoveDown;
         public event EventHandler<bool>? ToggleGroup; // [需求2] 组开关事件
 
+        public int HeightForWidth(int width) => UIUtils.S(DS.RowHeight);
+
         public MonitorGroupHeader(string groupKey, string alias)
         {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.Opaque, true);
             this.GroupKey = groupKey;
-            this.Dock = DockStyle.Top;
-            this.Height = UIUtils.S(45);
-            this.BackColor = UIColors.GroupHeader; 
-
-            var lblId = new Label { 
-                Text = groupKey, 
-                Location = new Point(MonitorLayout.X_COL1, UIUtils.S(12)), 
-                AutoSize = false, AutoEllipsis = true, Size = new Size(UIUtils.S(110), UIUtils.S(22)),
-                Font = UIFonts.Bold(9F), 
-                ForeColor = UIColors.TextSub
-            };
-            _groupLabel = lblId;
+            this.BackColor = UIColors.GroupHeader;
+            _title = groupKey;
 
             string defGName = LanguageManager.GetOriginal("Groups." + groupKey);
             if (defGName.StartsWith("Groups.")) defGName = groupKey;
-            
-            InputAlias = new LiteUnderlineInput(string.IsNullOrEmpty(alias) ? defGName : alias, "", "", 100) 
-            { Location = new Point(MonitorLayout.X_COL2, UIUtils.S(8)) };
-            InputAlias.SetBg(UIColors.GroupHeader); 
-            ControlResources.ReplaceFont(InputAlias.Inner, UIFonts.Bold(9F));
 
-            // [需求2] 组开关复选框
-            _chkAll = new LiteCheck(true, "") 
-            { 
-                Location = new Point(MonitorLayout.X_COL3, UIUtils.S(12)),
+            InputAlias = new LiteUnderlineInput(string.IsNullOrEmpty(alias) ? defGName : alias, "", "", 100) { ClearButtonEnabled = true, Visible = false, AccessibleName = LanguageManager.T("Menu.name") + " · " + groupKey };
+            InputAlias.SetBg(UIColors.GroupHeader);
+            InputAlias.Inner.Font = UiFonts.Get(TextRole.BodyStrong);
+            _title = UiText.StripLeadingSymbol(InputAlias.Inner.Text);
+
+            // [需求2] 组开关
+            _chkAll = new LiteCheck(true, "")
+            {
                 AccessibleName = defGName + " · " + LanguageManager.T("Menu.showHide"),
-                // 默认不显示文字，只作为全选/全不选开关
             };
             // 点击事件：触发 ToggleGroup
             _chkAll.Click += (s, e) => ToggleGroup?.Invoke(this, _chkAll.Checked);
 
-            var btnUp = new LiteSortBtn("▲") { Location = new Point(MonitorLayout.X_COL4, UIUtils.S(10)) };
-            var btnDown = new LiteSortBtn("▼") { Location = new Point(MonitorLayout.X_COL4 + UIUtils.S(36), UIUtils.S(10)) };
-            
-            btnUp.Click += (s, e) => MoveUp?.Invoke(this, EventArgs.Empty);
-            btnDown.Click += (s, e) => MoveDown?.Invoke(this, EventArgs.Empty);
+            _btnUp = new LiteSortBtn("▲") { Reveal = 0 };
+            _btnDown = new LiteSortBtn("▼") { Reveal = 0 };
+            _btnUp.Click += (s, e) => MoveUp?.Invoke(this, EventArgs.Empty);
+            _btnDown.Click += (s, e) => MoveDown?.Invoke(this, EventArgs.Empty);
+            Grip = new LiteDragGrip();
 
-            this.Controls.AddRange(new Control[] { lblId, InputAlias, _chkAll, btnUp, btnDown });
+            this.Controls.AddRange(new Control[] { InputAlias, _chkAll, _btnUp, _btnDown, Grip });
+            foreach (Control child in Controls)
+            {
+                child.MouseEnter += (_, _) => SetHover(true);
+                child.MouseLeave += (_, _) => CheckHover();
+            }
+            this.Height = UIUtils.S(DS.RowHeight);
         }
 
-        protected override void Dispose(bool disposing)
+        private void SetHover(bool hovered) =>
+            InterfaceMotion.Spring(this, "reveal", SpringSpec.Hover, _reveal, hovered ? 1 : 0, v =>
+            {
+                _reveal = v;
+                _btnUp.Reveal = _btnDown.Reveal = v;
+                _btnUp.Invalidate(); _btnDown.Invalidate();
+            });
+
+        private void CheckHover()
         {
-            var fonts = disposing ? ControlResources.CaptureFonts(this) : null;
-            base.Dispose(disposing);
-            if (fonts != null) foreach (var font in fonts) font.Dispose();
+            if (!IsHandleCreated || !ClientRectangle.Contains(PointToClient(Cursor.Position))) SetHover(false);
         }
+
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); SetHover(true); }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); CheckHover(); }
+
+        private void Arrange()
+        {
+            int width = Width;
+            if (width <= 0) return;
+            void Place(Control c, int x) { int y = (Height - c.Height) / 2; if (c.Left != x || c.Top != y) c.Location = new Point(x, y); }
+            Place(Grip, MonitorLayout.GripX(width));
+            Place(_btnDown, MonitorLayout.DownX(width));
+            Place(_btnUp, MonitorLayout.UpX(width));
+            Place(_chkAll, MonitorLayout.SwitchX(width));
+            if (_editing)
+            {
+                InputAlias.Width = MonitorLayout.NameWidth(width);
+                Place(InputAlias, MonitorLayout.NameX);
+            }
+        }
+
+        protected override void OnLayout(LayoutEventArgs e) => Arrange();
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            base.OnPaint(e);
-            using(var p = new Pen(UIColors.Border)) 
-                e.Graphics.DrawLine(p, 0, Height-1, Width, Height-1);
+            var g = e.Graphics;
+            g.FillRectangle(Ink.B(UIColors.GroupHeader), e.ClipRectangle);
+            int limit = _editing ? MonitorLayout.NameX - UIUtils.S(8) : MonitorLayout.SwitchX(Width) - UIUtils.S(12);
+            Ink.Line(g, _title, UiFonts.Get(TextRole.Headline), new Rectangle(0, 0, Math.Max(0, limit), Height), _editing ? UIColors.TextSub : UIColors.TextMain);
+            g.DrawLine(Ink.P(UIColors.Separator, 1), 0, Height - 1, Width, Height - 1);
         }
     }
 }

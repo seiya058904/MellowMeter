@@ -1,0 +1,691 @@
+{
+  "note": "Medians and P95 across three interleaved runs (A, B, A, B, A, B), each with three measured rounds after one excluded warmup. Baseline A is the previous iteration: commit 612ccaa plus its uncommitted patch, with one scratch-only line honouring MELLOWMETER_FORCE_MOTION. Timing is action to message-loop idle, not photon latency. Host: 20 logical CPUs, 144 DPI, 165 Hz, total CPU 4-7 % before each run.",
+  "finalAssemblySha256": "D197E55D6E04F1C39C29740D4C8B694C5E9899DE2D35D3EEF24EF754D4E76EC7",
+  "windowsAnimationEffects": "off on the host; the host table therefore runs both builds without motion, and the motion table forces it on per process",
+  "hostPreference": [
+    {
+      "operation": "apply-unchanged",
+      "samples": 45,
+      "baselineMedianMs": 0.4,
+      "baselineP95Ms": 0.6,
+      "finalMedianMs": 0.4,
+      "finalP95Ms": 0.5,
+      "baselineMeanKiB": 112.0,
+      "finalMeanKiB": 113.0
+    },
+    {
+      "operation": "apply-width",
+      "samples": 45,
+      "baselineMedianMs": 17.4,
+      "baselineP95Ms": 30.1,
+      "finalMedianMs": 11.5,
+      "finalP95Ms": 31.3,
+      "baselineMeanKiB": 708.0,
+      "finalMeanKiB": 661.0
+    },
+    {
+      "operation": "filter",
+      "samples": 81,
+      "baselineMedianMs": 71.0,
+      "baselineP95Ms": 93.8,
+      "finalMedianMs": 40.9,
+      "finalP95Ms": 54.7,
+      "baselineMeanKiB": 189.0,
+      "finalMeanKiB": 130.0
+    },
+    {
+      "operation": "first-filter",
+      "samples": 9,
+      "baselineMedianMs": 23.4,
+      "baselineP95Ms": 28.5,
+      "finalMedianMs": 17.7,
+      "finalP95Ms": 19.7,
+      "baselineMeanKiB": 113.0,
+      "finalMeanKiB": 79.0
+    },
+    {
+      "operation": "first-labels",
+      "samples": 9,
+      "baselineMedianMs": 80.2,
+      "baselineP95Ms": 93.0,
+      "finalMedianMs": 68.7,
+      "finalP95Ms": 84.7,
+      "baselineMeanKiB": 129.0,
+      "finalMeanKiB": 134.0
+    },
+    {
+      "operation": "first-Monitor",
+      "samples": 9,
+      "baselineMedianMs": 118.4,
+      "baselineP95Ms": 193.3,
+      "finalMedianMs": 84.5,
+      "finalP95Ms": 97.1,
+      "baselineMeanKiB": 1484.0,
+      "finalMeanKiB": 1378.0
+    },
+    {
+      "operation": "first-System",
+      "samples": 9,
+      "baselineMedianMs": 120.4,
+      "baselineP95Ms": 168.9,
+      "finalMedianMs": 31.5,
+      "finalP95Ms": 41.2,
+      "baselineMeanKiB": 804.0,
+      "finalMeanKiB": 288.0
+    },
+    {
+      "operation": "first-tab-panel",
+      "samples": 9,
+      "baselineMedianMs": 73.2,
+      "baselineP95Ms": 82.2,
+      "finalMedianMs": 35.0,
+      "finalP95Ms": 41.3,
+      "baselineMeanKiB": 236.0,
+      "finalMeanKiB": 145.0
+    },
+    {
+      "operation": "first-tab-taskbar",
+      "samples": 9,
+      "baselineMedianMs": 59.7,
+      "baselineP95Ms": 96.1,
+      "finalMedianMs": 86.8,
+      "finalP95Ms": 97.2,
+      "baselineMeanKiB": 244.0,
+      "finalMeanKiB": 228.0
+    },
+    {
+      "operation": "first-Taskbar",
+      "samples": 9,
+      "baselineMedianMs": 86.6,
+      "baselineP95Ms": 115.8,
+      "finalMedianMs": 23.2,
+      "finalP95Ms": 33.8,
+      "baselineMeanKiB": 591.0,
+      "finalMeanKiB": 270.0
+    },
+    {
+      "operation": "first-Threshold",
+      "samples": 9,
+      "baselineMedianMs": 54.1,
+      "baselineP95Ms": 148.7,
+      "finalMedianMs": 30.2,
+      "finalP95Ms": 36.7,
+      "baselineMeanKiB": 475.0,
+      "finalMeanKiB": 204.0
+    },
+    {
+      "operation": "labels",
+      "samples": 81,
+      "baselineMedianMs": 23.8,
+      "baselineP95Ms": 35.0,
+      "finalMedianMs": 13.1,
+      "finalP95Ms": 17.3,
+      "baselineMeanKiB": 63.0,
+      "finalMeanKiB": 40.0
+    },
+    {
+      "operation": "open",
+      "samples": 9,
+      "baselineMedianMs": 88.1,
+      "baselineP95Ms": 109.0,
+      "finalMedianMs": 36.1,
+      "finalP95Ms": 67.6,
+      "baselineMeanKiB": 426.0,
+      "finalMeanKiB": 219.0
+    },
+    {
+      "operation": "switch-MainPanel",
+      "samples": 90,
+      "baselineMedianMs": 10.0,
+      "baselineP95Ms": 13.1,
+      "finalMedianMs": 8.6,
+      "finalP95Ms": 16.3,
+      "baselineMeanKiB": 40.0,
+      "finalMeanKiB": 15.0
+    },
+    {
+      "operation": "switch-Monitor",
+      "samples": 90,
+      "baselineMedianMs": 12.4,
+      "baselineP95Ms": 18.7,
+      "finalMedianMs": 12.3,
+      "finalP95Ms": 29.7,
+      "baselineMeanKiB": 84.0,
+      "finalMeanKiB": 47.0
+    },
+    {
+      "operation": "switch-System",
+      "samples": 90,
+      "baselineMedianMs": 12.7,
+      "baselineP95Ms": 19.2,
+      "finalMedianMs": 9.1,
+      "finalP95Ms": 20.8,
+      "baselineMeanKiB": 87.0,
+      "finalMeanKiB": 17.0
+    },
+    {
+      "operation": "switch-Taskbar",
+      "samples": 90,
+      "baselineMedianMs": 7.1,
+      "baselineP95Ms": 11.0,
+      "finalMedianMs": 8.5,
+      "finalP95Ms": 25.7,
+      "baselineMeanKiB": 36.0,
+      "finalMeanKiB": 15.0
+    },
+    {
+      "operation": "switch-Threshold",
+      "samples": 90,
+      "baselineMedianMs": 15.4,
+      "baselineP95Ms": 21.6,
+      "finalMedianMs": 11.5,
+      "finalP95Ms": 22.7,
+      "baselineMeanKiB": 174.0,
+      "finalMeanKiB": 91.0
+    },
+    {
+      "operation": "tab-panel",
+      "samples": 81,
+      "baselineMedianMs": 73.8,
+      "baselineP95Ms": 115.7,
+      "finalMedianMs": 51.1,
+      "finalP95Ms": 61.5,
+      "baselineMeanKiB": 269.0,
+      "finalMeanKiB": 189.0
+    },
+    {
+      "operation": "tab-taskbar",
+      "samples": 81,
+      "baselineMedianMs": 52.8,
+      "baselineP95Ms": 72.9,
+      "finalMedianMs": 33.9,
+      "finalP95Ms": 45.9,
+      "baselineMeanKiB": 206.0,
+      "finalMeanKiB": 151.0
+    }
+  ],
+  "motionForcedOn": [
+    {
+      "operation": "apply-unchanged",
+      "samples": 45,
+      "baselineMedianMs": 0.4,
+      "baselineP95Ms": 1.5,
+      "finalMedianMs": 0.4,
+      "finalP95Ms": 0.6,
+      "baselineMeanKiB": 112.0,
+      "finalMeanKiB": 111.0
+    },
+    {
+      "operation": "apply-width",
+      "samples": 45,
+      "baselineMedianMs": 20.3,
+      "baselineP95Ms": 35.0,
+      "finalMedianMs": 12.2,
+      "finalP95Ms": 25.4,
+      "baselineMeanKiB": 700.0,
+      "finalMeanKiB": 701.0
+    },
+    {
+      "operation": "filter",
+      "samples": 81,
+      "baselineMedianMs": 71.6,
+      "baselineP95Ms": 86.6,
+      "finalMedianMs": 39.4,
+      "finalP95Ms": 56.4,
+      "baselineMeanKiB": 193.0,
+      "finalMeanKiB": 133.0
+    },
+    {
+      "operation": "first-filter",
+      "samples": 9,
+      "baselineMedianMs": 23.7,
+      "baselineP95Ms": 34.5,
+      "finalMedianMs": 18.1,
+      "finalP95Ms": 24.3,
+      "baselineMeanKiB": 115.0,
+      "finalMeanKiB": 84.0
+    },
+    {
+      "operation": "first-labels",
+      "samples": 9,
+      "baselineMedianMs": 79.6,
+      "baselineP95Ms": 83.3,
+      "finalMedianMs": 68.6,
+      "finalP95Ms": 80.1,
+      "baselineMeanKiB": 137.0,
+      "finalMeanKiB": 139.0
+    },
+    {
+      "operation": "first-Monitor",
+      "samples": 9,
+      "baselineMedianMs": 112.7,
+      "baselineP95Ms": 116.7,
+      "finalMedianMs": 73.3,
+      "finalP95Ms": 83.1,
+      "baselineMeanKiB": 1485.0,
+      "finalMeanKiB": 1377.0
+    },
+    {
+      "operation": "first-System",
+      "samples": 9,
+      "baselineMedianMs": 113.1,
+      "baselineP95Ms": 123.8,
+      "finalMedianMs": 32.1,
+      "finalP95Ms": 46.7,
+      "baselineMeanKiB": 809.0,
+      "finalMeanKiB": 293.0
+    },
+    {
+      "operation": "first-tab-panel",
+      "samples": 9,
+      "baselineMedianMs": 66.6,
+      "baselineP95Ms": 71.4,
+      "finalMedianMs": 36.2,
+      "finalP95Ms": 38.4,
+      "baselineMeanKiB": 242.0,
+      "finalMeanKiB": 149.0
+    },
+    {
+      "operation": "first-tab-taskbar",
+      "samples": 9,
+      "baselineMedianMs": 59.6,
+      "baselineP95Ms": 65.0,
+      "finalMedianMs": 90.2,
+      "finalP95Ms": 94.7,
+      "baselineMeanKiB": 252.0,
+      "finalMeanKiB": 231.0
+    },
+    {
+      "operation": "first-Taskbar",
+      "samples": 9,
+      "baselineMedianMs": 78.4,
+      "baselineP95Ms": 89.2,
+      "finalMedianMs": 24.5,
+      "finalP95Ms": 45.8,
+      "baselineMeanKiB": 592.0,
+      "finalMeanKiB": 275.0
+    },
+    {
+      "operation": "first-Threshold",
+      "samples": 9,
+      "baselineMedianMs": 46.6,
+      "baselineP95Ms": 55.1,
+      "finalMedianMs": 26.1,
+      "finalP95Ms": 39.3,
+      "baselineMeanKiB": 477.0,
+      "finalMeanKiB": 205.0
+    },
+    {
+      "operation": "labels",
+      "samples": 81,
+      "baselineMedianMs": 23.3,
+      "baselineP95Ms": 28.6,
+      "finalMedianMs": 13.5,
+      "finalP95Ms": 17.2,
+      "baselineMeanKiB": 63.0,
+      "finalMeanKiB": 43.0
+    },
+    {
+      "operation": "open",
+      "samples": 9,
+      "baselineMedianMs": 78.7,
+      "baselineP95Ms": 94.3,
+      "finalMedianMs": 35.0,
+      "finalP95Ms": 44.6,
+      "baselineMeanKiB": 427.0,
+      "finalMeanKiB": 213.0
+    },
+    {
+      "operation": "switch-MainPanel",
+      "samples": 90,
+      "baselineMedianMs": 9.5,
+      "baselineP95Ms": 12.9,
+      "finalMedianMs": 11.9,
+      "finalP95Ms": 16.8,
+      "baselineMeanKiB": 40.0,
+      "finalMeanKiB": 16.0
+    },
+    {
+      "operation": "switch-Monitor",
+      "samples": 90,
+      "baselineMedianMs": 12.2,
+      "baselineP95Ms": 15.1,
+      "finalMedianMs": 12.6,
+      "finalP95Ms": 17.1,
+      "baselineMeanKiB": 87.0,
+      "finalMeanKiB": 50.0
+    },
+    {
+      "operation": "switch-System",
+      "samples": 90,
+      "baselineMedianMs": 12.4,
+      "baselineP95Ms": 17.5,
+      "finalMedianMs": 12.1,
+      "finalP95Ms": 14.9,
+      "baselineMeanKiB": 88.0,
+      "finalMeanKiB": 19.0
+    },
+    {
+      "operation": "switch-Taskbar",
+      "samples": 90,
+      "baselineMedianMs": 6.7,
+      "baselineP95Ms": 9.6,
+      "finalMedianMs": 10.5,
+      "finalP95Ms": 12.9,
+      "baselineMeanKiB": 35.0,
+      "finalMeanKiB": 17.0
+    },
+    {
+      "operation": "switch-Threshold",
+      "samples": 90,
+      "baselineMedianMs": 14.9,
+      "baselineP95Ms": 20.0,
+      "finalMedianMs": 13.6,
+      "finalP95Ms": 15.9,
+      "baselineMeanKiB": 176.0,
+      "finalMeanKiB": 92.0
+    },
+    {
+      "operation": "tab-panel",
+      "samples": 81,
+      "baselineMedianMs": 73.7,
+      "baselineP95Ms": 79.7,
+      "finalMedianMs": 51.1,
+      "finalP95Ms": 66.1,
+      "baselineMeanKiB": 271.0,
+      "finalMeanKiB": 190.0
+    },
+    {
+      "operation": "tab-taskbar",
+      "samples": 81,
+      "baselineMedianMs": 47.8,
+      "baselineP95Ms": 64.3,
+      "finalMedianMs": 36.3,
+      "finalP95Ms": 47.6,
+      "baselineMeanKiB": 207.0,
+      "finalMeanKiB": 153.0
+    }
+  ],
+  "cadence": [
+    {
+      "clock": "Composition",
+      "composited": false,
+      "scenario": "disclosure",
+      "passes": 3,
+      "frames": 466,
+      "intervalMedianMs": 6.12,
+      "intervalP95Ms": 12.14,
+      "intervalMaxMs": 34.26,
+      "shareAtMost20Ms": 0.998,
+      "frameCostMedianMs": 2.68,
+      "frameCostP95Ms": 7.92
+    },
+    {
+      "clock": "Composition",
+      "composited": false,
+      "scenario": "page-switch",
+      "passes": 3,
+      "frames": 517,
+      "intervalMedianMs": 6.08,
+      "intervalP95Ms": 8.75,
+      "intervalMaxMs": 22.21,
+      "shareAtMost20Ms": 0.998,
+      "frameCostMedianMs": 0.85,
+      "frameCostP95Ms": 2.24
+    },
+    {
+      "clock": "Composition",
+      "composited": false,
+      "scenario": "switch-toggle",
+      "passes": 3,
+      "frames": 339,
+      "intervalMedianMs": 6.07,
+      "intervalP95Ms": 7.74,
+      "intervalMaxMs": 16.9,
+      "shareAtMost20Ms": 1.0,
+      "frameCostMedianMs": 0.06,
+      "frameCostP95Ms": 0.38
+    },
+    {
+      "clock": "Composition",
+      "composited": false,
+      "scenario": "wheel-glide",
+      "passes": 3,
+      "frames": 403,
+      "intervalMedianMs": 6.09,
+      "intervalP95Ms": 6.79,
+      "intervalMaxMs": 20.32,
+      "shareAtMost20Ms": 1.0,
+      "frameCostMedianMs": 1.74,
+      "frameCostP95Ms": 2.95
+    },
+    {
+      "clock": "Composition",
+      "composited": true,
+      "scenario": "disclosure",
+      "passes": 3,
+      "frames": 262,
+      "intervalMedianMs": 12.24,
+      "intervalP95Ms": 26.64,
+      "intervalMaxMs": 35.11,
+      "shareAtMost20Ms": 0.981,
+      "frameCostMedianMs": 10.94,
+      "frameCostP95Ms": 23.13
+    },
+    {
+      "clock": "Composition",
+      "composited": true,
+      "scenario": "page-switch",
+      "passes": 3,
+      "frames": 404,
+      "intervalMedianMs": 6.21,
+      "intervalP95Ms": 18.18,
+      "intervalMaxMs": 43.6,
+      "shareAtMost20Ms": 0.98,
+      "frameCostMedianMs": 0.98,
+      "frameCostP95Ms": 13.87
+    },
+    {
+      "clock": "Composition",
+      "composited": true,
+      "scenario": "switch-toggle",
+      "passes": 3,
+      "frames": 354,
+      "intervalMedianMs": 6.09,
+      "intervalP95Ms": 8.29,
+      "intervalMaxMs": 15.01,
+      "shareAtMost20Ms": 1.0,
+      "frameCostMedianMs": 0.1,
+      "frameCostP95Ms": 0.59
+    },
+    {
+      "clock": "Composition",
+      "composited": true,
+      "scenario": "wheel-glide",
+      "passes": 3,
+      "frames": 220,
+      "intervalMedianMs": 12.09,
+      "intervalP95Ms": 16.93,
+      "intervalMaxMs": 41.42,
+      "shareAtMost20Ms": 1.0,
+      "frameCostMedianMs": 9.46,
+      "frameCostP95Ms": 11.99
+    },
+    {
+      "clock": "Timer",
+      "composited": false,
+      "scenario": "disclosure",
+      "passes": 3,
+      "frames": 188,
+      "intervalMedianMs": 15.66,
+      "intervalP95Ms": 22.14,
+      "intervalMaxMs": 50.93,
+      "shareAtMost20Ms": 0.968,
+      "frameCostMedianMs": 5.59,
+      "frameCostP95Ms": 19.95
+    },
+    {
+      "clock": "Timer",
+      "composited": false,
+      "scenario": "page-switch",
+      "passes": 3,
+      "frames": 202,
+      "intervalMedianMs": 15.7,
+      "intervalP95Ms": 28.6,
+      "intervalMaxMs": 48.84,
+      "shareAtMost20Ms": 0.94,
+      "frameCostMedianMs": 1.5,
+      "frameCostP95Ms": 6.19
+    },
+    {
+      "clock": "Timer",
+      "composited": false,
+      "scenario": "switch-toggle",
+      "passes": 3,
+      "frames": 131,
+      "intervalMedianMs": 15.64,
+      "intervalP95Ms": 30.62,
+      "intervalMaxMs": 31.73,
+      "shareAtMost20Ms": 1.0,
+      "frameCostMedianMs": 0.07,
+      "frameCostP95Ms": 0.41
+    },
+    {
+      "clock": "Timer",
+      "composited": false,
+      "scenario": "wheel-glide",
+      "passes": 3,
+      "frames": 156,
+      "intervalMedianMs": 15.61,
+      "intervalP95Ms": 31.09,
+      "intervalMaxMs": 44.82,
+      "shareAtMost20Ms": 0.877,
+      "frameCostMedianMs": 2.63,
+      "frameCostP95Ms": 8.57
+    },
+    {
+      "clock": "Timer",
+      "composited": true,
+      "scenario": "disclosure",
+      "passes": 3,
+      "frames": 185,
+      "intervalMedianMs": 15.69,
+      "intervalP95Ms": 26.8,
+      "intervalMaxMs": 36.39,
+      "shareAtMost20Ms": 0.946,
+      "frameCostMedianMs": 11.66,
+      "frameCostP95Ms": 25.34
+    },
+    {
+      "clock": "Timer",
+      "composited": true,
+      "scenario": "page-switch",
+      "passes": 3,
+      "frames": 199,
+      "intervalMedianMs": 15.77,
+      "intervalP95Ms": 30.5,
+      "intervalMaxMs": 47.22,
+      "shareAtMost20Ms": 0.934,
+      "frameCostMedianMs": 1.96,
+      "frameCostP95Ms": 20.53
+    },
+    {
+      "clock": "Timer",
+      "composited": true,
+      "scenario": "switch-toggle",
+      "passes": 3,
+      "frames": 132,
+      "intervalMedianMs": 15.67,
+      "intervalP95Ms": 21.2,
+      "intervalMaxMs": 31.11,
+      "shareAtMost20Ms": 1.0,
+      "frameCostMedianMs": 0.14,
+      "frameCostP95Ms": 0.75
+    },
+    {
+      "clock": "Timer",
+      "composited": true,
+      "scenario": "wheel-glide",
+      "passes": 3,
+      "frames": 159,
+      "intervalMedianMs": 15.64,
+      "intervalP95Ms": 31.65,
+      "intervalMaxMs": 49.72,
+      "shareAtMost20Ms": 0.871,
+      "frameCostMedianMs": 10.54,
+      "frameCostP95Ms": 14.56
+    }
+  ],
+  "inputHandling": [
+    {
+      "action": "button press",
+      "count": 36,
+      "medianMs": 3.7413,
+      "p95Ms": 6.1422,
+      "maxMs": 7.0332
+    },
+    {
+      "action": "switch press",
+      "count": 36,
+      "medianMs": 2.2624,
+      "p95Ms": 4.06,
+      "maxMs": 4.8237
+    },
+    {
+      "action": "switch drag step",
+      "count": 36,
+      "medianMs": 0.16,
+      "p95Ms": 0.3754,
+      "maxMs": 0.7562
+    },
+    {
+      "action": "slider drag step",
+      "count": 36,
+      "medianMs": 0.98,
+      "p95Ms": 2.4518,
+      "maxMs": 2.6302
+    },
+    {
+      "action": "segment select",
+      "count": 36,
+      "medianMs": 0.3934,
+      "p95Ms": 0.8792,
+      "maxMs": 1.0735
+    },
+    {
+      "action": "menu open",
+      "count": 36,
+      "medianMs": 11.096,
+      "p95Ms": 15.1267,
+      "maxMs": 15.8313
+    },
+    {
+      "action": "menu key",
+      "count": 36,
+      "medianMs": 2.8105,
+      "p95Ms": 3.8501,
+      "maxMs": 4.2868
+    },
+    {
+      "action": "reorder lift",
+      "count": 24,
+      "medianMs": 4.2622,
+      "p95Ms": 7.6602,
+      "maxMs": 13.4781
+    },
+    {
+      "action": "reorder move",
+      "count": 24,
+      "medianMs": 0.2235,
+      "p95Ms": 1.0012,
+      "maxMs": 1.3919
+    },
+    {
+      "action": "reorder idle move",
+      "count": 24,
+      "medianMs": 0.0941,
+      "p95Ms": 0.1705,
+      "maxMs": 0.2751
+    }
+  ]
+}

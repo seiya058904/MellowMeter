@@ -10,7 +10,7 @@ internal static class ControlResources
     {
         var fonts = new HashSet<Font>(ReferenceEqualityComparer.Instance);
         void Visit(Control control) {
-            if (TypeDescriptor.GetProperties(control)[nameof(Control.Font)]?.ShouldSerializeValue(control) == true && !control.Font.IsSystemFont)
+            if (TypeDescriptor.GetProperties(control)[nameof(Control.Font)]?.ShouldSerializeValue(control) == true && !control.Font.IsSystemFont && !UiFonts.IsShared(control.Font))
                 fonts.Add(control.Font);
             foreach (Control child in control.Controls) Visit(child);
         }
@@ -21,7 +21,7 @@ internal static class ControlResources
     internal static void ReplaceFont(Control control, Font font)
     {
         var old = control.Font;
-        bool owned = TypeDescriptor.GetProperties(control)[nameof(Control.Font)]?.ShouldSerializeValue(control) == true && !old.IsSystemFont;
+        bool owned = TypeDescriptor.GetProperties(control)[nameof(Control.Font)]?.ShouldSerializeValue(control) == true && !old.IsSystemFont && !UiFonts.IsShared(old);
         control.Font = font;
         if (owned && !ReferenceEquals(old, font)) old.Dispose();
     }

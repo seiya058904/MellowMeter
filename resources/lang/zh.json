@@ -79,6 +79,8 @@
     "BAT.Current": "🔋"
   },
   "Menu": {
+    "DragToReorder": "拖动以调整顺序",
+    "InterfaceAnimationsSystemOff": "Windows 的“动画效果”已关闭，因此界面动效不会播放。可在“设置 > 辅助功能 > 视觉效果”中开启。",
     "InstallFpsComponent": "安装 FPS 组件…",
     "InstallSensorDriver": "安装传感器驱动…",
     "OptionalComponentsTip": "温度传感器可能需要 PawnIO 驱动；FPS 需要专用组件及管理员权限。启动时不会自动安装。按需安装后请重启 MellowMeter。",

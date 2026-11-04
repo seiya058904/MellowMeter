@@ -13,7 +13,6 @@ namespace LiteMonitor.src.UI.SettingsPage
 {
     public class SystemHardwarPage : SettingsPageBase
     {
-        private Panel _container;
         private readonly List<Control> _advancedGroups = new();
         private bool _loading;
         private int _sourceRevision;
@@ -25,15 +24,11 @@ namespace LiteMonitor.src.UI.SettingsPage
         // ★★★ 修复：类型更正为 LiteComboBox ★★★
         private LiteComboBox _cbDisk, _cbNet, _cbGpu, _cbMobo;
         private LiteComboBox _cbFanCpu, _cbFanPump, _cbFanCase;
-        private Label _sourceStatus = null!;
+        private FooterText _sourceStatus = null!;
 
         public SystemHardwarPage()
         {
-            this.BackColor = UIColors.MainBg;
-            this.Dock = DockStyle.Fill;
-            this.Padding = new Padding(0);
-            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(18)) };
-            this.Controls.Add(_container);
+            CreateSurface(LanguageManager.T("Menu.SystemHardwar"));
 
             InitializeUI();
         }
@@ -52,7 +47,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         {
             base.OnShow();
             if (Config == null) return;
-            foreach (var group in _advancedGroups) if (group.Parent is Control parent) parent.Visible = Config.AdvancedSensorsEnabled;
+            foreach (var group in _advancedGroups) group.Visible = Config.AdvancedSensorsEnabled;
             PopulateAsyncData();
         }
 
@@ -199,22 +194,21 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             // 内存/显存显示模式 (从主界面设置移来)
             string[] memOptions = { LanguageManager.T("Menu.Percent"), LanguageManager.T("Menu.UsedSize") };
-            group.AddComboIndex(this, "Menu.MemoryDisplayMode", memOptions,
+            group.AddSegmented(this, "Menu.MemoryDisplayMode", memOptions,
                 () => Config?.MemoryDisplayMode ?? 0,
                 idx => { if (Config != null) Config.MemoryDisplayMode = idx; }
             );
 
-            int[] rates = { 500, 1000, 1500, 2000, 3000 };
-            group.AddCombo(this, "Menu.Refresh", rates.Select(r => r + " ms"),
-                () => (Config?.RefreshMs ?? 1000) + " ms",
-                v => { if (Config != null) Config.RefreshMs = MetricUtils.ParseInt(v); }
+            double[] rates = { 500, 1000, 1500, 2000, 3000 };
+            group.AddSlider(this, "Menu.Refresh", rates, v => $"{v:0} ms",
+                () => Config?.RefreshMs ?? 1000,
+                v => { if (Config != null) Config.RefreshMs = (int)v; }
             );
 
             _cbNet = group.AddCombo(this, "Menu.NetworkSource", new List<string> { strAuto },
                 () => Config?.PreferredNetwork ?? strAuto,
                 v => { if (Config != null) Config.PreferredNetwork = v == strAuto ? "" : v; });
-            _sourceStatus = new Label { AutoSize = true, MaximumSize = UIUtils.S(new Size(390, 0)),
-                ForeColor = UIColors.TextSub, Padding = UIUtils.S(new Padding(0, 6, 0, 6)), AccessibleRole = AccessibleRole.StaticText };
+            _sourceStatus = new FooterText { Inset = false, BackColor = UIColors.CardBg };
             group.AddFullItem(_sourceStatus);
             group.AddToggle(this, "Menu.HistoryEnabled", () => Config?.HistoryEnabled ?? true,
                 v => { if (Config != null) Config.HistoryEnabled = v; });
@@ -225,7 +219,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                 v => {
                     if (Config == null) return;
                     Config.AdvancedSensorsEnabled = v;
-                    foreach (var control in _advancedGroups) if (control.Parent is Control parent) parent.Visible = v;
+                    foreach (var control in _advancedGroups) control.Visible = v;
                 });
             advanced.AddHint(LanguageManager.T("Menu.AdvancedSensorsTip"));
             AddGroupToPage(advanced);
@@ -264,11 +258,10 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             void AddCalib(string key, string unit, Func<float> get, Action<float> set)
             {
-                var input = group.AddDouble(this, "RAW_TITLE_HACK", unit,
+                group.AddDouble(this, key, unit,
                     () => (int)(get?.Invoke() ?? 0),
-                    v => set?.Invoke((float)(int)v)
-                );
-                if(input.Parent is Control parent && parent.Controls.Count > 0 && parent.Controls[0] is Label lbl) lbl.Text = LanguageManager.T(key) + suffix;
+                    v => set?.Invoke((float)(int)v),
+                    rawTitle: LanguageManager.T(key) + suffix);
             }
 
             group.AddHint(LanguageManager.T("Menu.CalibrationTip"));
@@ -291,7 +284,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             group.AddHint(LanguageManager.T("Menu.OptionalComponentsTip"));
             void Add(string title, bool fps)
             {
-                var button = new LiteButton(LanguageManager.T(title)) { Width = UIUtils.S(220) };
+                var button = new LiteButton(LanguageManager.T(title)) { Width = UIUtils.S(220), Height = UIUtils.S(DS.ControlHeight) };
                 button.Click += async (_, _) => {
                     if (Config == null) return;
                     button.Enabled = false;
@@ -333,12 +326,5 @@ namespace LiteMonitor.src.UI.SettingsPage
             AddGroupToPage(group);
         }
 
-        private void AddGroupToPage(LiteSettingsGroup group)
-        {
-            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = UIUtils.S(new Padding(0, 0, 0, 12)) };
-            wrapper.Controls.Add(group);
-            _container.Controls.Add(wrapper);
-            _container.Controls.SetChildIndex(wrapper, 0);
-        }
     }
 }

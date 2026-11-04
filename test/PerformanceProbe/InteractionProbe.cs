@@ -12,6 +12,8 @@ internal static partial class Program
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] private static extern nint GetStyle(nint handle, int index);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] private static extern nint SetStyle(nint handle, int index, nint style);
     private sealed record Timing(string Operation, int Round, double Milliseconds, long AllocatedBytes);
+    private static void SelectTab(object monitorPage, int index) =>
+        typeof(LiteSelector).GetMethod("PerformSelect", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(Get<LiteSelector>(monitorPage, "_tabs"), new object[] { index });
     private static int InteractionProbe(string root, bool localBuffer)
     {
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
@@ -53,8 +55,10 @@ internal static partial class Program
                 }
                 async Task Sample(string state) {
                     process.Refresh(); var cpu = process.TotalProcessorTime; var clock = Stopwatch.StartNew();
+                    long heap = GC.GetTotalAllocatedBytes(false);
                     await Task.Delay(5000); process.Refresh();
-                    resources.Add(new { state, cpuPercentMachine = (process.TotalProcessorTime - cpu).TotalMilliseconds / clock.Elapsed.TotalMilliseconds / Environment.ProcessorCount * 100,
+                    double allocatedKiBPerSecond = (GC.GetTotalAllocatedBytes(false) - heap) / 1024d / clock.Elapsed.TotalSeconds;
+                    resources.Add(new { state, allocatedKiBPerSecond, cpuPercentMachine = (process.TotalProcessorTime - cpu).TotalMilliseconds / clock.Elapsed.TotalMilliseconds / Environment.ProcessorCount * 100,
                         privateBytes = process.PrivateMemorySize64, workingSetBytes = process.WorkingSet64, handles = process.HandleCount,
                         gdi = GetGuiResources(process.Handle, 0), user = GetGuiResources(process.Handle, 1) });
                 }
@@ -78,9 +82,9 @@ internal static partial class Program
                         settings!.SwitchPage("Monitor"); await Idle();
                         var page = Get<Dictionary<string, SettingsPageBase>>(settings, "_pages")["Monitor"];
                         for (int repeat = 0; repeat < 10; repeat++) {
-                            await Measure(repeat == 0 ? "first-tab-taskbar" : "tab-taskbar", round, () => Get<Button>(page, "_btnTabBar").PerformClick());
+                            await Measure(repeat == 0 ? "first-tab-taskbar" : "tab-taskbar", round, () => SelectTab(page, 1));
                             await Measure(repeat == 0 ? "first-filter" : "filter", round, () => { var c = Get<LiteCheck>(page, "_chkOnlyVisible"); c.Checked = !c.Checked; });
-                            await Measure(repeat == 0 ? "first-tab-panel" : "tab-panel", round, () => Get<Button>(page, "_btnTabMain").PerformClick());
+                            await Measure(repeat == 0 ? "first-tab-panel" : "tab-panel", round, () => SelectTab(page, 0));
                             await Measure(repeat == 0 ? "first-labels" : "labels", round, () => { var c = Get<LiteCheck>(page, "_chkEditLabels"); c.Checked = !c.Checked; });
                         }
                         var apply = typeof(SettingsForm).GetMethod("ApplySettings", BindingFlags.Instance | BindingFlags.NonPublic)!;

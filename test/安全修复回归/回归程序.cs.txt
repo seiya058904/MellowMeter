@@ -66,7 +66,7 @@ internal static class Program
         SetField(page, typeof(SettingsPageBase), "Config", cfg);
         SetField(page, typeof(MonitorPage), "_workingList", new List<MonitorItemConfig>());
         using var header = new MonitorGroupHeader("CPU", "自定义处理器");
-        using var rows = new Panel();
+        using var rows = new LiteMonitor.src.UI.Controls.StackPanel();
         var blockType = typeof(MonitorPage).GetNestedType("GroupBlock", BindingFlags.NonPublic)!;
         using var block = (Control)Activator.CreateInstance(blockType, header, rows)!;
         var container = (Panel)GetField(page, "_container");

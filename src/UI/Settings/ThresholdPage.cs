@@ -8,17 +8,13 @@ namespace LiteMonitor.src.UI.SettingsPage
 {
     public class ThresholdPage : SettingsPageBase
     {
-        private Panel _container;
+        private readonly StackPanel _container;
         private bool _isLoaded = false;
         private bool _advanced;
 
         public ThresholdPage()
         {
-            this.BackColor = UIColors.MainBg;
-            this.Dock = DockStyle.Fill;
-            this.Padding = new Padding(0);
-            _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = UIUtils.S(new Padding(18)) };
-            this.Controls.Add(_container);
+            _container = CreateSurface(LanguageManager.T("Menu.Thresholds"));
         }
 
         public override void OnShow()
@@ -28,29 +24,30 @@ namespace LiteMonitor.src.UI.SettingsPage
             _advanced = Config.AdvancedSensorsEnabled;
 
             _container.SuspendLayout();
-            ClearAndDispose(_container.Controls);
+            RemoveGroups();
+            _refreshActions.Clear();
 
             // === 1. Alert Temp ===
             if (_advanced)
             {
-            var grpAlert = new LiteSettingsGroup(LanguageManager.T("Menu.AlertTemp"));
-            
-            grpAlert.AddToggle(this, "Menu.AlertTemp", 
-                () => Config.AlertTempEnabled, 
-                v => Config.AlertTempEnabled = v);
+                var grpAlert = new LiteSettingsGroup(LanguageManager.T("Menu.AlertTemp"));
 
-            grpAlert.AddInt(this, "Menu.AlertThreshold", "°C", 
-                () => Config.AlertTempThreshold, 
-                v => Config.AlertTempThreshold = v, 
-                width: 80, color: UIColors.TextCrit);
+                grpAlert.AddToggle(this, "Menu.AlertTemp",
+                    () => Config.AlertTempEnabled,
+                    v => Config.AlertTempEnabled = v);
 
-            AddGroupToPage(grpAlert);
+                grpAlert.AddInt(this, "Menu.AlertThreshold", "°C",
+                    () => Config.AlertTempThreshold,
+                    v => Config.AlertTempThreshold = v,
+                    width: 80, color: UIColors.TextCritOnField, min: 0, max: 150);
+
+                AddGroupToPage(grpAlert);
             }
 
             // === 2. Hardware ===
             var grpHardware = new LiteSettingsGroup(LanguageManager.T("Menu.GeneralHardware"));
             grpHardware.AddHint(LanguageManager.T("Menu.ThresholdsTips"));
-            
+
             grpHardware.AddThreshold(this, LanguageManager.T("Menu.HardwareLoad"), "%", Config.Thresholds.Load);
             if (_advanced) grpHardware.AddThreshold(this, LanguageManager.T("Menu.HardwareTemp"), "°C", Config.Thresholds.Temp);
 
@@ -58,7 +55,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             // === 3. Network & Disk ===
             var grpNet = new LiteSettingsGroup(LanguageManager.T("Menu.NetworkDiskSpeed"));
-            
+
             if (_advanced) grpNet.AddThreshold(this, LanguageManager.T("Menu.DiskIOSpeed"), "MB/s", Config.Thresholds.DiskIOMB);
             grpNet.AddThreshold(this, LanguageManager.T("Menu.UploadSpeed"), "MB/s", Config.Thresholds.NetUpMB);
             grpNet.AddThreshold(this, LanguageManager.T("Menu.DownloadSpeed"), "MB/s", Config.Thresholds.NetDownMB);
@@ -77,12 +74,14 @@ namespace LiteMonitor.src.UI.SettingsPage
             _isLoaded = true;
         }
 
-        private void AddGroupToPage(LiteSettingsGroup group)
+        // Keep the large title; rebuild only the groups when sensor availability changes.
+        private void RemoveGroups()
         {
-            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = UIUtils.S(new Padding(0, 0, 0, 12)) };
-            wrapper.Controls.Add(group);
-            _container.Controls.Add(wrapper);
-            _container.Controls.SetChildIndex(wrapper, 0);
+            foreach (var group in _container.Controls.OfType<LiteSettingsGroup>().ToArray())
+            {
+                _container.Controls.Remove(group);
+                group.Dispose();
+            }
         }
     }
 }

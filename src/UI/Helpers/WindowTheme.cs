@@ -25,7 +25,12 @@ internal static class WindowTheme
             state.Hooked = true;
             UserPreferenceChangedEventHandler handler = (_, _) => {
                 if (!window.IsDisposed && window.IsHandleCreated)
-                    try { window.BeginInvoke(new Action(() => { InterfaceMotion.RefreshSystemPreference(); Apply(window); window.Invalidate(true); })); } catch (InvalidOperationException) { }
+                    try { window.BeginInvoke(new Action(() => {
+                        InterfaceMotion.RefreshSystemPreference();
+                        Apply(window);
+                        if (window is LiteMonitor.src.UI.SettingsForm settings) settings.OnSystemPreferenceChanged();
+                        window.Invalidate(true);
+                    })); } catch (InvalidOperationException) { }
             };
             SystemEvents.UserPreferenceChanged += handler;
             window.Disposed += (_, _) => SystemEvents.UserPreferenceChanged -= handler;

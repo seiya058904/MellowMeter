@@ -112,6 +112,7 @@ internal static partial class SmokeSuite
         }
 
         _stage = "lightweight interaction feedback";
+        InterfaceMotion.SystemPreferenceOverride = true;
         cfg.InterfaceAnimationsEnabled = true; AppActions.ApplyThemeAndLayout(cfg, ui, main);
         var motion = typeof(Settings).Assembly.GetType("LiteMonitor.src.UI.Controls.InterfaceMotion")!;
         int Active() => (int)motion.GetProperty("ActiveCount", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
@@ -119,25 +120,27 @@ internal static partial class SmokeSuite
         {
             settings.Show(main); await Task.Delay(300);
             settings.SwitchPage("System"); settings.SwitchPage("Monitor"); settings.SwitchPage("MainPanel");
-            await Task.Delay(350);
+            await MotionIdle();
             Check(Field<string>(settings, "_currentKey") == "MainPanel" && Active() == 0, "Rapid navigation finishes on last page and stops the animation clock");
             var toggle = Descendants(settings).OfType<LiteCheck>().First(c => c.Visible);
             int changes = 0; toggle.CheckedChanged += (_, _) => changes++;
             toggle.Checked = !toggle.Checked;
             await Task.Delay(35);
             toggle.Checked = !toggle.Checked;
-            await Task.Delay(250);
+            await MotionIdle();
             Check(changes == 2 && Active() == 0, "Interrupted switch changes binding once per action and settles without an idle timer");
-            settings.SwitchPage("System"); await Task.Delay(260);
+            settings.SwitchPage("System"); await MotionIdle();
             var page = Field<Dictionary<string, SettingsPageBase>>(settings, "_pages")["System"];
             var group = Descendants(page).OfType<LiteSettingsGroup>().First(x => x.Collapsible);
-            group.Collapsed = false; await Task.Delay(60); group.Collapsed = true; await Task.Delay(260);
+            group.Collapsed = false; await Task.Delay(60); group.Collapsed = true; await MotionIdle();
             Check(group.Collapsed && Active() == 0, "Disclosure reverses cleanly without a residual timer");
             cfg.InterfaceAnimationsEnabled = false; AppActions.ApplyThemeAndLayout(cfg, ui, main);
             settings.SwitchPage("Monitor");
             Check(Active() == 0, "Effects-disabled navigation completes without scheduling frames");
             settings.Close();
         }
+        InterfaceMotion.SystemPreferenceOverride = null;
+        InterfaceMotion.RefreshSystemPreference();
         Check(Active() == 0 && !(bool)motion.GetProperty("ClockRunning", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!, "Closing settings releases all motion tracks and stops the timer");
         cfg.Save();
     }
@@ -207,7 +210,7 @@ internal static partial class SmokeSuite
         var edited = draft.MonitorItems.Single(x => x.Key == "CPU.Load");
         Check(edited.UserLabel == "pending processor" && edited.UnitPanel == "panel-unit", "Immediate navigation flushes pending row edits");
         settings.SwitchPage("Monitor");
-        Field<Button>(page, "_btnTabBar").PerformClick();
+        SelectTab(page, 1);
         Check(ReferenceEquals(row, Descendants(page).OfType<MonitorItemRow>().Single(x => x.Config.Key == "CPU.Load")), "Panel and taskbar views reuse the same row");
         Field<LiteUnderlineInput>(row, "_inputShort").Inner.Text = "PENDING";
         Field<LiteUnderlineInput>(row, "_inputUnit").Inner.Text = "taskbar-unit";

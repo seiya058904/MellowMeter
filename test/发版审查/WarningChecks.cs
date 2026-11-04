@@ -107,14 +107,17 @@ internal static partial class Program
         await Run("Interrupted spring preserves state and settles exactly", () => {
             var type = typeof(Settings).Assembly.GetType("LiteMonitor.src.UI.Controls.MotionSpring")!;
             var sample = type.GetMethod("Sample", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            object Spring(float from, float to, float velocity, bool bounce) => Activator.CreateInstance(type, from, to, velocity, 0.18d, bounce)!;
+            var spec = typeof(Settings).Assembly.GetType("LiteMonitor.src.UI.Controls.SpringSpec")!;
+            var settled = type.GetMethod("Settled", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            object Spring(float from, float to, float velocity, bool bounce) => Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.NonPublic, null,
+                new object[] { from, to, velocity, Activator.CreateInstance(spec, 0.18d, bounce ? 0.76d : 1d, 0.004d)! }, null)!;
             (float value, float velocity) At(object spring, double t) => ((float, float))sample.Invoke(spring, new object[] { t })!;
             var first = Spring(0, 1, 0, false);
             var middle = At(first, .045);
             var reversed = Spring(middle.value, 0, middle.velocity, true);
             var start = At(reversed, 0);
             Check(Math.Abs(start.value - middle.value) < .0001 && Math.Abs(start.velocity - middle.velocity) < .0001, "Retarget lost state/velocity");
-            Check(At(reversed, .18) == (0f, 0f), "Spring did not stop exactly at target");
+            Check(Math.Abs(At(reversed, 2).value) < .001 && (bool)settled.Invoke(reversed, new object[] { 2d })!, "Spring did not settle at its target");
             for (int i = 0; i <= 180; i++) {
                 var frame = At(reversed, i / 1000d);
                 Check(float.IsFinite(frame.value) && float.IsFinite(frame.velocity), "Nonfinite animation value");
