@@ -61,6 +61,7 @@ internal static partial class Program
 
         await WarningRegressionChecks();
         await SettingsDraftChecks();
+        await HistorySaveChecks();
 
         Console.WriteLine($"发版审查：通过 {_passed} 项，失败 {_failed} 项。");
         return _failed == 0 ? 0 : 1;

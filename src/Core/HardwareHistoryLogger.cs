@@ -52,7 +52,7 @@ namespace LiteMonitor.src.Core
         private static DateTime _currentMinute = DateTime.MinValue;
         private static DateTime _lastSaveTime = DateTime.MinValue;
         private static readonly Dictionary<string, Accumulator> _currentBucket = new Dictionary<string, Accumulator>(StringComparer.OrdinalIgnoreCase);
-        private static bool _saveRunning;
+        private static Task? _saveTask;
 
         public static HardwareHistoryData Data { get; private set; } = new HardwareHistoryData();
 
@@ -150,31 +150,38 @@ namespace LiteMonitor.src.Core
 
         public static void Save()
         {
+            // A writer already started must not outlive the final save.
+            Task? writer;
+            lock (_ioLock) writer = _saveTask;
+            writer?.Wait();
+
             SaveCore(flushPending: true);
         }
 
         private static void SaveCore(bool flushPending)
         {
-            HardwareHistoryData snapshot;
-            lock (_dataLock)
-            {
-                if (flushPending)
-                {
-                    FlushCurrentBucketUnsafe();
-                }
-                TrimUnsafe(DateTime.Now);
-                snapshot = CloneDataUnsafe();
-                if (!flushPending)
-                {
-                    var pending = BuildCurrentPointUnsafe();
-                    if (pending != null) snapshot.Points.Add(pending);
-                }
-            }
-
+            // The snapshot is taken with the file lock held, so writes land in the order
+            // their snapshots were taken and an older one can never replace a newer one.
             lock (_ioLock)
             {
                 try
                 {
+                    HardwareHistoryData snapshot;
+                    lock (_dataLock)
+                    {
+                        if (flushPending)
+                        {
+                            FlushCurrentBucketUnsafe();
+                        }
+                        TrimUnsafe(DateTime.Now);
+                        snapshot = CloneDataUnsafe();
+                        if (!flushPending)
+                        {
+                            var pending = BuildCurrentPointUnsafe();
+                            if (pending != null) snapshot.Points.Add(pending);
+                        }
+                    }
+
                     string json = JsonSerializer.Serialize(snapshot);
                     AtomicWrite(json);
                 }
@@ -290,18 +297,9 @@ namespace LiteMonitor.src.Core
         {
             lock (_ioLock)
             {
-                if (_saveRunning) return;
-                _saveRunning = true;
+                if (_saveTask is { IsCompleted: false }) return;
+                _saveTask = Task.Run(() => SaveCore(flushPending: false));
             }
-
-            Task.Run(() =>
-            {
-                try { SaveCore(flushPending: false); }
-                finally
-                {
-                    lock (_ioLock) _saveRunning = false;
-                }
-            });
         }
 
         private static void AtomicWrite(string json)
